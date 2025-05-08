@@ -1,0 +1,10 @@
+tensorflow_datasets
+tensorflow
+dm-haiku
+chex
+optax
+pillow
+pydub
+pandas
+jupyter
+matplotlib
