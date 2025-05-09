@@ -65,6 +65,14 @@ cd path-to-project/compressing_wikipedia/
 python train.py
 ```
 
+### LZMA Benchmarks
+
+To evaluate the coding length of the datasets under the LZMA compressor run:
+```shell
+cd path-to-project/compressing_wikipedia/
+python lzma_analysis.py
+```
+
 ## Experiment Parameters and Setup
 
 After the experiment finishes, the results are saved into a folder including a `runs.csv` file containing parameters and calculated metrics as well as an artifact folder with the trained model parameters and loss curves.
