@@ -4,7 +4,7 @@ A simple script to run, test and develop the different optimization procedures i
 
 using Revise
 using CUDA
-include("../TrainArgs_Lux.jl")
+include("../TrainArgs.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("HelperFunctions/plot_networks_and_their_output.jl")
 

@@ -1,9 +1,8 @@
 using Revise
-include("AscentFunctions/generate_probabilistic_network.jl")
 include("HelperFunctions/loss_functions.jl")
 include("HelperFunctions/lux_training.jl")
 include("HelperFunctions/general_masked_model.jl")
-include("HelperFunctions/binary_search.jl")
+include("HelperFunctions/tamade.jl")
 include("HelperFunctions/assert_arg_correctness.jl")
 
 """
@@ -59,6 +58,10 @@ function procedure(
     tstate, logs, loss_fun = lux_training!(train_set, validation_set, test_set, loss_fun, tstate, args; min_epochs=args.min_epochs, max_epochs=args.max_epochs, shrinking=args.shrinking, layerwise_pruning_flag=args.layerwise_pruning, converge_val_loss=args.converge_val_loss);
 
     # Phase 1 consists of a pruning step.
+    if args.layerwise_pruning
+        lwp_input = [batch[1] for batch in train_set]
+        tstate, layerwise_logs = layerwise_reverse_pruning(tstate, lwp_input; dtype = args.dtype, lr = args.layerwise_pruning_lr, alpha = args.layerwise_pruning_alpha, dev = args.dev, epochs=args.max_epochs, verbose=args.verbose, smoothing_window=args.smoothing_window, mask_start_value=args.layerwise_pruning_mask_start_value)
+    end
     tstate, astate, loss_fun = prune_and_shrink!(tstate, nothing, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=true)
 
     if args.verbose

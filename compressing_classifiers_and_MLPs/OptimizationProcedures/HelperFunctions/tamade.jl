@@ -14,7 +14,7 @@ using Accessors, Revise
     Arguments:
         - `f`: A (loss) function that takes in a threshold number and outputs another number quantifying the loss. It must be monotone enough for binary search to be applicable.
         - `target`: The target to which `f(thr)` is compared. Is often the original loss.
-        - `low`: The initial low point for binary search. Is often $0$.
+        - `low`: The initial low point for binary search. Is often 0.
         - `high`: The initial high point for binary search. Is often equal to 2 times the maximum absolute weight value.
         - `tol`: The allowed tolerance. Recall that `f(thr)` is compared to `(1+tol)*target` during the binary search update step.
         - `binary_search_resolution`: The maximum allowed resolution for thr. This means that thr is only updated until the binary search interval becomes smaller than `binary_search_resolution`.
@@ -80,7 +80,7 @@ function find_right_pruning_threshold(tstate, loss_fun, data, tolerance, binary_
         ps2 = (p=deepcopy(tstate.parameters),)
     end
     if haskey(tstate.parameters, :sigma) # even when Loss is gauss, do binary search with MSELoss
-        loss_fctn = L12_loss(; alpha = 0f0, rho = 0f0, loss_f = loss_fun.loss_f)
+        loss_fctn = RL1_loss(; alpha = 0f0, rho = 0f0, loss_f = loss_fun.loss_f)
     else
         loss_fctn = loss_fun
     end

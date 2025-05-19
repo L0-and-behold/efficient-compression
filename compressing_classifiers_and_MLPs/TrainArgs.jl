@@ -62,7 +62,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     layerwise_pruning_lr::T = 1f-3
     layerwise_pruning_mask_start_value::T = 0.3
     log_val_loss::Bool = true
-    converge_val_loss::Bool = false
+    converge_val_loss::Bool = true
     finetuning_converge_val_loss::Bool = true
     logs = nothing
     multiply_mask_after_each_batch::Bool = true

@@ -3,7 +3,7 @@ A simple script to run, test and develop the different optimization procedures i
 """
 
 using CUDA
-includet("../TrainArgs_Lux.jl")
+includet("../TrainArgs.jl")
 includet("HelperFunctions/loss_functions.jl")
 includet("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
@@ -20,15 +20,15 @@ includet("PMMP_procedure.jl")
 args = TrainArgs(; T=Float32);
 
 ## Load one of the following datasets
-# train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123)
-train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123);
+train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123)
+# train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123);
 
 model_seed = 42; loss_fctn = logitcrossentropy;
 
 ## Initialize one of the following models
-# model = Lenet_5_Caffe()
+model = Lenet_5_Caffe()
 # model = Lenet_MLP(Lux.sigmoid_fast; hidden_layer_sizes=[20, 20])
-model = VGG(dropout=0.0f0);
+# model = VGG(dropout=0.0f0);
 Lux.parameterlength(model)
 
 tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
