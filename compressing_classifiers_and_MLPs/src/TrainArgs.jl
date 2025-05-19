@@ -51,7 +51,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     delete_neurons::Bool = false
     binary_search_resolution::T = 1f-7
     prune_window::Int = 10 # pruning and convergence checks are only done every prune_window epochs (after min_epochs elapsed)
-    shrinking_from_deviation_of::T = 1f-1
+    shrinking_from_deviation_of::T = 1f-2
     smoothing_window::Int = 30
     finetuning_shrinking::Bool = false
     finetuning_min_epochs::Int = smoothing_window+3 # this should be >= (smoothing_window + 3) to ensure proper convergence.
