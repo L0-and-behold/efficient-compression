@@ -1,7 +1,7 @@
 module BatchRun_Lux
 
     include("../Database/Database.jl")
-    include("../TrainingTools/TrainingTools.jl")
+    include("../TrainingTools.jl")
     include("../OptimizationProcedures/OptimizationProcedures.jl")
     include("../TrainArgs.jl")
     include("../DatasetsModels/DatasetsModels.jl")
