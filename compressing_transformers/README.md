@@ -1,4 +1,4 @@
-# Compressing Wikipedia
+# Compressing Transformers
 Codebase for the experiments from our paper regarding language models and Wikipedia dataset compression.
 
 ## Table of Contents
@@ -18,7 +18,7 @@ Codebase for the experiments from our paper regarding language models and Wikipe
   - [16MB Dataset](#16mb-dataset)
   - [50MB Dataset](#50mb-dataset)
   - [300MB Dataset](#300mb-dataset)
-  - [10GB Dataset](#10gb-dataset)
+  - [9.3GB Dataset](#9gb-dataset)
   - [Common Default Parameters](#common-default-parameters)
 - [Running with Distributed Data Parallel (DDP)](#running-with-distributed-data-parallel-ddp)
 
@@ -26,22 +26,28 @@ Codebase for the experiments from our paper regarding language models and Wikipe
 
 ### Environment Setup
 
-We assume that we work with Anaconda or Miniconda.
+The code assumes, that a CUDA gpu-device is present.
 
-1. Create a new environment
+1. Make sure that we are working in the correct directory
 ```shell
-conda create -n wikipedia-experiments
+cd path/to/efficient-compression/compressing_transformers
+```
+
+2. Create a new environment
+We assume that we work with Anaconda or Miniconda (see [Installing Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install))
+```shell
+conda create -n wikipedia-experiments python=3.11
 conda activate wikipedia-experiments
 ```
 
-2. Install PyTorch with GPU support according to the GPU at hand
+3. Install PyTorch with GPU support according to the GPU at hand
    (see https://pytorch.org/get-started/locally/)
    For our machine, the command reads:
 ```shell
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 ```
 
-3. Install the other dependencies
+4. Install the other dependencies
 ```shell
 conda install pip
 pip install -r requirements.txt
@@ -51,7 +57,6 @@ pip install -r requirements.txt
 
 Run:
 ```shell
-cd path-to-project/compressing_wikipedia/
 python ./src/Datasets/Wiki40BDataset.py
 ```
 This will download the TensorFlow dataset Wiki40B/english, restructure it as a continuous byte string, and save it for use with PyTorch.
@@ -61,7 +66,6 @@ This will download the TensorFlow dataset Wiki40B/english, restructure it as a c
 You can modify `train.py` directly to set your parameters and then run.
 
 ```shell
-cd path-to-project/compressing_wikipedia/
 python train.py
 ```
 
@@ -69,7 +73,6 @@ python train.py
 
 To evaluate the coding length of the datasets under the LZMA compressor run:
 ```shell
-cd path-to-project/compressing_wikipedia/
 python lzma_analysis.py
 ```
 
@@ -215,7 +218,7 @@ We provide standard configurations for different dataset sizes used in our exper
 "prune_every": 1,  # epochs
 ```
 
-### 9.3GB Dataset
+### 9GB Dataset
 
 ```python
 # Training Process Parameters

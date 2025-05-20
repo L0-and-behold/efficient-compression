@@ -1,10 +1,7 @@
-tensorflow_datasets
-tensorflow
-dm-haiku
-chex
-optax
-pillow
-pydub
+tensorflow==2.16.2
+tensorflow-datasets
+numpy
 pandas
-jupyter
 matplotlib
+scipy
+tqdm
