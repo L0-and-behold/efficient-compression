@@ -87,6 +87,7 @@ def main(args: dict, other_settings: dict, path_to_database: str, experiment_nam
     if mp.get_start_method(allow_none=True) != 'spawn':
         mp.set_start_method('spawn', force=True)
 
+    os.makedirs(path_to_database, exist_ok=True)
     set_seed(args["seed"])
 
     transformer_config = TransformerConfig(args["transformer_config"])()
