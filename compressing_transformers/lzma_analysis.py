@@ -3,13 +3,21 @@ import os
 from src.Datasets.Wiki40BDataset import WikipediaDatasets
 from src.Datasets.Wiki40BDataset import ByteWikipediaDataset
 
-def get_lzma_compressed_length(data: bytes, chunk_size: int):
-    """
-    Compress data using the LZMA2 algorithm via the .xz format.
-
+def get_lzma_compressed_length(data: bytes, chunk_size: int) -> int:
+    """Compress data using the LZMA2 algorithm via the .xz format and return compressed size.
+    
     LZMA2 is the default filter used in the .xz format, which is the default
     format for the lzma module.
-    Reference: https://docs.python.org/3/library/lzma.html#compression-formats
+    
+    Args:
+        data: The bytes object to compress
+        chunk_size: Size of chunks to process at a time
+        
+    Returns:
+        The size of the compressed data in bytes
+        
+    Reference: 
+        https://docs.python.org/3/library/lzma.html#compression-formats
     """
     
     # Explicitly define filter and format for LZMA2
@@ -29,10 +37,13 @@ def get_lzma_compressed_length(data: bytes, chunk_size: int):
 
     return compressed_size
 
-def run_lzma_compression_benchmark(datasets, subset_size: int, chunk_size: int):
-    """
-    Load data from the dataset, put in a single bytes object and pass to `get_lzma_compressed_length`
-
+def run_lzma_compression_benchmark(datasets, subset_size: int, chunk_size: int) -> None:
+    """Load data from the dataset, compile into a single bytes object and compress with LZMA.
+    
+    Args:
+        datasets: WikipediaDatasets object containing the training data
+        subset_size: Number of bytes to include in the subset for compression
+        chunk_size: Size of chunks to use in the compression process
     """
 
     # load data as one big bytes object
@@ -53,13 +64,18 @@ def run_lzma_compression_benchmark(datasets, subset_size: int, chunk_size: int):
     compressed_size = get_lzma_compressed_length(data, chunk_size)
     print(f"Compressed size: {compressed_size} bytes")
 
-def main():
-    """
-    Run LZMA2 benchmarking for 
-    - the dataset sizes 16MB: 16384000, 50MB: 50003968, 300MB: 299991040, 9.3GB: 9307817984
-
-    Ensure that the dataset is stored locally in file 'processed_wiki_dataset.pt'
-        -> see readme.md or src/Datasets/Wiki40BDatasets.py on how to download the dataset
+def main() -> None:
+    """Run LZMA2 benchmarking for various dataset sizes.
+    
+    The benchmarks are run for the following dataset sizes:
+    - 16MB: 16384000 bytes
+    - 50MB: 50003968 bytes
+    - 300MB: 299991040 bytes
+    - 9.3GB: 9307817984 bytes
+    
+    Note:
+        Ensure that the dataset is stored locally in file 'processed_wiki_dataset.pt'.
+        See readme.md or src/Datasets/Wiki40BDatasets.py for instructions on downloading the dataset.
     """
 
     dataset_local_path = os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
@@ -74,8 +90,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-#### Results
