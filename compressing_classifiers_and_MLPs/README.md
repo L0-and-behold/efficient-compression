@@ -4,8 +4,10 @@ Codebase for the experiments from our paper regarding language models and Wikipe
 
 ## Table of Contents
 - [Quick Start](#quick-start)
-  - [Environment Setup](#environment-setup)
+- [Environment Setup](#environment-setup)
 - [Experiment Parameters and Setup](#experiment-parameters-and-setup)
+  - [General Parameters](#general-parameters)
+  - [Dataset and Training Parameters](#dataset-and-training-parameters)
 - [Standard Dataset Configurations](#standard-dataset-configurations)
   - [Cifar with VGG](#cifar-with-vgg)
   - [Mnist with Lenet 5 Caffe](#mnist-with-lenet-5-caffe)
@@ -27,7 +29,9 @@ In julia in shell, the environment can be instantiated like this
 ```julia
 using Pkg
 Pkg.activate(".")
+Pkg.resolve()
 Pkg.instantiate()
+Pkg.precompile()
 ```
 
 Now, an experiment can be run
@@ -44,8 +48,70 @@ Set the path for results storage in `run_an_experiment.jl` by changing:
 `path_to_db = joinpath(pwd(), "experiment-results")`
 `experiment_name = "example-experiment"`
 
-The parameters controlling the training can be set by modifying the args object in `run_an_experiment.jl`. The following documents what each of these parameters controls.
 
+### General Parameters
+
+| Parameter| Description|
+| -- | -- |
+| `architecture`| Specifies the model architecture. Can be a callable (e.g., `VGG`, `Lenet_5`) from the `OptimizationProcedures` module for classification tasks. |
+| `optimization_procedure`| Defines the training pipeline, selected from procedures in `OptimizationProcedures`, such as `PMMP_procedure`, `RL1_procedure`, `DRR_procedure`, or `layerwise_procedure`. |
+| `dataset` | For classification tasks, selects the dataset constructor from `DatasetsModels`, such as `MNIST_data` or `CIFAR_data`. No function in teacher-student settings.|
+| `architecture_teacher` | For teacher-student experiments, specifies the teacher MLP architecture as a list of layer dimensions: `[input_dim, hidden_dims..., output_dim]`. |
+| `architecture_student` | Analogous to `architecture_teacher`, defines the student MLP architecture. |
+| `dtype` | Numerical precision used for model parameters and computations. Supported values: `Float32` (recommended) or `Float64`.|
+| `dev` | Computation device: use `Lux.cpu_device()` for CPU or `Lux.gpu_device()` for GPU. CPU is recommended for MLPs; GPU for convolutional architectures. |
+| `verbose` | Enables more detailed logging during training if set to `true`.|
+| `optimizer` | Optimizer instance from the `Optimisers` package used for weight updates.|
+| `lr`| Initial learning rate used by the optimizer. |
+| `min_epochs`| Minimum number of training epochs before early stopping or pruning is allowed. |
+| `max_epochs`| Maximum number of training epochs. |
+| `α` | Weight of the regularization term in applicable procedures. |
+| `β` | Sharpness parameter for the DRR procedure. |
+| `ρ` | Coefficient for L2 weight regularization in DRR and RL1 procedures. |
+| `L1_alpha`| |
+| `tolerated_relative_loss_increase` | Pruning threshold parameter (`δ`) for TAMADE: finds largest pruning threshold such that post-pruning loss ≤ (1 + δ) × pre-pruning loss. |
+| `NORM`| If `true`, applies layerwise normalization to `α` and `ρ` in DRR. |
+| `layer_NORM`| |
+
+---
+
+### Dataset and Training Parameters
+
+| Parameter | Description|
+| --- | --- |
+| `train_set_size` | Number of training samples used.|
+| `train_batch_size` | Number of samples per training batch. |
+| `val_set_size`| Number of validation samples used.|
+| `val_batch_size` | Number of samples per validation batch. |
+| `test_set_size`| Number of test samples used.|
+| `test_batch_size`| Number of samples per test batch. |
+| `noise` | For MLPs, specifies the variance of Gaussian noise added to the teacher's output during synthetic data generation. |
+| `gauss_loss`| If `true`, uses a Gaussian loss ; otherwise, uses mean squared error (MSE). Applies only to MLPs (teacherstudent). |
+| `group_pruning`| |
+| `random_gradient_pruning`|  |
+| `shrinking` | |
+| `delete_neurons` | |
+| `binary_search_resolution` | Resolution parameter for the binary search used in TAMADE pruning (i.e., how finely the optimal pruning threshold is determined before breaking the algorithm).|
+| `shrinking_from_deviation_of`| |
+| `prune_window`| Frequency (in epochs) at which pruning is applied, starting after `min_epochs`. |
+| `smoothing_window` | Size of the moving window used to assess training saturation based on loss stability. |
+| `finetuning_shrinking` | |
+| `finetuning_min_epochs`| Minimum number of epochs for fine-tuning after pruning.|
+| `finetuning_max_epochs`| Maximum number of epochs for fine-tuning. |
+| `finetuning_layerwise_pruning` | |
+| `layerwise_pruning`| |
+| `layerwise_pruning_alpha`| Regularization coefficient for layerwise pruning optimization. |
+| `layerwise_pruning_lr` | Learning rate used in layerwise pruning optimization.|
+| `layerwise_pruning_mask_start_value` | Initial value for pruning masks in layerwise optimization. |
+| `log_val_loss`| If `true`, logs validation loss during training and saves as an artifact after training. |
+| `converge_val_loss`| If `true`, training stops based on convergence of validation loss; if `false`, based on training loss.|
+| `finetuning_converge_val_loss` | |
+| `logs`| -a placeholder for a variable which the procedures write to-|
+| `multiply_mask_after_each_batch` | If `true`, applies pruning masks after every training batch; otherwise, only at designated pruning stages. |
+| `initial_p_value`| Initial value of the `p` parameter for PMMP optimization.|
+| `initial_u_value`| Initial value of the `u` parameter for PMMP optimization.|
+| `u_value_multiply_factor`| Scaling factor applied to `u` during PMMP optimization.|
+| `seed`| Sets the random seed for reproducibility across training runs. |
 ## Standard Dataset Configurations
 
 We provide standard configurations for different dataset sizes used in our experiments.
@@ -155,16 +221,16 @@ number_of_sub_batches=1
 
 
 for batch_idx in $(seq 1 $number_of_sub_batches); do
-    echo "Submitting job for sub-batch ${batch_idx}/${number_of_sub_batches}"
-    job_name="${experiment_name}_${batch_idx}"
-    sbatch_output=$(sbatch --job-name="$job_name" "$SLURM_SCRIPT" "$number_of_sub_batches" "$batch_idx")
-    sbatch_exit_code=$?
-    if [ $sbatch_exit_code -eq 0 ]; then
-        echo "Job submitted successfully: $sbatch_output"
-    else
-        echo "Error submitting job: $sbatch_output"
-    fi
-    sleep 0.1
+echo "Submitting job for sub-batch ${batch_idx}/${number_of_sub_batches}"
+job_name="${experiment_name}_${batch_idx}"
+sbatch_output=$(sbatch --job-name="$job_name" "$SLURM_SCRIPT" "$number_of_sub_batches" "$batch_idx")
+sbatch_exit_code=$?
+if [ $sbatch_exit_code -eq 0 ]; then
+echo "Job submitted successfully: $sbatch_output"
+else
+echo "Error submitting job: $sbatch_output"
+fi
+sleep 0.1
 done
 
 echo "All jobs submitted!"
@@ -194,9 +260,9 @@ mkdir -p reports
 export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
 
 srun --ntasks=$WORLD_SIZE --ntasks-per-node=$SLURM_NTASKS_PER_NODE \
-    bash -c "export RANK=\$SLURM_PROCID; \
-    echo \"RANK: \$RANK\"; \
-    julia --threads auto ~/path/to/run_an_experiment.jl --num_sub_batches \"$1\" --sub_batch \"$2\"" 2>&1
+bash -c "export RANK=\$SLURM_PROCID; \
+echo \"RANK: \$RANK\"; \
+julia --threads auto ~/path/to/run_an_experiment.jl --num_sub_batches \"$1\" --sub_batch \"$2\"" 2>&1
 ```
 
 The runs.csv files of the subexperiments can easily be merged, eg. by using an executable similar to:
@@ -214,17 +280,17 @@ MERGED_DIR="${EXPERIMENT_NAME}"
 MERGED_CSV="${MERGED_DIR}/runs.csv"
 
 echo "Step 1: Merging runs.csv files..."
-> "$MERGED_CSV"  # clear or create the merged csv file
+> "$MERGED_CSV"# clear or create the merged csv file
 
 for i in $(seq 1 "$NUM_SUBEXP"); do
-    SUBDIR="${EXPERIMENT_NAME}_${i}-${NUM_SUBEXP}"
-    CSV="${SUBDIR}/runs.csv"
+SUBDIR="${EXPERIMENT_NAME}_${i}-${NUM_SUBEXP}"
+CSV="${SUBDIR}/runs.csv"
 
-    if [ "$i" -eq 1 ]; then
-        cat "$CSV" >> "$MERGED_CSV"
-    else
-        tail -n +2 "$CSV" >> "$MERGED_CSV"
-    fi
+if [ "$i" -eq 1 ]; then
+cat "$CSV" >> "$MERGED_CSV"
+else
+tail -n +2 "$CSV" >> "$MERGED_CSV"
+fi
 done
 
 echo "done."
