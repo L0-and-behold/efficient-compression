@@ -21,10 +21,10 @@ include("src/TrainArgs.jl")
 include("src/OptimizationProcedures/OptimizationProcedures.jl")
 include("src/DatasetsModels/DatasetsModels.jl")
 include("src/BatchRun/BatchRun.jl")
-using .OptimizationProcedures: ascent_procedure_square_general,
-    ascent_procedure_square_u_tensor,
-    decay_procedure,
-    L12_procedure
+using .OptimizationProcedures: PMMP_procedure,
+    RL1_procedure,
+    DRR_procedure,
+    layerwise_procedure
 using .DatasetsModels: MNIST_data
 using .BatchRun: do_batch_run, 
     get_sub_batch,
@@ -104,9 +104,9 @@ This grid-based approach enables systematic exploration of the parameter space.
 # Values for the varying arguments
 batch = Tuple[
     (procedure, alpha, seed)
-        for procedure in [decay_procedure, L12_procedure, ascent_procedure_square_u_tensor]
-        for alpha in [1e-4, 1e-5]
-        for seed in [0, 1]
+        for procedure in [DRR_procedure, RL1_procedure, PMMP_procedure]
+        for alpha in Float32[1e-4, 1e-5]
+        for seed in Int[0, 1]
 ]
 
 """
@@ -121,9 +121,11 @@ args.max_epochs = 5000
 args.min_epochs = 500
 args.prune_window = 5
 args.finetuning_max_epochs = 1000
+args.train_set_size = 100
+args.train_batch_size = args.train_set_size
 args.val_set_size = 100
-args.val_set_size = args.val_set_size
-args.test_set_size = 500
+args.val_batch_size = args.val_set_size
+args.test_set_size = 100
 args.test_batch_size = args.test_set_size
 args.smoothing_window = 50
 args.dev = cpu_device()

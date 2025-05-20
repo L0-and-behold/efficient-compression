@@ -27,7 +27,7 @@ module Database
 
     using JLD2, JSON
 
-    include("../TrainingTools/TrainingTools.jl")
+    include("../TrainingTools.jl")
     using .TrainingTools
 
     include("db_structure.jl")

@@ -102,8 +102,8 @@ function generate_dataset(set_size::Int,
     @assert isa(sigma, dtype)
     @assert set_size > 0
     @assert batch_size > 0
-    @assert set_size % batch_size == 0 "set_size must be divisible by batch_size"
-    @assert sigma > 0 "sigma must be greater than 0"
+    @assert set_size % batch_size == 0 "set_size must be divisible by batch_size, got set_size = $set_size, batch_size = $batch_size"
+    @assert sigma > 0 "sigma must be greater than 0, got sigma = $sigma"
 
     in_dims = m[1].in_dims
     out_dims = m[end].out_dims
@@ -140,7 +140,7 @@ end
     Returns train_set, val_set, test_set, tstate, loss_fctn, args, teacher_tstate.
     The tstates contain all model and parameter information of the networks.
 """
-function setup_data_teacher_and_student(args; architecture_teacher=[2,5,7,1], architecture_student=[2,25,25,1], seed_teacher=35, seed_student=43, seed_train_set=1, seed_val_set=2, seed_test_set=3, teacher_weight_scaling=2, loss_fctn = Lux.MSELoss(), opt = Optimisers.Adam)
+function setup_data_teacher_and_student(args; architecture_teacher=args.architecture_teacher, architecture_student=args.architecture_student, seed_teacher=args.seed+35, seed_student=args.seed+43, seed_train_set=args.seed+1, seed_val_set=args.seed+2, seed_test_set=args.seed+3, teacher_weight_scaling=2, loss_fctn = Lux.MSELoss(), opt = Optimisers.Adam)
   
     teacher_m, teacher_ps, teacher_st = generate_dense_network(architecture_teacher; seed=seed_teacher, scaling=teacher_weight_scaling, dev=args.dev)
     m, ps, st = generate_dense_network(architecture_student; seed=seed_student, dev=args.dev)

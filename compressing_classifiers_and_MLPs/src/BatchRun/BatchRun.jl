@@ -1,4 +1,4 @@
-module BatchRun_Lux
+module BatchRun
 
     include("../Database/Database.jl")
     include("../TrainingTools.jl")
