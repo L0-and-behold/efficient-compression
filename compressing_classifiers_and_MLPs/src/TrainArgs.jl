@@ -45,7 +45,6 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     test_batch_size::Union{String, Int} = 5000
     noise::T = 0.8f-1
     gauss_loss::Bool = true
-    group_pruning::Bool = false
     random_gradient_pruning::Bool = true
     shrinking::Bool = false
     delete_neurons::Bool = false

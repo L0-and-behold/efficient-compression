@@ -75,10 +75,10 @@ The other training settings are controlled by the `args=TrainArgs()` object. In 
 | `α` | Weight of the regularization term in applicable procedures. |
 | `β` | Sharpness parameter for the DRR procedure. |
 | `ρ` | Coefficient for L2 weight regularization in DRR and RL1 procedures. |
-| `L1_alpha`| |
+| `L1_alpha`| Coefficient for additional L1 regularization term in PMMP procedure. It adds L1_alpha times the L1-norm of the parameters of the unregularized objective to the PMMP loss function. |
 | `tolerated_relative_loss_increase` | Pruning threshold parameter (`δ`) for TAMADE: finds largest pruning threshold such that post-pruning loss ≤ (1 + δ) × pre-pruning loss. |
 | `NORM`| If `true`, applies layerwise normalization to `α` and `ρ` in DRR. |
-| `layer_NORM`| |
+| `layer_NORM`| If set to `true`, the `NORM` normalization described above divides by the number of neurons in a given layer to normalize. If set to `false`, and the layer consists of convolutional blocks (in a CNN), then it divides by the number of neurons in a convolution block to normalize. |
 
 ---
 
@@ -94,25 +94,24 @@ The other training settings are controlled by the `args=TrainArgs()` object. In 
 | `test_batch_size`| Number of samples per test batch. |
 | `noise` | For MLPs, specifies the variance of Gaussian noise added to the teacher's output during synthetic data generation. |
 | `gauss_loss`| If `true`, uses a Gaussian loss ; otherwise, uses mean squared error (MSE). Applies only to MLPs (teacherstudent). |
-| `group_pruning`| |
-| `random_gradient_pruning`|  |
-| `shrinking` | |
-| `delete_neurons` | |
+| `random_gradient_pruning`| If set to `true`, then Random Gradient Pruning is performed before and after pruning with TAMADE. |
+| `shrinking` | If set to `true`, then pruning (including Random Gradient Pruning and TAMADE) is performed every `prune-window` epochs during training if the loss curve is saturated up to `shrinking_from_deviation_of` (and only if epoch number exceeds `min_epochs`). |
+| `delete_neurons` | If set to `true`, then neurons without remaining connections are deleted for MLP architectures after each pruning step. |
 | `binary_search_resolution` | Resolution parameter for the binary search used in TAMADE pruning (i.e., how finely the optimal pruning threshold is determined before breaking the algorithm).|
-| `shrinking_from_deviation_of`| |
+| `shrinking_from_deviation_of`| If `shrinking` is set to `true`, then pruning (including Random Gradient Pruning and TAMADE) is performed every `prune-window` epochs during training if the loss curve is saturated up to `shrinking_from_deviation_of` (and only if epoch number exceeds `min_epochs`). Thus, the higher `shrinking_from_deviation_of`, the less saturated the loss has to be before pruning begins. |
 | `prune_window`| Frequency (in epochs) at which pruning is applied, starting after `min_epochs`. |
 | `smoothing_window` | Size of the moving window used to assess training saturation based on loss stability. |
-| `finetuning_shrinking` | |
+| `finetuning_shrinking` | Like `shrinking` explained above but during the finetuning phase. |
 | `finetuning_min_epochs`| Minimum number of epochs for fine-tuning after pruning.|
 | `finetuning_max_epochs`| Maximum number of epochs for fine-tuning. |
-| `finetuning_layerwise_pruning` | |
-| `layerwise_pruning`| |
+| `layerwise_pruning`| If set to `true`, then layerwise_pruning is performed every `prune_window` epochs during training (in addition to Random Gradient Pruning and TAMADE) once the number of epochs has exceeded `min_epochs` and once the loss is saturated up to `shrinking_from_deviation_of`. |
+| `finetuning_layerwise_pruning` | Like `layerwise_pruning` explained above but during finetuning phase. |
 | `layerwise_pruning_alpha`| Regularization coefficient for layerwise pruning optimization. |
 | `layerwise_pruning_lr` | Learning rate used in layerwise pruning optimization.|
 | `layerwise_pruning_mask_start_value` | Initial value for pruning masks in layerwise optimization. |
 | `log_val_loss`| If `true`, logs validation loss during training and saves as an artifact after training. |
-| `converge_val_loss`| If `true`, training stops based on convergence of validation loss; if `false`, based on training loss.|
-| `finetuning_converge_val_loss` | |
+| `converge_val_loss`| If `true`, convergence is determined based on validation loss; if `false`, based on training loss. |
+| `finetuning_converge_val_loss` | Like `converge_val_loss` explained above but during finetuning phase. |
 | `logs`| -a placeholder for a variable which the procedures write to-|
 | `multiply_mask_after_each_batch` | If `true`, applies pruning masks after every training batch; otherwise, only at designated pruning stages. |
 | `initial_p_value`| Initial value of the `p` parameter for PMMP optimization.|
