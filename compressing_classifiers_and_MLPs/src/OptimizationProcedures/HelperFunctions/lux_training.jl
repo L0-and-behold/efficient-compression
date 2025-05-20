@@ -233,7 +233,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
                     else
                         final_epoch=false
                     end
-                    tstate, _, loss_fun = prune_and_shrink!(tstate, nothing, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=final_epoch)
+                    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=final_epoch)
                 end
 
                 convergence_condition = is_saturated(args.logs[conv_arg], args.smoothing_window)

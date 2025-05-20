@@ -129,7 +129,7 @@ function find_right_pruning_threshold(tstate, loss_fun, data, tolerance, binary_
 end
 
 """
-    prune_and_shrink!(tstate, astate, loss_fun, data, tolerance, binary_search_resolution=1e-7 ; dtype=Float32, dev=cpu_device(), delete_neurons=true, random_gradient_pruning=true, final_epoch=false)
+    prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_resolution=1e-7 ; dtype=Float32, dev=cpu_device(), delete_neurons=true, random_gradient_pruning=true, final_epoch=false)
 
     Function that prunes tstate (containing all model, optimizer and network parameters of a neural network) by calling prune_with_random_gradient! and find_right_pruning_threshold (which in turn calls the binary search routine TAMADE).
 
@@ -137,7 +137,6 @@ end
 
     Arguments:
         - `tstate`: The Lux TrainState
-        - `astate`: Another TrainState, necessary only if alternating descent and ascent updates are performed for minimax objectives
         - `loss_fun`: The loss function determined by the optimization procedure
         - `data`: The dataset
         - `tolerance`: The tolerance for the TAMADE procedure: The loss is allowed to increase by at most `tol*100` percent.
@@ -148,7 +147,7 @@ end
         - `random_gradient_pruning`: Boolean that determines whether random gradient pruning should be performed to eliminate spurious weights or not.
         - `final_epoch`: A Boolean that indicates whether training reached its final epoch or not. This is important for the PMMP procedure where pruning should only be performed in the last epoch to prevent interference with the PMMP mask.
 """
-function prune_and_shrink!(tstate, astate, loss_fun, data, tolerance, binary_search_resolution=1e-7 ; dtype=Float32, dev=cpu_device(), delete_neurons=true, random_gradient_pruning=true, final_epoch=false)
+function prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_resolution=1e-7 ; dtype=Float32, dev=cpu_device(), delete_neurons=true, random_gradient_pruning=true, final_epoch=false)
     
     if haskey(tstate.states, :mask)
         recursively_set_to_zero!(tstate.parameters.p, tstate.states.mask)
@@ -176,8 +175,8 @@ function prune_and_shrink!(tstate, astate, loss_fun, data, tolerance, binary_sea
         prune_with_random_gradient!(tstate, data_size, loss_fun; dev=dev)
     end
 
-    if delete_neurons && (tstate.model.name == "teacher-student network" || tstate.model.name == "PMMP model" || tstate.model.name == "ascent model" || tstate.model.name == "masked model")
-        tstate, loss_fun, astate  = delete_neurons_lux!(tstate, loss_fun, astate; reassign=true)
+    if delete_neurons && (tstate.model.name == "teacher-student network" || tstate.model.name == "PMMP model" || tstate.model.name == "masked model")
+        tstate, loss_fun  = delete_neurons_lux!(tstate, loss_fun; reassign=true)
     elseif delete_neurons && tstate.model.name != "teacher-student network"
         println("Warning: args.delete_neurons == true but tstate.model.name != 'teacher-student network'. Neuron deletion is currently only implemented for teacher-student networks.")
     end
@@ -189,7 +188,7 @@ function prune_and_shrink!(tstate, astate, loss_fun, data, tolerance, binary_sea
         recursively_set_to_zero!(tstate.parameters.pp, tstate.parameters.p)
     end
     
-    return tstate, astate, loss_fun
+    return tstate, loss_fun
 end
 
 function recursively_set_to_zero!(p1, p2)

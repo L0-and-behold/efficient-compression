@@ -20,7 +20,6 @@ An optimization procedure is a function with
             - "epochs" : the epoch at which the following were calculated
             - "train_loss"
             - "validation_loss"
-            - "ascent loss"
     Behavior:
     - tstate is modified
     - Calculation on CPU or GPU, depending on args.dev (CPU is much faster for smaller datasets and models like the teacher-student models but GPU is much faster for bigger models like the VGG classifier)

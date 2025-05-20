@@ -62,7 +62,7 @@ function procedure(
         lwp_input = [batch[1] for batch in train_set]
         tstate, layerwise_logs = layerwise_reverse_pruning(tstate, lwp_input; dtype = args.dtype, lr = args.layerwise_pruning_lr, alpha = args.layerwise_pruning_alpha, dev = args.dev, epochs=args.max_epochs, verbose=args.verbose, smoothing_window=args.smoothing_window, mask_start_value=args.layerwise_pruning_mask_start_value)
     end
-    tstate, astate, loss_fun = prune_and_shrink!(tstate, nothing, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=true)
+    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=true)
 
     if args.verbose
         println("\nTraining finished.\n\nFinetuning...")
