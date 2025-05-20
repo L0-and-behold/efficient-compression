@@ -41,8 +41,8 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     train_batch_size::Union{String, Int} = 300
     val_set_size::Union{String, Int} = 1000
     val_batch_size::Union{String, Int} = 1000
-    test_batch_size::Union{String, Int} = 5000
     test_set_size::Union{String, Int} = 5000
+    test_batch_size::Union{String, Int} = 5000
     noise::T = 0.8f-1
     gauss_loss::Bool = true
     group_pruning::Bool = false
@@ -68,7 +68,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     multiply_mask_after_each_batch::Bool = true
     initial_p_value::T = 1.0
     initial_u_value::T = 0.0
-    u_value_multiply_factor::T = 10.0
+    u_value_multiply_factor::T = 1.0
     seed::Int = 42
 end
 

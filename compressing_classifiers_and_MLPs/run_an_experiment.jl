@@ -25,7 +25,7 @@ using .OptimizationProcedures: PMMP_procedure,
     RL1_procedure,
     DRR_procedure,
     layerwise_procedure
-using .DatasetsModels: MNIST_data
+using .DatasetsModels: MNIST_data, CIFAR_data
 using .BatchRun: do_batch_run, 
     get_sub_batch,
     single_run_routine_classifier,
