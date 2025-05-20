@@ -3,12 +3,16 @@ import pickle
 import time
 
 class CheckpointHandler:
-    """
-    Manages model checkpointing with runtime-based saving and restoration.
-    """
+    """Manages model checkpointing with runtime-based saving and restoration."""
+
     def __init__(self, experiment_name, checkpoint_every, max_runtime, checkpoint_dir=None):
-        """
-        Initialize with experiment name, checkpoint frequency, and runtime limits.
+        """Initialize checkpoint handler with configuration parameters.
+
+        Args:
+            experiment_name: Name of the experiment for checkpoint file naming.
+            checkpoint_every: Time interval in seconds between checkpoint checks.
+            max_runtime: Maximum allowed runtime in seconds before enforced checkpointing.
+            checkpoint_dir: Directory to store checkpoints. Defaults to script directory.
         """
         self.experiment_name = experiment_name
         self.checkpoint_dir = checkpoint_dir or os.path.dirname(os.path.abspath(__file__))
@@ -17,13 +21,16 @@ class CheckpointHandler:
         self.chunk = 0
         self.start_time = time.time()
         self.last_check_time = self.start_time
-
         self.checkpoint_every = checkpoint_every
         self.max_runtime = max_runtime
 
     def save_checkpoint(self, ddp_model, optimizer, logs):
-        """
-        Save model state, optimizer state, and training logs to checkpoint file.
+        """Save model state, optimizer state, and training logs to checkpoint file.
+        
+        Args:
+            ddp_model: DistributedDataParallel model to checkpoint.
+            optimizer: Optimizer whose state will be saved.
+            logs: Dictionary containing training metrics and history.
         """
         checkpoint = {
             'epoch': self.epoch,
@@ -36,10 +43,11 @@ class CheckpointHandler:
             pickle.dump(checkpoint, f)
 
     def load_checkpoint(self):
-        """
-        Load checkpoint if available or initialize fresh training state.
+        """Load checkpoint if available or initialize fresh training state.
         
-        Returns model state, optimizer state, and logs.
+        Returns:
+            tuple: (model_state_dict, optimizer_state_dict, logs) if checkpoint exists,
+            or (None, None, initialized_logs) if no checkpoint found.
         """
         if os.path.exists(self.checkpoint_path):
             with open(self.checkpoint_path, 'rb') as f:
@@ -53,17 +61,20 @@ class CheckpointHandler:
             return None, None, initialize_logs()
 
     def update(self, epoch, chunk):
-        """
-        Update internal epoch and chunk counters.
+        """Update internal epoch and chunk counters.
+        
+        Args:
+            epoch: Current training epoch number.
+            chunk: Current data chunk number within the epoch.
         """
         self.epoch = epoch
         self.chunk = chunk
 
     def should_checkpoint(self):
-        """
-        Determine if checkpointing should occur based on time intervals.
+        """Determine if checkpointing should occur based on time intervals.
         
-        Returns True if max runtime exceeded or checkpoint interval reached.
+        Returns:
+            bool: True if max runtime exceeded or checkpoint interval reached.
         """
         current_time = time.time()
         if current_time - self.last_check_time > self.checkpoint_every:
@@ -74,8 +85,10 @@ class CheckpointHandler:
 
 
 def initialize_logs():
-    """
-    Create empty log dictionary with required tracking metrics.
+    """Create empty log dictionary with required tracking metrics.
+    
+    Returns:
+        dict: Dictionary with empty lists for all training metrics.
     """
     return {
         "train_loss": [], "train_loss_X": [], "train_loss_X_epoch": [], 
