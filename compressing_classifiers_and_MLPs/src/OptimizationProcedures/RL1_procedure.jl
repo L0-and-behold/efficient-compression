@@ -1,6 +1,6 @@
 
 using Revise
-includet("procedure.jl")
+include("procedure.jl")
 
 """
     RL1_procedure(

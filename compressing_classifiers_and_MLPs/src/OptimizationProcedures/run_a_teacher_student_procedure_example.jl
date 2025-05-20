@@ -9,10 +9,10 @@ include("HelperFunctions/generate_networks_and_data.jl")
 include("HelperFunctions/plot_networks_and_their_output.jl")
 
 # Load the different L0_regularization procedures
-includet("RL1_procedure.jl")
-includet("DRR_procedure.jl")
-includet("PMMP_procedure.jl")
-includet("layerwise_procedure.jl")
+include("RL1_procedure.jl")
+include("DRR_procedure.jl")
+include("PMMP_procedure.jl")
+include("layerwise_procedure.jl")
 # Note that if RL1 is initialized with alpha=0=rho, then it corresponds to unregularized ("vanilla") optimization
 
 begin

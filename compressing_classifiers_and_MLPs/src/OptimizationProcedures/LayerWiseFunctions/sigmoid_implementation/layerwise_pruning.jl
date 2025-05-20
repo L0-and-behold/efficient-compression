@@ -2,8 +2,8 @@ using Lux, Optimisers, Printf, Random, Zygote
 using ChainRulesCore: ignore_derivatives
 using Accessors, Revise
 
-includet("custom_linear_probabilistic_model.jl")
-includet("../../HelperFunctions/break_loop.jl")
+include("custom_linear_probabilistic_model.jl")
+include("../../HelperFunctions/break_loop.jl")
 
 
 """

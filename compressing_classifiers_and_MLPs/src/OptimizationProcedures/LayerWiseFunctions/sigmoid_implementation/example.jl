@@ -1,9 +1,9 @@
 begin
 using Revise
-includet("../../HelperFunctions/generate_networks_and_data.jl")
-includet("layerwise_pruning.jl")
-includet("../../HelperFunctions/plot_networks_and_their_output.jl")
-includet("../../HelperFunctions/break_loop.jl")
+include("../../HelperFunctions/generate_networks_and_data.jl")
+include("layerwise_pruning.jl")
+include("../../HelperFunctions/plot_networks_and_their_output.jl")
+include("../../HelperFunctions/break_loop.jl")
 
 # Layerwise pruning example script. Sigmoid implementation.
 

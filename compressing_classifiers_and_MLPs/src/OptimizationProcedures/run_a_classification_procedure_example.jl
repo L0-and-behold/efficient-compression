@@ -3,17 +3,17 @@ A simple script to run, test and develop the different optimization procedures i
 """
 
 using CUDA
-includet("../TrainArgs.jl")
-includet("HelperFunctions/loss_functions.jl")
-includet("HelperFunctions/generate_networks_and_data.jl")
+include("../TrainArgs.jl")
+include("HelperFunctions/loss_functions.jl")
+include("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
 
 using .DatasetsModels: MNIST_data, CIFAR_data
 
 # Load the different L0_regularization procedures
-includet("RL1_procedure.jl")
-includet("DRR_procedure.jl")
-includet("PMMP_procedure.jl")
+include("RL1_procedure.jl")
+include("DRR_procedure.jl")
+include("PMMP_procedure.jl")
 # Note that if RL1 is initialized with alpha=0=rho, then it corresponds to unregularized ("vanilla") optimization
 
 # Training arguments are initialized
