@@ -13,8 +13,4 @@ export get_dataset, MNIST_data, MNIST_trn_tst_switched, MNIST_custom_split, four
 include("cifar_dataset.jl")
 export CIFAR_data
 
-include("flux_models.jl")
-export get_model, build_CNNmodel, LeNet300100, ciresan2010deep_model, dense_3x512
-
-
 end # module

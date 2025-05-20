@@ -24,7 +24,11 @@ include("src/BatchRun/BatchRun.jl")
 using .OptimizationProcedures: PMMP_procedure,
     RL1_procedure,
     DRR_procedure,
-    layerwise_procedure
+    layerwise_procedure, 
+    Lenet_MLP, 
+    Lenet_5, 
+    Lenet_5_Caffe, 
+    VGG
 using .DatasetsModels: MNIST_data, CIFAR_data
 using .BatchRun: do_batch_run, 
     get_sub_batch,
@@ -59,7 +63,6 @@ Run routine selector:
 - single_run_routine_classifier: For MNIST/CIFAR classification
 """
 
-# Function defining a single run of training, metric calculation, and result saving
 single_run_routine = single_run_routine_teacherstudent
 
 """
@@ -112,6 +115,7 @@ batch = Tuple[
 """
 Fixed parameter configuration.
 Overrides defaults from TrainArgs.jl for all runs in this experiment.
+See README.md for documentation of the funcitionality of each argument.
 """
 
 # Fixed arguments for all runs
@@ -132,6 +136,7 @@ args.dev = cpu_device()
 args.dataset = "teacher_student"
 args.architecture = "teacher_student"
 args.lr = 5f-4
+args.gauss_loss = false
 
 """
 Error handling configuration.

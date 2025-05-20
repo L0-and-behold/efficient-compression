@@ -13,21 +13,15 @@ META_FIELD_NAMES = [
     :run_time
 ]
 METRICS_FIELD_NAMES = [
-    :final_accuracy,
     :final_accuracy_trainset,
     :final_accuracy_valset,
     :final_accuracy_testset,
-    :final_loss,
     :final_loss_trainset,
     :final_loss_valset,
     :final_loss_testset,
     :final_l0_loss,
     :final_sigma,
-    :small_weights,
     :l0_norm,
-    :byte_size_compression_ratio,
-    :description_length,
-    :teacher_student_size_divergence,
 ]
 
 """

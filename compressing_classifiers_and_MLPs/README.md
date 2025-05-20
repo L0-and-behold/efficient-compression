@@ -1,6 +1,6 @@
 # Compressing Classifiers and MLPs
 
-Codebase for the experiments from our paper regarding language models and Wikipedia dataset compression.
+Codebase for the experiments from our paper regarding the classifier and teacherstudent experiments.
 
 ## Table of Contents
 - [Quick Start](#quick-start)
@@ -16,6 +16,8 @@ Codebase for the experiments from our paper regarding language models and Wikipe
 - [Parallelized Execution with Subbatches and SLURM](#parallelized-execution-with-subbatches-and-slurm)
 
 ## Quick Start
+
+The code assumes, that a CUDA gpu-device is present for the classifier experiments. The teacherstudent experiments run well on a cpu (faster even).
 
 Make sure that you have Julia installed https://docs.julialang.org/en/v1/manual/installation/
 
@@ -38,6 +40,9 @@ Now, an experiment can be run
 ```shell
 julia run_an_experiment.jl
 ```
+where the default settings in the file `run_an_experiment.jl` serve as a simple example.
+
+The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
 ## Experiment Parameters and Setup
 
@@ -46,8 +51,10 @@ After the experiment finishes, the results are saved into a folder including a r
 Set the path for results storage in `run_an_experiment.jl` by changing:
 
 `path_to_db = joinpath(pwd(), "experiment-results")`
+and
 `experiment_name = "example-experiment"`
 
+The other training settings are controlled by the `args=TrainArgs()` object. In the following we document what each field of `args` does.
 
 ### General Parameters
 
@@ -114,8 +121,8 @@ Set the path for results storage in `run_an_experiment.jl` by changing:
 | `seed`| Sets the random seed for reproducibility across training runs. |
 ## Standard Dataset Configurations
 
-We provide standard configurations for different dataset sizes used in our experiments.
-The other arguments are as defaults in `src/TrainArgs.jl` or are variables.
+We provide standard configurations for our experiments.
+The other arguments are as the defaults in `src/TrainArgs.jl` or are variables.
 
 ### Cifar with VGG
 
@@ -207,7 +214,7 @@ args.lr = 5f-4
 
 To run an experiment with several workers, we recommend the following construction.
 
-1. An executable which starts all jobs, specifying the job name as well as how many subbatches are used.
+1. Set up a simple executable which starts all jobs, specifying the job name as well as how many subbatches are used.
 
 ```sh
 #!/bin/bash
@@ -236,7 +243,7 @@ done
 echo "All jobs submitted!"
 ```
 
-2. A slurm job script, which accepts arguments passed from the abovementioned executable
+2. Set up a slurm job script, which accepts arguments passed from the abovementioned executable
 
 ```slurm
 #!/bin/bash -l
@@ -265,7 +272,9 @@ echo \"RANK: \$RANK\"; \
 julia --threads auto ~/path/to/run_an_experiment.jl --num_sub_batches \"$1\" --sub_batch \"$2\"" 2>&1
 ```
 
-The runs.csv files of the subexperiments can easily be merged, eg. by using an executable similar to:
+These two files together allow to run an experiment with many workers in parallel.
+
+The experiment results in the runs.csv files of the subexperiments can easily be merged, eg. by using an executable similar to:
 
 ```sh
 #!/bin/bash
@@ -297,3 +306,5 @@ echo "done."
 ```
 
 We provide these scripts in the readme rather than providing executables, as their exact implementation highly depends on the exact machine worked on.
+
+It is also possible to just start the `run_an_experiment.jl` script several times in parallel without using sub-experiments. This approach might result in race conditions, however, if too many workers are working on the same directory in parallel.
