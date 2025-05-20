@@ -5,16 +5,18 @@ from src.Database.field_names import META_FIELD_NAMES, METRICS_FIELD_NAMES
 from src.Database.Run import Run
 
 class Experiment:
-    """
-    Class to represent an experiment in a database. An experiment is a collection of runs that are related to each other.
-
-    An experiment is a folder in the database, which contains a 'runs.csv' file, a 'description.md' file, and an 'artifacts' folder.
-
-    - Create an experiment by initializing an instance of this class with a database, and a new unique experiment name.
-    - Initialize the 'runs.csv' file for the experiment by calling the 'init_csv' method with a dictionary of parameters.
-    - Load an experiment by initializing an instance of this class with a database, and an existing experiment name.
-    - Search for runs in the experiment by calling the 'search_runs' method with a query dictionary.
-    - Prune empty runs in the experiment-artifact folder by calling the 'prune_empty_runs' method.
+    """Represent an experiment in a database.
+    
+    An experiment is a collection of runs that are related to each other.
+    It consists of a folder in the database, which contains a 'runs.csv' file,
+    a 'description.md' file, and an 'artifacts' folder.
+    
+    Usage:
+        - Create an experiment by initializing with a database and a new unique experiment name.
+        - Initialize the 'runs.csv' file by calling 'init_csv' with a dictionary of parameters.
+        - Load an experiment by initializing with a database and an existing experiment name.
+        - Search for runs using the 'search_runs' method with a query dictionary.
+        - Prune empty runs using the 'prune_empty_runs' method.
     """
     def __init__(self, database, experiment_name):
         self.database = database
@@ -40,9 +42,14 @@ class Experiment:
             raise FileNotFoundError(f"Experiment not found at {self.path} in database {self.database.path}.")
 
     def search_runs(self, query):
-        """
-        query: a dictionary with key-value pairs that specify the search criteria. Need to match columns in the 'runs.csv' file.
-        returns: a list of Run objects that match the query.
+        """Search for runs matching the specified criteria.
+        
+        Args:
+            query: Dictionary with key-value pairs specifying search criteria.
+                  Keys must match columns in the 'runs.csv' file.
+        
+        Returns:
+            list: Run objects that match the query criteria.
         """
         df = pd.read_csv(os.path.join(self.path, "runs.csv"))
         for (key, value) in query.items():
@@ -62,6 +69,13 @@ class Experiment:
             df.to_csv(os.path.join(self.path, "runs.csv"), index=False)
         
     def prune_empty_runs(self):
+        """Remove empty run folders that don't correspond to valid run IDs.
+        
+        Scans the artifacts directory for empty folders whose names (run_ids)
+        do not appear in the runs.csv file, and deletes them.
+        
+        Prints progress information during deletion and a summary upon completion.
+        """
         artifacts_path = os.path.join(self.path, "artifacts")
         runs_csv_path = os.path.join(self.path, "runs.csv")
         
