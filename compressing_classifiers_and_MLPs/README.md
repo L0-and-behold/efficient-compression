@@ -126,6 +126,8 @@ The other arguments are as the defaults in `src/TrainArgs.jl` or are variables.
 ### Cifar with VGG
 
 ```julia
+single_run_routine = single_run_routine_classifier
+
 args.architecture = VGG
 args.dataset = CIFAR_data
 args.train_batch_size = 500
@@ -149,6 +151,8 @@ args.dev = gpu_device()
 ### Mnist with Lenet 5 Caffe
 
 ```julia
+single_run_routine = single_run_routine_classifier
+
 args.architecture = Lenet_5_Caffe
 args.dataset = MNIST_data
 args.train_batch_size = 500
@@ -169,6 +173,8 @@ args.dev = gpu_device()
 ### Mnist with Lenet 300100
 
 ```julia
+single_run_routine = single_run_routine_classifier
+
 args.architecture = Lenet_MLP
 args.dataset = MNIST_data
 args.train_batch_size = 500
@@ -190,6 +196,8 @@ args.gauss_loss = false
 ### Teacherstudent
 
 ```julia
+single_run_routine = single_run_routine_teacherstudent
+
 args.architecture_teacher = [2, 5, 8, 1]
 args.architecture_student = [2, 25, 25, 1]
 args.max_epochs = 50000
