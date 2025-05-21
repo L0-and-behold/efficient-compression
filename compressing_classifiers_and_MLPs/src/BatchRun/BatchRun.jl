@@ -1,8 +1,13 @@
 module BatchRun
+    using Suppressor
+    
+    # We suppress warnings on docstring replacements. Turn off for development.
+    @suppress begin
+        include("../OptimizationProcedures/OptimizationProcedures.jl")
+    end
 
     include("../Database/Database.jl")
     include("../TrainingTools.jl")
-    include("../OptimizationProcedures/OptimizationProcedures.jl")
     include("../TrainArgs.jl")
     include("../DatasetsModels/DatasetsModels.jl")
 

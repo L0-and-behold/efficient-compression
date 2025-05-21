@@ -26,7 +26,6 @@ An optimization procedure is a function with
 
 """
 
-
 module OptimizationProcedures
 
 using Lux, Optimisers, PlotlyJS, CUDA, Revise

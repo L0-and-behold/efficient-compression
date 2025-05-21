@@ -11,24 +11,27 @@ Supports sub-batch execution via --num_sub_batches and --sub_batch command line 
 
 using Pkg
 Pkg.activate(".")
-Pkg.instantiate()
 
 using Revise, ArgParse
 using Lux: cpu_device
+using Suppressor
+
+# We suppress warnings on docstring replacements. Turn off for development.
+@suppress begin
+    include("src/OptimizationProcedures/OptimizationProcedures.jl")
+    using .OptimizationProcedures: PMMP_procedure,
+        RL1_procedure,
+        DRR_procedure,
+        layerwise_procedure, 
+        Lenet_MLP, 
+        Lenet_5, 
+        Lenet_5_Caffe, 
+        VGG
+end
 
 include("src/TrainArgs.jl")
-
-include("src/OptimizationProcedures/OptimizationProcedures.jl")
-include("src/DatasetsModels/DatasetsModels.jl")
 include("src/BatchRun/BatchRun.jl")
-using .OptimizationProcedures: PMMP_procedure,
-    RL1_procedure,
-    DRR_procedure,
-    layerwise_procedure, 
-    Lenet_MLP, 
-    Lenet_5, 
-    Lenet_5_Caffe, 
-    VGG
+include("src/DatasetsModels/DatasetsModels.jl")
 using .DatasetsModels: MNIST_data, CIFAR_data
 using .BatchRun: do_batch_run, 
     get_sub_batch,
