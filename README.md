@@ -8,3 +8,18 @@ The folder `compressing_classifiers_MLPs` contains the codebase to train classif
 
 Each folder contains its own readme file with instructions on installation and experiment execution.
 
+## Citation
+
+If you use this code, please cite our paper
+
+```bibtex
+@misc{barth2025efficientcompressionneuralnetworks,
+      title={Efficient compression of neural networks and datasets}, 
+      author={Lukas Silvester Barth and Paulo {von Petersenn}},
+      year={2025},
+      eprint={2505.17469},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2505.17469}, 
+}
+```
