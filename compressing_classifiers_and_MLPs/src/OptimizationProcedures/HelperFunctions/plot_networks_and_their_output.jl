@@ -119,7 +119,7 @@ end
         - `name`: The name of the scatter points in the plot legend.
         - `show_legend`: Shows the legend, if true.
 """
-function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatterplot_col=nothing, combine_with_the_plot=nothing, name="dataset", show_legend=true)
+function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatterplot_col=nothing, combine_with_the_plot=nothing, name="dataset", show_legend=true, camera=(1.5,-1.5,1.5), savepath=nothing,markersizeattribute=2, showticklabels=false)
 
     dataset = deepcopy(dataset_dev) |> Lux.cpu_device()
 
@@ -139,7 +139,7 @@ function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatter
         if isnothing(scatterplot_col)
             scatterplot_col = "red"
         end
-        scatter_plot = PlotlyJS.scatter(x=dataset[1][1,:], y=dataset[2][1,:], mode="markers", marker=attr(size=2, color=scatterplot_col), name = name,
+        scatter_plot = PlotlyJS.scatter(x=dataset[1][1,:], y=dataset[2][1,:], mode="markers", marker=attr(size=markersizeattribute, color=scatterplot_col), name = name,
         showlegend = show_legend)
 
         scatter_plot = combine(combine_with_the_plot,scatter_plot)
@@ -147,6 +147,9 @@ function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatter
         p = PlotlyJS.plot(scatter_plot)
         if display_plot
             display(p)
+        end
+        if !isnothing(savepath)
+            PlotlyJS.savefig(p, savepath * ".png", width=2560, height=1440)
         end
         return scatter_plot
     elseif s1 == 1 && s2 == 2
@@ -176,7 +179,7 @@ function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatter
         y = d2,
         z = d3,
         mode = "markers",
-        marker = attr(size = 2, color = scatterplot_col),
+        marker = attr(size=markersizeattribute, color = scatterplot_col),
         name = name,
         showlegend = show_legend
     )
@@ -185,11 +188,16 @@ function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatter
         layout = Layout(
             title = "3D Scatter Plot",
             scene = Dict(
-                :xaxis => attr(title="X1"),
-                :yaxis => attr(title="X2"),
-                :zaxis => attr(title="Y"),
-                :aspectratio => attr(x=1, y=1, z=1)
+                :xaxis => attr(title="X1", showticklabels=showticklabels),
+                :yaxis => attr(title="X2", showticklabels=showticklabels),
+                :zaxis => attr(title="Y", showticklabels=showticklabels),
+                :aspectratio => attr(x=1, y=1, z=1),
                 # :aspectratio => attr(x=1/x_range, y=1/y_range, z=1/z_range)
+                :camera => attr(
+                    eye = attr(x=camera[1], y=camera[2], z=camera[3]),    # Camera position
+                    center = attr(x=0, y=0, z=0),        # Look at point
+                    up = attr(x=0, y=0, z=1)             # Up direction
+                ),
             ),
             showlegend = show_legend
         )
@@ -197,10 +205,15 @@ function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatter
         layout = Layout(
             title = "3D Scatter Plot",
             scene = Dict(
-                :xaxis => attr(title="X1"),
-                :yaxis => attr(title="X2"),
-                :zaxis => attr(title="Y"),
-                :aspectratio => attr(x=1/x_range, y=1/y_range, z=1/z_range)
+                :xaxis => attr(title="X1", showticklabels=showticklabels),
+                :yaxis => attr(title="X2", showticklabels=showticklabels),
+                :zaxis => attr(title="Y", showticklabels=showticklabels),
+                :aspectratio => attr(x=1/x_range, y=1/y_range, z=1/z_range),
+                :camera => attr(
+                    eye = attr(x=camera[1], y=camera[2], z=camera[3]),    # Camera position
+                    center = attr(x=0, y=0, z=0),        # Look at point
+                    up = attr(x=0, y=0, z=1)             # Up direction
+                ),
             ),
             showlegend = show_legend
         )
@@ -208,6 +221,9 @@ function net_scatter_plot(dataset_dev; aspect="cube", display_plot=true, scatter
     p = PlotlyJS.plot(scatter_plot, layout)
     if display_plot
         display(p)
+    end
+    if !isnothing(savepath)
+        PlotlyJS.savefig(p, savepath * ".png", width=2560, height=1440)
     end
     return scatter_plot
 end
@@ -227,12 +243,17 @@ end
         - `combine_with_the_plot`: This option allows to combine the new plot with a previous plot object.
         - `title`: You guessed it, the plot title.
 """
-function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student", opacity=1.0, combine_with_the_plot=nothing, title=nothing)
+function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student", opacity=1.0, combine_with_the_plot=nothing, title=nothing, camera=(1.5,-1.5,1.5), savepath=nothing, showticklabels=false)
 
     if haskey(tstate.parameters,:p)
         tps = deepcopy(tstate.parameters.p) |> Lux.cpu_device()
     else
         tps = deepcopy(tstate.parameters) |> Lux.cpu_device()
+    end
+    if haskey(tstate.states,:st)
+        tss = deepcopy(tstate.states.st) |> Lux.cpu_device()
+    else
+        tss = deepcopy(tstate.states) |> Lux.cpu_device()
     end
     dtype = typeof(tps.layer_1.bias[1])
 
@@ -262,7 +283,7 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
                     title="Student"
                 end
             end
-            y = tstate.model(reshape(x,(1,N)), tps, tstate.states)[1][1,:]
+            y = tstate.model(reshape(x,(1,N)), tps, tss)[1][1,:]
             l = PlotlyJS.scatter(
                     x = x,
                     y = y,
@@ -273,18 +294,29 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             l = combine(combine_with_the_plot,l)
             layout = PlotlyJS.Layout(
                 title = "Model(x)",
-                xaxis = attr(title = "X"),
-                yaxis = attr(title = "Y"),
-                showlegend = true
+                xaxis = attr(title = "X", showticklabels=showticklabels),
+                yaxis = attr(title = "Y", showticklabels=showticklabels),
+                zaxis = attr(title = "Z", showticklabels=showticklabels),
+                showlegend = true,
+                scene=attr(
+                    camera=attr(
+                        eye=attr(x=camera[1], y=camera[2], z=camera[3]),
+                        center=attr(x=0, y=0, z=0),
+                        up=attr(x=0, y=0, z=1)
+                    )
+                )
             )
             p = PlotlyJS.plot(l,layout)
             if display_plot
                 display(p)
             end
+            if !isnothing(savepath)
+                PlotlyJS.savefig(p, savepath * ".png", width=2560, height=1440)
+            end
             return l
         elseif tstate.model[end].out_dims == 2
 
-            yz = tstate.model(reshape(x,(1,N)), tps, tstate.states)[1]
+            yz = tstate.model(reshape(x,(1,N)), tps, tss)[1]
             y = yz[1,:]
             z = yz[2,:]
 
@@ -311,16 +343,24 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             layout = PlotlyJS.Layout(
                 title = "Parametric plot of model(x)",
                 scene = Dict(
-                    :xaxis => attr(title = "X"),
-                    :yaxis => attr(title = "Y"),
-                    :zaxis => attr(title = "Z"),
-                    :aspectmode => "cube"
+                    :xaxis => attr(title = "X", showticklabels=showticklabels),
+                    :yaxis => attr(title = "Y", showticklabels=showticklabels),
+                    :zaxis => attr(title = "Z", showticklabels=showticklabels),
+                    :aspectmode => "cube",
+                    :camera => attr(
+                        eye = attr(x=camera[1], y=camera[2], z=camera[3]),    # Camera position
+                        center = attr(x=0, y=0, z=0),        # Look at point
+                        up = attr(x=0, y=0, z=1)             # Up direction
+                    ),
                 ),
                 showlegend = true
             )
             p = PlotlyJS.plot(line_plot, layout)
             if display_plot
                 display(p)
+            end
+            if !isnothing(savepath)
+                PlotlyJS.savefig(p, savepath * ".png", width=2560, height=1440)
             end
             return line_plot
         else
@@ -334,7 +374,7 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             y = range(-1, stop=1, length=N)
             y = dtype.(collect(y))
 
-            z = [tstate.model([x (yj .* dtype.(ones(length(x))))]', tps, tstate.states)[1][1,:] for yj in y]
+            z = [tstate.model([x (yj .* dtype.(ones(length(x))))]', tps, tss)[1][1,:] for yj in y]
             z = reshape(vcat(z...),(N,N))
 
             if color_scheme == "teacher"
@@ -368,10 +408,15 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             layout = PlotlyJS.Layout(
                 title = "Surface plot of model(x, y)",
                 scene = Dict(
-                    :xaxis => attr(title="X"),
-                    :yaxis => attr(title="Y"),
-                    :zaxis => attr(title="Z"),
-                    :aspectmode => "cube"
+                    :xaxis => attr(title="X", showticklabels=showticklabels),
+                    :yaxis => attr(title="Y", showticklabels=showticklabels),
+                    :zaxis => attr(title="Z", showticklabels=showticklabels),
+                    :aspectmode => "cube",
+                    :camera => attr(
+                        eye = attr(x=camera[1], y=camera[2], z=camera[3]),    # Camera position
+                        center = attr(x=0, y=0, z=0),        # Look at point
+                        up = attr(x=0, y=0, z=1)             # Up direction
+                    ),
                 ),
                 showlegend = true,
                 legend = attr(x = 0.5,
@@ -382,6 +427,9 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             p = PlotlyJS.plot(surface_plot, layout)
             if display_plot
                 display(p)
+            end
+            if !isnothing(savepath)
+                PlotlyJS.savefig(p, savepath * ".png", width=2560, height=1440)
             end
             return surface_plot
         else
@@ -400,18 +448,20 @@ end
 
     This function combines the above functions to produce a plot, in which the teacher function, the student function and the data sampled from the teacher are overlayed into one combined plot.
 """
-function plot_data_teacher_and_student(tstate,teacher_tstate, train_set; display_plot=true)
+function plot_data_teacher_and_student(tstate,teacher_tstate, train_set; display_plot=true, camera=(1.5,-1.5,1.5), savepath=nothing,markersizeattribute=2, showticklabels=false)
     if length(train_set)==1
-        train_set_plot = net_scatter_plot(train_set[1]; show_legend=true, display_plot=display_plot)
+        train_set_plot = net_scatter_plot(train_set[1]; show_legend=true, display_plot=display_plot,camera=camera,markersizeattribute=markersizeattribute, showticklabels=showticklabels)
     else
-        train_set_plot = net_scatter_plot(train_set[1]; show_legend=false, display_plot=display_plot)
+        train_set_plot = net_scatter_plot(train_set[1]; show_legend=false, display_plot=display_plot,camera=camera,markersizeattribute=markersizeattribute, showticklabels=showticklabels)
         for i in 2:length(train_set)-1
-            train_set_plot = net_scatter_plot(train_set[i]; combine_with_the_plot=train_set_plot, show_legend=false, display_plot=display_plot)
+            train_set_plot = net_scatter_plot(train_set[i]; combine_with_the_plot=train_set_plot, show_legend=false, display_plot=display_plot,camera=camera,markersizeattribute=markersizeattribute, showticklabels=showticklabels)
         end
-        train_set_plot = net_scatter_plot(train_set[end]; combine_with_the_plot=train_set_plot, display_plot=display_plot)
+        train_set_plot = net_scatter_plot(train_set[end]; combine_with_the_plot=train_set_plot, display_plot=display_plot,camera=camera,markersizeattribute=markersizeattribute, showticklabels=showticklabels)
     end
 
-    teacher_and_data_plot = net_smooth_plot(teacher_tstate; N=200, display_plot=display_plot, color_scheme="teacher", opacity=1.0, combine_with_the_plot=train_set_plot)
+    teacher_and_data_plot = net_smooth_plot(teacher_tstate; N=200, display_plot=display_plot, color_scheme="teacher", opacity=1.0, combine_with_the_plot=train_set_plot,camera=camera, showticklabels=showticklabels)
 
-    net_smooth_plot(tstate; N=200, display_plot=display_plot, color_scheme="student", opacity=0.6, combine_with_the_plot=teacher_and_data_plot)
+    endplot = net_smooth_plot(tstate; N=200, display_plot=display_plot, color_scheme="student", opacity=0.6, combine_with_the_plot=teacher_and_data_plot,camera=camera,savepath=savepath, showticklabels=showticklabels)
+
+    return endplot
 end
