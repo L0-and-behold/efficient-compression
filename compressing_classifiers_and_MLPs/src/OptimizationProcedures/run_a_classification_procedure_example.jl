@@ -8,6 +8,13 @@ include("HelperFunctions/loss_functions.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
 
+model1 = resnet()
+model2 = alexnet()
+
+Lux.parameterlength(model1)
+Lux.parameterlength(model2)
+
+
 using .DatasetsModels: MNIST_data, CIFAR_data
 
 # Load the different L0_regularization procedures
