@@ -280,6 +280,10 @@ function resnet(; depth=50) # for Imagenet
     return Vision.ResNet(depth; pretrained=false)
 end
 
+function alexnet() # for Imagenet
+    return Vision.AlexNet(; pretrained=false)
+end
+
 ## WideResNet
 # # Define a basic wide residual block
 # function wide_basic_block(in_channels, out_channels, stride, widening_factor)
