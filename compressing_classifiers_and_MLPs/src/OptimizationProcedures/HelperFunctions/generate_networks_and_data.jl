@@ -7,6 +7,7 @@ using Optimisers
 using LuxCUDA, Revise
 using Boltz
 using CUDA
+using Metalhead
 
 include("loss_functions.jl")
 

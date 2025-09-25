@@ -33,6 +33,38 @@ function update_state!(vjp::Lux.AbstractADType, loss_fun::Union{PMMP, PMMP_Gauss
 end
 
 
+function update_state!(vjp::Lux.AbstractADType, loss_fun::Union{FPP, FPP_Gauss}, batch, tstate::Lux.Training.TrainState)
+    for _ in loss_fun.gradient_repetition_factor
+        tmp_u = copy(tstate.parameters.p.u)
+        @reset tstate.parameters.p.u = loss_fun.parameter_avgs.u
+        grads, loss, _, tstate = Training.compute_gradients(vjp, loss_fun, batch, tstate)
+        @reset tstate.parameters.p.u = tmp_u
+        if loss_fun.rho != 0
+            recursively_modify!(grads.p, tstate.parameters.p, loss_fun, loss_fun.fun_L2)
+        end
+        if loss_fun.L1_alpha != 0
+            recursively_modify!(grads.p, tstate.parameters.p, loss_fun, loss_fun.fun1)
+        end
+        if loss_fun.alpha != 0
+            recursively_modify_FPP!(grads.p, tstate.parameters.p, tstate.parameters.pw, tstate.parameters.pp, loss_fun.parameter_avgs.u, loss_fun.grad_template.p, loss_fun.grad_template.pw, loss_fun.grad_template.pp, loss_fun, loss_fun.fun_p, loss_fun.fun_pw, loss_fun.fun_pp)
+            recursively_modify_FPP_u!(loss_fun.parameter_avgs.p, loss_fun.parameter_avgs.pw, loss_fun.parameter_avgs.pp, tstate.parameters.u, loss_fun.grad_template.u, loss_fun, loss_fun.fun_u)
+            if haskey(loss_fun.grad_template, :sigma)
+                loss_fun.grad_template.sigma .= grads.sigma
+            end
+            tstate = Training.apply_gradients!(tstate, loss_fun.grad_template)
+            project_params!(tstate.parameters.pp)
+        else
+            tstate = Training.apply_gradients!(tstate, grads)
+        end
+        recursively_modify!(loss_fun.parameter_avgs.p,  tstate.parameters.p,  loss_fun, loss_fun.fun_avg)
+        recursively_modify!(loss_fun.parameter_avgs.pw, tstate.parameters.pw, loss_fun, loss_fun.fun_avg)
+        recursively_modify!(loss_fun.parameter_avgs.pp, tstate.parameters.pp, loss_fun, loss_fun.fun_avg)
+        recursively_modify!(loss_fun.parameter_avgs.u,  tstate.parameters.u,  loss_fun, loss_fun.fun_avg)
+    end
+    return tstate, loss, nothing
+end
+
+
 function update_state!(vjp::Lux.AbstractADType, loss_fun::RL1_loss, batch, tstate::Lux.Training.TrainState)
     grads, loss, _, tstate = Training.compute_gradients(vjp, loss_fun, batch, tstate)
     if loss_fun.alpha != 0

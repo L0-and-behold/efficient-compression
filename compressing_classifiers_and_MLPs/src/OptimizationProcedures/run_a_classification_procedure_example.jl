@@ -14,7 +14,6 @@ model2 = alexnet()
 Lux.parameterlength(model1)
 Lux.parameterlength(model2)
 
-
 using .DatasetsModels: MNIST_data, CIFAR_data
 
 # Load the different L0_regularization procedures
@@ -34,7 +33,7 @@ model_seed = 42; loss_fctn = logitcrossentropy;
 
 ## Initialize one of the following models
 model = Lenet_5_Caffe()
-# model = Lenet_MLP(Lux.sigmoid_fast; hidden_layer_sizes=[20, 20])
+model = Lenet_MLP(Lux.sigmoid_fast; hidden_layer_sizes=[20, 20])
 # model = VGG(dropout=0.0f0);
 Lux.parameterlength(model)
 
