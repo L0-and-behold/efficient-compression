@@ -4,6 +4,8 @@ A simple script to run, test and develop the different optimization procedures i
 
 using Revise
 using CUDA
+using JLD2
+
 include("../TrainArgs.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("HelperFunctions/plot_networks_and_their_output.jl")
@@ -19,27 +21,27 @@ include("NormalFormCode/convert_flux_to_lux.jl")
 include("NormalFormCode/symbolic_representation.jl")
 include("NormalFormCode/random_networks.jl")
 
-# alphas = Float32.([0,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,1,1.5,2,5,10])
-alphas = Float32.([0,0.2,0.4,0.6])
-repetitions = 3
+alphas = Float32.([0,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,1,1.5,2,5,10])
+repetitions = 10
 
 all_test_errs = []
 
-# alpha=alphas[1]
-# i = 2
+# i=1
+# alpha=alphas[end]
 for alpha in alphas
   test_errs = Float32[]
   for i in 1:repetitions
     # Training arguments are initialized
+    println()
+    println("alpha=",alpha," i=",i)
+    println()
+
     args = TrainArgs(; T=Float32) 
 
     args.gauss_loss = false
     args.α = alpha
-    # args.max_epochs = 1500
-    # args.finetuning_max_epochs = 10000
-    args.min_epochs = 100
-    args.max_epochs = 100
-    args.finetuning_max_epochs = 10
+    args.min_epochs = 1500
+    args.finetuning_max_epochs = 10000
     args.val_set_size = 5000
     args.test_set_size = 10000
 
@@ -51,19 +53,14 @@ for alpha in alphas
     tstate, logs, loss_fun = DRR_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
     
     # Visalize Results
-    # plot_data_teacher_and_student(tstate,teacher_tstate, train_set)
-    println("Hey1!")
     pt = plot_weights(tstate; legend=nothing)
-    println("Hey2!")
-    Plots.savefig(pt, "test_error_vs_alpha_results/alpha_" * string(alpha) * " student_weights_" * string(i) * ".png")
-    # plot_weights(teacher_tstate)
-    println("Hey3!")
+    Plots.savefig(pt, "test_error_vs_alpha_results/alpha_" * string(alpha) * " student_weights_" * string(i) * ".pdf")
 
     flux_network = convert_fully_connected_network_to_flux(tstate.parameters.p,tstate.model)
     normalized_flux_network = normal_form(flux_network; device=Flux.cpu)
     normalized_tstate = convert_to_tstate(normalized_flux_network)
     ptn = plot_weights(normalized_tstate)
-    Plots.savefig(pt, "test_error_vs_alpha_results/alpha_" * string(alpha) * " student_weights_normalform_" * string(i) * ".pdf")
+    Plots.savefig(ptn, "test_error_vs_alpha_results/alpha_" * string(alpha) * " student_weights_normalform_" * string(i) * ".pdf")
 
     if alpha==0f0 && i==1
       flux_network_teacher = convert_fully_connected_network_to_flux(teacher_tstate.parameters,teacher_tstate.model)
@@ -86,7 +83,5 @@ for alpha in alphas
   push!(all_test_errs, test_errs)
 end
 
-using JLD2
 @save "all_test_errs.jld2" all_test_errs
 
-# @load "all_test_errs.jld2" all_test_errs
