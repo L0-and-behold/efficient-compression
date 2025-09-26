@@ -259,6 +259,7 @@ echo "All jobs submitted!"
 #SBATCH --error=./reports/%x_%j.err
 #SBATCH --open-mode=append
 
+#SBATCH --gres=gpu:1
 #SBATCH --constraint="gpu"
 
 export JULIA_STUDIO_UNBUFFERED=1
