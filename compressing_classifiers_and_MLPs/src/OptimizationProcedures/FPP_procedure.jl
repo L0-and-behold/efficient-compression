@@ -64,7 +64,7 @@ function FPP_procedure(
 
         grad_template = (p = initial_grad_p, pw = deepcopy(initial_grad_p), pp = deepcopy(initial_grad_p), u = deepcopy(initial_grad_p))
 
-        parameter_avgs = deepcopy(grad_template)
+        parameter_avgs = deepcopy(tstate.parameters)
         
         model_param_number = args.dtype(Lux.parameterlength(tstate.parameters.p))
         grad_template |> args.dev

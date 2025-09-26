@@ -16,6 +16,17 @@ function recursively_modify!(params1, params2, loss_fun, fun)
         end
     end
 end
+function recursively_reassign!(params1, params2, loss_fun, fun)
+    if !isnothing(params1)
+        for (subparams1, subparams2) in zip(params1, params2)
+            if isa(subparams1, AbstractArray{T} where T)
+                subparams1 .= fun(loss_fun, subparams1, subparams2, params2)
+            else
+                recursively_reassign!(subparams1, subparams2, loss_fun, fun)
+            end
+        end
+    end
+end
 
 function recursively_modify_DRR!(params1, params2, loss_fun::DRR, fun)
     if !isnothing(params1)
@@ -60,7 +71,7 @@ function recursively_modify_FPP!(grads_p, p, pw, pp, u, gp, gpw, gpp, loss_fun::
     end
 end
 function recursively_modify_FPP_u!(p, pw, pp, u, gu, loss_fun::Union{FPP, FPP_Gauss}, fun_u)
-    if !isnothing(grads_p)
+    if !isnothing(gu)
         for (sub_p, sub_pw, sub_pp, sub_u, sub_gu) in zip(p, pw, pp, u, gu)
             if isa(sub_p, AbstractArray{T} where T)
                 fun_u(sub_gu, sub_p, sub_pw, sub_pp, sub_u, loss_fun)
