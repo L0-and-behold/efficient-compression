@@ -132,6 +132,9 @@ function L2_modification(loss_fun, grad, weight, layer)
 end
 
 function FPP_compute_avg(loss_fun, avg_quantity, new_quantity, params2)
+    return (loss_fun.avg_counter / (loss_fun.avg_counter + 1)) .* avg_quantity  .+ (1 / (loss_fun.avg_counter + 1)) .* new_quantity
+end
+function FPP_compute_decaying_avg(loss_fun, avg_quantity, new_quantity, params2)
     return (1-loss_fun.avg_decay_factor) .* avg_quantity .+ loss_fun.avg_decay_factor .* new_quantity
 end
 
@@ -236,6 +239,7 @@ mutable struct FPP{R, L <: Function} <: LossFunction
     parameter_avgs
     avg_decay_factor::R
     gradient_repetition_factor::Int64
+    avg_counter::Int64
     model_param_number::R
     alpha::R
     rho::R
@@ -250,8 +254,8 @@ mutable struct FPP{R, L <: Function} <: LossFunction
     fun1
     fun_avg
 
-    function FPP(grad_template, parameter_avgs, model_param_number; avg_decay_factor::R=0.01f0, gradient_repetition_factor=1, alpha::R=0.1f0, rho::R=0.0f0, u_value_multiply_factor::R=1f0, loss_f::L = Lux.MSELoss(), L1_alpha::R=0f0, fun_avg = FPP_compute_avg) where {R, L}
-        return new{R, L}(grad_template, parameter_avgs, avg_decay_factor, gradient_repetition_factor, model_param_number, alpha, rho, u_value_multiply_factor, loss_f, PMMP_gp_modification, PMMP_gpw_modification, PMMP_gpp_modification, PMMP_u_modification, L2_modification, L1_alpha, L1_PMMP_modification, fun_avg)
+    function FPP(grad_template, parameter_avgs, model_param_number; avg_decay_factor::R=0f0, gradient_repetition_factor=1, alpha::R=0.1f0, rho::R=0.0f0, u_value_multiply_factor::R=1f0, loss_f::L = Lux.MSELoss(), L1_alpha::R=0f0, fun_avg = FPP_compute_avg) where {R, L}
+        return new{R, L}(grad_template, parameter_avgs, avg_decay_factor, gradient_repetition_factor, 1, model_param_number, alpha, rho, u_value_multiply_factor, loss_f, PMMP_gp_modification, PMMP_gpw_modification, PMMP_gpp_modification, PMMP_u_modification, L2_modification, L1_alpha, L1_PMMP_modification, fun_avg)
     end
 end
 function (loss_params::FPP)(model, ps::NamedTuple, st::NamedTuple, batch)
@@ -318,6 +322,7 @@ mutable struct FPP_Gauss{R, L <: Function} <: LossFunction
     parameter_avgs
     avg_decay_factor::R
     gradient_repetition_factor::Int64
+    avg_counter::Int64
     model_param_number::R
     alpha::R
     rho::R
@@ -333,7 +338,7 @@ mutable struct FPP_Gauss{R, L <: Function} <: LossFunction
     fun_avg
 
     function FPP_Gauss(grad_template, parameter_avgs, model_param_number; avg_decay_factor::R=0.01f0, gradient_repetition_factor=1, alpha::R=0.1f0, rho::R=0.0f0, u_value_multiply_factor::R=1f0, loss_f::L = Lux.MSELoss(), L1_alpha::R=0f0, fun_avg = FPP_compute_avg) where {R, L}
-        return new{R, L}(grad_template, parameter_avgs, avg_decay_factor, gradient_repetition_factor, model_param_number, alpha, rho, u_value_multiply_factor, loss_f, PMMP_gp_modification, PMMP_gpw_modification, PMMP_gpp_modification, PMMP_u_modification, L2_modification, L1_alpha, L1_PMMP_modification, fun_avg)
+        return new{R, L}(grad_template, parameter_avgs, avg_decay_factor, gradient_repetition_factor, 1, model_param_number, alpha, rho, u_value_multiply_factor, loss_f, PMMP_gp_modification, PMMP_gpw_modification, PMMP_gpp_modification, PMMP_u_modification, L2_modification, L1_alpha, L1_PMMP_modification, fun_avg)
     end
 end
 function (loss_params::FPP_Gauss)(model, ps::NamedTuple, st::NamedTuple, batch)

@@ -60,6 +60,13 @@ function update_state!(vjp::Lux.AbstractADType, loss_fun::Union{FPP, FPP_Gauss},
         recursively_modify!(loss_fun.parameter_avgs.pw, tstate.parameters.pw, loss_fun, loss_fun.fun_avg)
         recursively_modify!(loss_fun.parameter_avgs.pp, tstate.parameters.pp, loss_fun, loss_fun.fun_avg)
         recursively_modify!(loss_fun.parameter_avgs.u,  tstate.parameters.u,  loss_fun, loss_fun.fun_avg)
+        if loss_fun.avg_decay_factor != 0
+            if loss_fun.avg_counter < 1/loss_fun.avg_decay_factor - 1 # in this case increase avg_counter only until  1/loss_fun.avg_decay_factor - 1. This ensures that average becomes moving average over at most 1/loss_fun.avg_decay_factor epochs
+                loss_fun.avg_counter += 1
+            end
+        else # increase counter every iteration to compute exact average
+            loss_fun.avg_counter += 1
+        end
     end
     return tstate, loss, nothing
 end
