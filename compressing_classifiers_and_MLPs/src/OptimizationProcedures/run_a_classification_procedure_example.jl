@@ -34,7 +34,8 @@ train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev
 
 args.val_batch_size = size(validation_set[1][2])[2]
 args.test_batch_size = size(test_set[1][2])[2]
-args.α = 1f-3
+args.α = 1f-4
+args.min_epochs = 350
 model_seed = 42; loss_fctn = logitcrossentropy;
 
 ## Initialize one of the following models

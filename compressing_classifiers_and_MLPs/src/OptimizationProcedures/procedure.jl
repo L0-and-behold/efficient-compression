@@ -84,5 +84,5 @@ function procedure(
         println("\nProcedure finished.\n")
     end
 
-    return tstate, logs, loss_fun, loss_fun_after_training
+    return tstate, logs, loss_fun
 end
