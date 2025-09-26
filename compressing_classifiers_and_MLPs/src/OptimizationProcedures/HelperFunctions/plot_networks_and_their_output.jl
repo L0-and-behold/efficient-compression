@@ -294,9 +294,9 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             l = combine(combine_with_the_plot,l)
             layout = PlotlyJS.Layout(
                 title = "Model(x)",
-                xaxis = attr(title = "X", showticklabels=showticklabels),
-                yaxis = attr(title = "Y", showticklabels=showticklabels),
-                zaxis = attr(title = "Z", showticklabels=showticklabels),
+                xaxis = attr(title = "", showticklabels=showticklabels),
+                yaxis = attr(title = "", showticklabels=showticklabels),
+                zaxis = attr(title = "", showticklabels=showticklabels),
                 showlegend = true,
                 scene=attr(
                     camera=attr(
@@ -343,9 +343,9 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             layout = PlotlyJS.Layout(
                 title = "Parametric plot of model(x)",
                 scene = Dict(
-                    :xaxis => attr(title = "X", showticklabels=showticklabels),
-                    :yaxis => attr(title = "Y", showticklabels=showticklabels),
-                    :zaxis => attr(title = "Z", showticklabels=showticklabels),
+                    :xaxis => attr(title = "", showticklabels=showticklabels),
+                    :yaxis => attr(title = "", showticklabels=showticklabels),
+                    :zaxis => attr(title = "", showticklabels=showticklabels),
                     :aspectmode => "cube",
                     :camera => attr(
                         eye = attr(x=camera[1], y=camera[2], z=camera[3]),    # Camera position
@@ -408,9 +408,9 @@ function net_smooth_plot(tstate; N=100, display_plot=true, color_scheme="student
             layout = PlotlyJS.Layout(
                 title = "Surface plot of model(x, y)",
                 scene = Dict(
-                    :xaxis => attr(title="X", showticklabels=showticklabels),
-                    :yaxis => attr(title="Y", showticklabels=showticklabels),
-                    :zaxis => attr(title="Z", showticklabels=showticklabels),
+                    :xaxis => attr(title="", showticklabels=showticklabels),
+                    :yaxis => attr(title="", showticklabels=showticklabels),
+                    :zaxis => attr(title="", showticklabels=showticklabels),
                     :aspectmode => "cube",
                     :camera => attr(
                         eye = attr(x=camera[1], y=camera[2], z=camera[3]),    # Camera position

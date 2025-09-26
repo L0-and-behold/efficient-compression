@@ -28,9 +28,9 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     verbose::Bool = true
     optimizer = Adam
     lr::T = 1f-3
-    min_epochs::Int = 10 # start pruning and convergence checks after this many epochs
-    max_epochs::Int = 20000
-    α::T = 1f1
+    min_epochs::Int = 300 # start pruning and convergence checks after this many epochs
+    max_epochs::Int = 5000
+    α::T = 1f-1
     β::T = 5f0
     ρ::T = 0f0
     L1_alpha::T = 0f0
@@ -38,13 +38,13 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     NORM::Bool = false
     layer_NORM::Bool = true
     train_set_size::Union{String, Int} = 300
-    train_batch_size::Union{String, Int} = 300
-    val_set_size::Union{String, Int} = 1000
-    val_batch_size::Union{String, Int} = 1000
-    test_set_size::Union{String, Int} = 5000
-    test_batch_size::Union{String, Int} = 5000
+    train_batch_size::Union{String, Int} = 500
+    val_set_size::Union{String, Int} = "see dataset"
+    val_batch_size::Union{String, Int} = "val_set_size"
+    test_set_size::Union{String, Int} = "see dataset"
+    test_batch_size::Union{String, Int} = "test_set_size"
     noise::T = 0.8f-1
-    gauss_loss::Bool = true
+    gauss_loss::Bool = false
     random_gradient_pruning::Bool = true
     shrinking::Bool = false
     delete_neurons::Bool = false
@@ -54,7 +54,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     smoothing_window::Int = 30
     finetuning_shrinking::Bool = false
     finetuning_min_epochs::Int = smoothing_window+3 # this should be >= (smoothing_window + 3) to ensure proper convergence.
-    finetuning_max_epochs::Int = 10000
+    finetuning_max_epochs::Int = 1000
     finetuning_layerwise_pruning::Bool = false
     layerwise_pruning::Bool = false
     layerwise_pruning_alpha::T = 1f-1

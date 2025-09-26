@@ -3,3 +3,4 @@ __pycache__
 .vscode
 experiment-results
 Manifest.toml
+compressing_classifiers_and_MLPs/test_error_vs_alpha_results
