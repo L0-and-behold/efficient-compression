@@ -47,6 +47,9 @@ export procedure
 include("PMMP_procedure.jl")
 export PMMP_procedure
 
+include("FPP_procedure.jl")
+export FPP_procedure
+
 include("DRR_procedure.jl")
 export DRR_procedure, get_layer_number, get_block_number
 
