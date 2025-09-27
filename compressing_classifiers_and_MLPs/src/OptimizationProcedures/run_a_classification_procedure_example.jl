@@ -70,3 +70,33 @@ q = PlotlyJS.plot(
     Layout(title="without dropout but 50000 train_set", xaxis_title="Epochs", yaxis_title="Loss")
 );
 display(q);
+
+## check
+
+# trainloss_converged_at = logs["converged_at"][1]
+# turningPointsAfterConvergence = logs["turning_points_val_loss"][logs["turning_points_val_loss"].>trainloss_converged_at]
+# best_val_loss_during_finetuning = minimum(logs["val_loss"][turningPointsAfterConvergence.-1])
+
+# function loss_on_dataset(dataset)::Number
+#     vjp = AutoZygote()
+#     total_loss = zero(args.dtype)
+#     for batch in dataset
+#         _, loss, _, _ = Lux.Training.compute_gradients(vjp, loss_fun, batch, tstate)
+#         total_loss += loss
+#     end
+#     return total_loss / args.dtype(length(dataset))
+# end
+
+# final_val_loss_of_returned_model = loss_on_dataset(validation_set)
+# function recursive_sum(mask, l0_mask)
+#     for m in mask
+#         if isa(m, NamedTuple) && !isempty(m)
+#             l0_mask = recursive_sum(m, l0_mask)
+#         elseif isa(m, AbstractArray)
+#             l0_mask += sum(m)
+#         end
+#     end
+#     return l0_mask
+# end
+# l0_mask= recursive_sum(tstate.states.mask, args.dtype(0))
+# Lux.parameterlength(tstate.model) / l0_mask
