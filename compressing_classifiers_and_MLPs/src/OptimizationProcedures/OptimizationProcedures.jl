@@ -41,6 +41,9 @@ export plot_weights, net_scatter_plot, net_smooth_plot, plot_data_teacher_and_st
 include("HelperFunctions/break_loop.jl")
 export is_saturated
 
+include("HelperFunctions/loss_functions.jl")
+export accuracy
+
 include("procedure.jl")
 export procedure
 
@@ -58,5 +61,6 @@ export RL1_procedure
 
 include("layerwise_procedure.jl")
 export layerwise_procedure
+
 
 end # module

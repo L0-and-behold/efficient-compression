@@ -24,7 +24,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     architecture_teacher::Vector{Int} = [2,5,8,1]
     architecture_student::Vector{Int} = [2,25,25,1]
     dtype::DataType = T ###
-    dev::Function = cpu_device() ###
+    dev::Function = gpu_device() ###
     verbose::Bool = true
     optimizer = Adam
     lr::T = 1f-3
@@ -68,6 +68,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     initial_p_value::T = 1.0
     initial_u_value::T = 0.0
     u_value_multiply_factor::T = 1.0
+    gradient_repetition_factor::Int64 = 1
     seed::Int = 42
 end
 

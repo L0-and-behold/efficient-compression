@@ -35,7 +35,7 @@ end
 
 function update_state!(vjp::Lux.AbstractADType, loss_fun::Union{FPP, FPP_Gauss}, batch, tstate::Lux.Training.TrainState)
     total_loss = 0f0
-    for _ in loss_fun.gradient_repetition_factor
+    for _ in 1:loss_fun.gradient_repetition_factor
         tmp_u = deepcopy(tstate.parameters.u)
         @reset tstate.parameters.u = loss_fun.parameter_avgs.u
         grads, loss, _, tstate = Training.compute_gradients(vjp, loss_fun, batch, tstate)
@@ -58,17 +58,17 @@ function update_state!(vjp::Lux.AbstractADType, loss_fun::Union{FPP, FPP_Gauss},
         else
             tstate = Training.apply_gradients!(tstate, grads)
         end
-        recursively_reassign!(loss_fun.parameter_avgs.p,  tstate.parameters.p,  loss_fun, loss_fun.fun_avg)
-        recursively_reassign!(loss_fun.parameter_avgs.pw, tstate.parameters.pw, loss_fun, loss_fun.fun_avg)
-        recursively_reassign!(loss_fun.parameter_avgs.pp, tstate.parameters.pp, loss_fun, loss_fun.fun_avg)
-        recursively_reassign!(loss_fun.parameter_avgs.u,  tstate.parameters.u,  loss_fun, loss_fun.fun_avg)
-        if loss_fun.avg_decay_factor != 0
-            if loss_fun.avg_counter < 1/loss_fun.avg_decay_factor - 1 # in this case increase avg_counter only until  1/loss_fun.avg_decay_factor - 1. This ensures that average becomes moving average over at most 1/loss_fun.avg_decay_factor epochs
-                loss_fun.avg_counter += 1
-            end
-        else # increase counter every iteration to compute exact average
+    end
+    recursively_reassign!(loss_fun.parameter_avgs.p,  tstate.parameters.p,  loss_fun, loss_fun.fun_avg)
+    recursively_reassign!(loss_fun.parameter_avgs.pw, tstate.parameters.pw, loss_fun, loss_fun.fun_avg)
+    recursively_reassign!(loss_fun.parameter_avgs.pp, tstate.parameters.pp, loss_fun, loss_fun.fun_avg)
+    recursively_reassign!(loss_fun.parameter_avgs.u,  tstate.parameters.u,  loss_fun, loss_fun.fun_avg)
+    if loss_fun.avg_decay_factor != 0
+        if loss_fun.avg_counter < 1/loss_fun.avg_decay_factor - 1 # in this case increase avg_counter only until  1/loss_fun.avg_decay_factor - 1. This ensures that average becomes moving average over at most 1/loss_fun.avg_decay_factor epochs
             loss_fun.avg_counter += 1
         end
+    else # increase counter every iteration to compute exact average
+        loss_fun.avg_counter += 1
     end
     total_loss /= loss_fun.gradient_repetition_factor
     return tstate, total_loss, nothing

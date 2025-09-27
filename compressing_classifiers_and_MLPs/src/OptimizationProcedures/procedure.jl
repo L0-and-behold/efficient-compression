@@ -57,7 +57,7 @@ function procedure(
     # Phase 1 consists of a regularized training procedure.
     tstate, logs, loss_fun = lux_training!(train_set, validation_set, test_set, loss_fun, tstate, args; min_epochs=args.min_epochs, max_epochs=args.max_epochs, shrinking=args.shrinking, layerwise_pruning_flag=args.layerwise_pruning, converge_val_loss=args.converge_val_loss);
 
-    loss_fun_after_training = deepcopy(loss_fun)
+    # loss_fun_after_training = deepcopy(loss_fun)
 
     # Phase 1 consists of a pruning step.
     if args.layerwise_pruning
@@ -84,5 +84,5 @@ function procedure(
         println("\nProcedure finished.\n")
     end
 
-    return tstate, logs, loss_fun
+    return tstate, logs, loss_fun #, loss_fun_after_training
 end

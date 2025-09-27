@@ -8,11 +8,6 @@ include("HelperFunctions/loss_functions.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
 
-# model1 = resnet()
-# model2 = alexnet()
-
-# Lux.parameterlength(model1)
-# Lux.parameterlength(model2)
 
 using .DatasetsModels: MNIST_data, CIFAR_data
 
@@ -26,30 +21,32 @@ include("FPP_procedure.jl")
 # Training arguments are initialized
 args = TrainArgs(; T=Float32);
 
-
 ## Load one of the following datasets
-# @run train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123)
 train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; seed=123)
 # train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123);
 
 args.val_batch_size = size(validation_set[1][2])[2]
 args.test_batch_size = size(test_set[1][2])[2]
 args.α = 1f-4
-args.min_epochs = 350
+args.min_epochs = 100
 model_seed = 42; loss_fctn = logitcrossentropy;
+args.gradient_repetition_factor = 5
 
 ## Initialize one of the following models
 # model = Lenet_5_Caffe()
 # model = Lenet_MLP(Lux.sigmoid_fast; hidden_layer_sizes=[20, 20])
 model = Lenet_MLP(Lux.sigmoid_fast)
 # model = VGG(dropout=0.0f0);
+# model = resnet()
+# model = alexnet()
+
 initial_parameter_count = Lux.parameterlength(model)
 
 tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
 
 # run one of the following procedures.
-# One should not run them one after another without re-initializing the teacher-student networks (by re-running the functions above)
-@time tstate, logs, loss_fun, loss_fun_after_training = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
+# One should not run them one after another without re-initializing the networks (by re-running the functions above)
+@time tstate, logs, loss_fun = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = DRR_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
 @time tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);

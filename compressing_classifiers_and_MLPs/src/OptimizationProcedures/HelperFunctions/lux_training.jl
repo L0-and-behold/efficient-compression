@@ -136,6 +136,8 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     best_tstate = deepcopy(tstate)
     obs_window = round(Int,args.smoothing_window/1)
     start_turn_point = length(args.logs["turning_points_val_loss"])
+    push!(args.logs["turning_points_val_loss"], start_epoch+1)
+    push!(args.logs["best_tstate_points"], start_epoch+1)
     for epoch in 1:max_epochs
         
         # Batch loop
