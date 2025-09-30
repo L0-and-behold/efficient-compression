@@ -175,10 +175,21 @@ function prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_reso
         prune_with_random_gradient!(tstate, data_size, loss_fun; dev=dev)
     end
 
-    if delete_neurons && (tstate.model.name == "teacher-student network" || tstate.model.name == "PMMP model" || tstate.model.name == "masked model")
+    if hasproperty(tstate.model, :name)
+        comparison_name = tstate.model.name
+    elseif hasproperty(tstate.model, :layer)
+        if hasproperty(tstate.model.layer, :name)
+            comparison_name = tstate.model.layer.name
+        else
+            comparison_name = ""
+        end
+    else
+        comparison_name = ""
+    end
+    if delete_neurons && (comparison_name == "teacher-student network" || comparison_name == "PMMP model" || comparison_name == "masked model")
         tstate, loss_fun  = delete_neurons_lux!(tstate, loss_fun; reassign=true)
-    elseif delete_neurons && tstate.model.name != "teacher-student network"
-        println("Warning: args.delete_neurons == true but tstate.model.name != 'teacher-student network'. Neuron deletion is currently only implemented for teacher-student networks.")
+    elseif delete_neurons && comparison_name != "teacher-student network"
+        println("Warning: args.delete_neurons == true but comparison_name != 'teacher-student network'. Neuron deletion is currently only implemented for teacher-student networks.")
     end
 
     if haskey(tstate.states, :mask)

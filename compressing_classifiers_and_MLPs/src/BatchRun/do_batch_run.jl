@@ -5,7 +5,7 @@
         single_run_routine::Function,
         args,
         variable_names::Array{Symbol},
-        batch_of_values::Vector{<:Tuple};
+        batch_of_values::Union{Vector{<:Tuple}, DeviceIterator};
         break_if_one_run_errors::Bool = true
     )
 
@@ -17,7 +17,7 @@ Run a batch of experiments with different parameter values.
 - `single_run_routine::Function`: Function that performs a single experiment run
 - `args`: Struct containing all parameters for the experiment
 - `variable_names::Array{Symbol}`: Names of variables to be modified in each run
-- `batch_of_values::Vector{<:Tuple}`: Collection of value tuples to set for each run
+- `batch_of_values::Union{Vector{<:Tuple}, DeviceIterator}`: Collection of value tuples to set for each run
 - `break_if_one_run_errors::Bool=true`: Whether to stop the batch if one run fails
 
 # Example
@@ -34,7 +34,7 @@ function do_batch_run(
     single_run_routine::Function,
     args,
     variable_names::Array{Symbol},
-    batch_of_values::Vector{<:Tuple};
+    batch_of_values::Union{Vector{<:Tuple}, DeviceIterator};
     break_if_one_run_errors::Bool = true
 )
     @assert length(variable_names) == length(batch_of_values[1]) "Each tuple in batch_of_values must have the same length as variable_names"

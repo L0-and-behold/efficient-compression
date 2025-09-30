@@ -4,9 +4,9 @@ include("procedure.jl")
 
 """
     RL1_procedure(
-        train_set::Vector{<:Tuple},
-        validation_set::Vector{<:Tuple},
-        test_set::Vector{<:Tuple},
+        train_set::Union{Vector{<:Tuple}, DeviceIterator},
+        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
+        test_set::Union{Vector{<:Tuple}, DeviceIterator},
         tstate::Lux.Training.TrainState,
         loss_fctn::Function,
         args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
@@ -27,15 +27,26 @@ include("procedure.jl")
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function RL1_procedure(
-    train_set::Vector{<:Tuple},
-    validation_set::Vector{<:Tuple},
-    test_set::Vector{<:Tuple},
+    train_set::Union{Vector{<:Tuple}, DeviceIterator},
+    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
+    test_set::Union{Vector{<:Tuple}, DeviceIterator},
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
     
     if args.gauss_loss
-        @assert tstate.model.name == "teacher-student network"
+        if hasproperty(tstate.model, :name)
+            comparison_name = tstate.model.name
+        elseif hasproperty(tstate.model, :layer)
+            if hasproperty(tstate.model.layer, :name)
+                comparison_name = tstate.model.layer.name
+            else
+                comparison_name = ""
+            end
+        else
+            comparison_name = ""
+        end
+        @assert comparison_name == "teacher-student network"
         loss_fun = RL1_Gauss(; alpha=args.α, rho=args.ρ, loss_f=loss_fctn)
     else
         loss_fun = RL1_loss(; alpha=args.α, rho=args.ρ, loss_f=loss_fctn)

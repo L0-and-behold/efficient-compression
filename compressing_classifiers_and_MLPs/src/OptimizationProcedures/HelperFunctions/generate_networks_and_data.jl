@@ -193,7 +193,7 @@ function scale_alpha_rho!(args, train_set, loss_fctn)
     end
 end
 
-function generate_tstate(model, seed, opt; dev=Lux.gpu_device())
+function generate_tstate(model, seed, opt; lr_scheduler=nothing, dev=Lux.gpu_device())
     rng = Random.default_rng()
     Random.seed!(rng, seed)
     ps, st = Lux.setup(rng, model) |> dev

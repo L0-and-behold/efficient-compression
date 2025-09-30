@@ -33,9 +33,9 @@ include("HelperFunctions/assert_arg_correctness.jl")
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function procedure(
-    train_set::Vector{<:Tuple},
-    validation_set::Vector{<:Tuple},
-    test_set::Vector{<:Tuple},
+    train_set::Union{Vector{<:Tuple}, DeviceIterator},
+    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
+    test_set::Union{Vector{<:Tuple}, DeviceIterator},
     tstate::Lux.Training.TrainState,
     loss_fun::LossFunction,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
