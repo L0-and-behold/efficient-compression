@@ -66,15 +66,12 @@ initial_parameter_count = Lux.parameterlength(model)
 
 tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
 
-new_lr = args.schedule(61)
-tstate = Optimisers.adjust!(tstate, new_lr);
-
 # run one of the following procedures.
 # One should not run them one after another without re-initializing the networks (by re-running the functions above)
 @time tstate, logs, loss_fun = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = DRR_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
-@run tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
+@time tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 
 # Visalize Results
 using PlotlyJS
