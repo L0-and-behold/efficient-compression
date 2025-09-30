@@ -1,5 +1,6 @@
 include("procedure.jl")
 
+import MLUtils: DeviceIterator
 function recursively_modify_PMMP!(params, fun)
     for subparams in params
         if isa(subparams, AbstractArray{T} where T)

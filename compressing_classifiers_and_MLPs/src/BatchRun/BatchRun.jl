@@ -1,5 +1,7 @@
 module BatchRun
     using Suppressor
+    using Lux
+    import MLUtils: DataLoader, DeviceIterator
     
     # We suppress warnings on docstring replacements. Turn off for development.
     @suppress begin

@@ -2,6 +2,7 @@
 using Revise
 include("procedure.jl")
 
+import MLUtils: DeviceIterator
 """
     RL1_procedure(
         train_set::Union{Vector{<:Tuple}, DeviceIterator},

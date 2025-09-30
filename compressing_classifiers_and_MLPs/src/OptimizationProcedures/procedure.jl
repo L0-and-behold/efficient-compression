@@ -5,6 +5,7 @@ include("HelperFunctions/general_masked_model.jl")
 include("HelperFunctions/tamade.jl")
 include("HelperFunctions/assert_arg_correctness.jl")
 
+import MLUtils: DeviceIterator
 """
     procedure(
         train_set::Vector{<:Tuple},

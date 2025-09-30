@@ -1,5 +1,6 @@
 using Revise, CUDA
 import Lux
+import MLUtils: DeviceIterator
 include("procedure.jl")
 
 """

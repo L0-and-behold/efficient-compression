@@ -2,6 +2,7 @@ using Revise, CUDA
 import Lux
 include("procedure.jl")
 
+import MLUtils: DeviceIterator
 
 """
     layerwise_procedure(

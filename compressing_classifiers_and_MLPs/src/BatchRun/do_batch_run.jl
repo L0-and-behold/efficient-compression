@@ -28,6 +28,7 @@ do_batch_run("./results", "experiment1", run_training, params, variable_names, b
 ```
 """
 
+import MLUtils: DeviceIterator
 function do_batch_run(
     path_to_db::String,
     experiment_name::String,

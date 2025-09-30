@@ -4,7 +4,7 @@
 # [README.md](<unknown>/examples/ImageNet/README.md) for more details.
 
 using DataAugmentation
-using MLUtils: DataLoader
+import MLUtils: DataLoader, DeviceIterator
 using Lux
 using FileIO
 using OneHotArrays

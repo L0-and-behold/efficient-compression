@@ -7,6 +7,7 @@ Helper functions shared by
 ########## Helper functions ##########
 using DataFrames, Dates, CSV, Plots, CUDA
 import Lux
+import MLUtils: DeviceIterator
 
 """
     do_small_run_to_trigger_precompilation(optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args)
