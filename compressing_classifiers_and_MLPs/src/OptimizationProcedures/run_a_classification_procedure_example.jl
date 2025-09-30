@@ -8,8 +8,9 @@ include("HelperFunctions/loss_functions.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
 
+using ParameterSchedulers: Step
 
-using .DatasetsModels: MNIST_data, CIFAR_data
+using .DatasetsModels: MNIST_data, CIFAR_data, imagenet_data
 
 # Load the different L0_regularization procedures
 include("RL1_procedure.jl")
@@ -22,27 +23,51 @@ include("FPP_procedure.jl")
 args = TrainArgs(; T=Float32);
 
 ## Load one of the following datasets
-train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; seed=123)
-# train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123);
+# train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; seed=123)
+train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; train_set_size=args.train_set_size, val_set_size=args.val_set_size, test_set_size=args.test_set_size, seed=123);
 
-args.val_batch_size = size(validation_set[1][2])[2]
-args.test_batch_size = size(test_set[1][2])[2]
-args.α = 1f-4
+## IMAGENET
+include("../DatasetsModels/imagenet/imagenet_path.jl")
+args.train_batch_size = 256
+args.val_batch_size = 256
+args.test_batch_size = 256
+image_size = 224
+train_set, validation_set, test_set = imagenet_data(imagenet_path, args.train_batch_size, args.val_batch_size, image_size; dev=gpu_device())
+args.train_set_size = length(train_set) * args.train_batch_size
+args.val_set_size = 50000
+args.test_set_size = 50000
+args.lr = 0.1f0
 args.min_epochs = 100
+args.max_epochs = 100
+args.optimizer = lr -> Momentum(lr, 0.9f0)
+args.schedule = Step(
+    args.lr,                                   # Initial learning rate
+    0.1f0,                                     # Decay factor (multiply by 0.1 = divide by 10)
+    30 # [30, 60, 90]        # Epochs where decay happens
+)
+## IMAGENET END
+
+# args.val_batch_size = size(validation_set[1][2])[2]
+# args.test_batch_size = size(test_set[1][2])[2]
+args.α = 1f-4
 model_seed = 42; loss_fctn = logitcrossentropy;
 args.gradient_repetition_factor = 5
 
 ## Initialize one of the following models
 # model = Lenet_5_Caffe()
 # model = Lenet_MLP(Lux.sigmoid_fast; hidden_layer_sizes=[20, 20])
-model = Lenet_MLP(Lux.sigmoid_fast)
+# model = Lenet_MLP(Lux.sigmoid_fast)
 # model = VGG(dropout=0.0f0);
 # model = resnet()
-# model = alexnet()
+model = alexnet()
 
 initial_parameter_count = Lux.parameterlength(model)
 
+
 tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
+
+new_lr = args.schedule(61)
+tstate = Optimisers.adjust!(tstate, new_lr)
 
 # run one of the following procedures.
 # One should not run them one after another without re-initializing the networks (by re-running the functions above)

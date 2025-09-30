@@ -3,6 +3,10 @@
 # We need the data to be in a specific format. See the
 # [README.md](<unknown>/examples/ImageNet/README.md) for more details.
 
+using DataAugmentation
+using MLUtils: DataLoader
+using Lux
+
 const IMAGENET_CORRUPTED_FILES = [
     "n01739381_1309.JPEG",
     "n02077923_14822.JPEG",
@@ -51,8 +55,8 @@ end
 
 # default_image_size(::Type{Vision.VisionTransformer}, ::Nothing) = 256
 # default_image_size(::Type{Vision.VisionTransformer}, size::Int) = size
-# default_image_size(_, ::Nothing) = 224
-# default_image_size(_, size::Int) = size
+default_image_size(_, ::Nothing) = 224
+default_image_size(_, size::Int) = size
 
 struct MakeColoredImage <: DataAugmentation.Transform end
 
@@ -78,14 +82,12 @@ function Base.getindex(dataset::FileDataset, i::Int)
     return aug_img, OneHotArrays.onehot(dataset.labels[i], 0:999)
 end
 
-function construct_dataloaders(;
-    base_path::String, train_batchsize, val_batchsize, image_size::Int
-)
-    sensible_println("=> creating dataloaders.")
+function construct_dataloaders(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
+    println("=> creating dataloaders.")
 
     train_augment =
         ScaleFixed((256, 256)) |>
-        Maybe(FlipX(), 0.5) |>
+        # Maybe(DataAugmentation.FlipX, 0.5) |>
         RandomResizeCrop((image_size, image_size)) |>
         PinOrigin() |>
         ImageToTensor() |>
@@ -107,18 +109,18 @@ function construct_dataloaders(;
 
     val_dataset = FileDataset(val_files, val_labels, val_augment)
 
-    if is_distributed
-        train_dataset = DistributedUtils.DistributedDataContainer(
-            distributed_backend, train_dataset
-        )
-        val_dataset = DistributedUtils.DistributedDataContainer(
-            distributed_backend, val_dataset
-        )
-    end
+    # if is_distributed
+    #     train_dataset = DistributedUtils.DistributedDataContainer(
+    #         distributed_backend, train_dataset
+    #     )
+    #     val_dataset = DistributedUtils.DistributedDataContainer(
+    #         distributed_backend, val_dataset
+    #     )
+    # end
 
     train_dataloader = DataLoader(
         train_dataset;
-        batchsize=train_batchsize ÷ total_workers,
+        batchsize=train_batchsize, # ÷ total_workers,
         partial=false,
         collate=true,
         shuffle=true,
@@ -126,17 +128,24 @@ function construct_dataloaders(;
     )
     val_dataloader = DataLoader(
         val_dataset;
-        batchsize=val_batchsize ÷ total_workers,
+        batchsize=val_batchsize, # ÷ total_workers,
         partial=true,
         collate=true,
         shuffle=false,
         parallel=true,
     )
 
-    return gdev(train_dataloader), gdev(val_dataloader)
+    return dev(train_dataloader), dev(val_dataloader)
 end
 
-function imagenet_data()
-    # TODO: implement
-    return nothing
+function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
+    train_set, val_set = construct_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
+    test_set = deepcopy(val_set)
+    return train_set, val_set, test_set
 end
+
+include("imagenet/imagenet_path.jl")
+train_set, val_set, test_set = imagenet_data(imagenet_path, 256, 256, 224; dev=gpu_device())
+
+typeof(train_set) <: DeviceIterator
+

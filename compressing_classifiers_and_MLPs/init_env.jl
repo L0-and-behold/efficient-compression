@@ -28,3 +28,7 @@ ps, st = Lux.setup(rng, model)
 @show st
 
 println("loaded Lux too")
+
+using DataAugmentation
+
+println("Also DataAugmentation worked")
