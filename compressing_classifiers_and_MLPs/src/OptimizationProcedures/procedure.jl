@@ -72,7 +72,7 @@ function procedure(
     
     # For the finetuning phase, unregularized optimization is performed, while employing the above defined mask to fix pruned parameters. To this end, the loss_fun is set to RL1_loss or RL1_Gauss with alpha=0, which is equivalent to unregularized loss.
     if args.gauss_loss
-        finetuning_loss = RL1_Gauss(; alpha=args.dtype(0), rho=args.dtype(0), loss_f=loss_fun.loss_f) # L12 Gauss with alpha=0=rho is like plain Gauss without L1 or L2 regularization and therefore appropriate here. Implementation is efficient.
+        finetuning_loss = RL1_Gauss(; alpha=args.dtype(0), rho=args.dtype(0), loss_f=loss_fun.loss_f) # RL1 Gauss with alpha=0=rho is like plain Gauss without L1 or L2 regularization and therefore appropriate here. Implementation is efficient.
     else
         finetuning_loss = RL1_loss(; alpha=args.dtype(0), rho=args.dtype(0), loss_f=loss_fun.loss_f)
     end

@@ -1,4 +1,4 @@
-## copied from: https://lux.csail.mit.edu/stable/tutorials/advanced/3_ImageNet
+## modified version of: https://lux.csail.mit.edu/stable/tutorials/advanced/3_ImageNet
 
 # We need the data to be in a specific format. See the
 # [README.md](<unknown>/examples/ImageNet/README.md) for more details.
@@ -49,10 +49,10 @@ function load_imagenet1k(base_path::String, split::Symbol)
     return image_files, labels
 end
 
-default_image_size(::Type{Vision.VisionTransformer}, ::Nothing) = 256
-default_image_size(::Type{Vision.VisionTransformer}, size::Int) = size
-default_image_size(_, ::Nothing) = 224
-default_image_size(_, size::Int) = size
+# default_image_size(::Type{Vision.VisionTransformer}, ::Nothing) = 256
+# default_image_size(::Type{Vision.VisionTransformer}, size::Int) = size
+# default_image_size(_, ::Nothing) = 224
+# default_image_size(_, size::Int) = size
 
 struct MakeColoredImage <: DataAugmentation.Transform end
 
@@ -134,4 +134,9 @@ function construct_dataloaders(;
     )
 
     return gdev(train_dataloader), gdev(val_dataloader)
+end
+
+function imagenet_data()
+    # TODO: implement
+    return nothing
 end

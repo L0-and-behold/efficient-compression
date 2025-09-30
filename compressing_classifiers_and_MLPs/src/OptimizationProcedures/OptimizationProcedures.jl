@@ -33,7 +33,7 @@ using Lux, Optimisers, PlotlyJS, CUDA, Revise
 __precompile__()
 
 include("HelperFunctions/generate_networks_and_data.jl")
-export generate_dense_network, generate_dataset, setup_data_teacher_and_student, generate_tstate, scale_alpha_rho!, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG, reset
+export generate_dense_network, generate_dataset, setup_data_teacher_and_student, generate_tstate, scale_alpha_rho!, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG, resnet, alexnet
 
 include("HelperFunctions/plot_networks_and_their_output.jl")
 export plot_weights, net_scatter_plot, net_smooth_plot, plot_data_teacher_and_student

@@ -13,4 +13,7 @@ export get_dataset, MNIST_data, MNIST_trn_tst_switched, MNIST_custom_split, four
 include("cifar_dataset.jl")
 export CIFAR_data
 
+include("imagenet_dataset.jl")
+export imagenet_data
+
 end # module
