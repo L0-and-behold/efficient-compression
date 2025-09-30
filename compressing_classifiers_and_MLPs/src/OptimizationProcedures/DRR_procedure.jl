@@ -35,7 +35,18 @@ function DRR_procedure(
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
     
     if args.gauss_loss
-        @assert tstate.model.name == "teacher-student network"
+        if hasproperty(tstate.model, :name)
+            comparison_name = tstate.model.name
+        elseif hasproperty(tstate.model, :layer)
+            if hasproperty(tstate.model.layer, :name)
+                comparison_name = tstate.model.layer.name
+            else
+                comparison_name = ""
+            end
+        else
+            comparison_name = ""
+        end
+        @assert comparison_name == "teacher-student network"
         loss_fun = DRR_Gauss(; NORM=args.NORM, alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn)
     else    
         model_param_number = args.dtype(Lux.parameterlength(tstate.parameters))

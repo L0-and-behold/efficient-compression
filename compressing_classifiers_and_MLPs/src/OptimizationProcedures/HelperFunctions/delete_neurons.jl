@@ -58,6 +58,18 @@ function delete_neurons_lux!(state::Lux.Training.TrainState, loss_fun; reassign=
         activation_of_previous_layer = tstate.model.layers.layer_1.activation
     end
 
+    if hasproperty(tstate.model, :name)
+        comparison_name = tstate.model.name
+    elseif hasproperty(tstate.model, :layer)
+        if hasproperty(tstate.model.layer, :name)
+            comparison_name = tstate.model.layer.name
+        else
+            comparison_name = ""
+        end
+    else
+        comparison_name = ""
+    end
+
     for (l_name, l) in pairs(tps)
 
         if !haskey(l, :weight)
@@ -89,7 +101,7 @@ function delete_neurons_lux!(state::Lux.Training.TrainState, loss_fun; reassign=
             column_mask = Int.(setdiff(1:size(tps[Symbol(l_name)].weight, 2), exclude_cols))
             # update parameters
             @reset tps[Symbol(l_name)].weight = tps[Symbol(l_name)].weight[:,column_mask]
-            if tstate.model.name == "masked model"
+            if comparison_name == "masked model"
                 @reset tstate.states[Symbol(l_name)].weight_mask = tstate.states[Symbol(l_name)].weight_mask[:,column_mask]
             end
             if haskey(tstate.states, :mask)
@@ -117,7 +129,7 @@ function delete_neurons_lux!(state::Lux.Training.TrainState, loss_fun; reassign=
                     loss_fun.grad_template = grad_template
                 end
             end
-            if tstate.model.name == "PMMP model" && !haskey(tstate.parameters, :pp)
+            if comparison_name == "PMMP model" && !haskey(tstate.parameters, :pp)
                 @reset tps[Symbol(l_name)].weight_w = tps[Symbol(l_name)].weight_w[:,column_mask]
                 @reset tps[Symbol(l_name)].weight_p = tps[Symbol(l_name)].weight_p[:,column_mask]
                 @reset tps[Symbol(l_name)].u_w = tps[Symbol(l_name)].u_w[:,column_mask]
@@ -172,7 +184,7 @@ function delete_neurons_lux!(state::Lux.Training.TrainState, loss_fun; reassign=
             @reset tstate.states.mask[Symbol(l_name)].weight = tstate.states.mask[Symbol(l_name)].weight[row_mask,:]
             @reset tstate.states.mask[Symbol(l_name)].bias = tstate.states.mask[Symbol(l_name)].bias[row_mask]
         end
-        if tstate.model.name == "masked model"
+        if comparison_name == "masked model"
             @reset tstate.states[Symbol(l_name)].weight_mask = tstate.states[Symbol(l_name)].weight_mask[row_mask,:]
             @reset tstate.states[Symbol(l_name)].bias_mask = tstate.states[Symbol(l_name)].bias_mask[row_mask]
         end
@@ -206,7 +218,7 @@ function delete_neurons_lux!(state::Lux.Training.TrainState, loss_fun; reassign=
                 loss_fun.grad_template = grad_template
             end
         end
-        if tstate.model.name == "PMMP model" && !haskey(tstate.parameters, :pw)
+        if comparison_name == "PMMP model" && !haskey(tstate.parameters, :pw)
             @reset tps[Symbol(l_name)].weight_w = tps[Symbol(l_name)].weight_w[row_mask,:]
             @reset tps[Symbol(l_name)].weight_p = tps[Symbol(l_name)].weight_p[row_mask,:]
             @reset tps[Symbol(l_name)].u_w = tps[Symbol(l_name)].u_w[row_mask,:]

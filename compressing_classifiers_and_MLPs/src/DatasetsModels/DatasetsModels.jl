@@ -6,7 +6,6 @@ using Flux: gpu, Chain, Conv, Dense, relu, MaxPool, flatten, softmax, onehotbatc
 using CUDA
 using Statistics: mean
 using MLDatasets: CIFAR10
-using FileIO
 
 include("mnist_dataset.jl")
 export get_dataset, MNIST_data, MNIST_trn_tst_switched, MNIST_custom_split, four_dim_array, hot_batch_encode

@@ -6,6 +6,8 @@
 using DataAugmentation
 using MLUtils: DataLoader
 using Lux
+using FileIO
+using OneHotArrays
 
 const IMAGENET_CORRUPTED_FILES = [
     "n01739381_1309.JPEG",
@@ -144,8 +146,8 @@ function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_
     return train_set, val_set, test_set
 end
 
-include("imagenet/imagenet_path.jl")
-train_set, val_set, test_set = imagenet_data(imagenet_path, 256, 256, 224; dev=gpu_device())
+# include("imagenet/imagenet_path.jl")
+# train_set, val_set, test_set = imagenet_data(imagenet_path, 256, 256, 224; dev=gpu_device())
 
-typeof(train_set) <: DeviceIterator
+# typeof(train_set) <: DeviceIterator
 

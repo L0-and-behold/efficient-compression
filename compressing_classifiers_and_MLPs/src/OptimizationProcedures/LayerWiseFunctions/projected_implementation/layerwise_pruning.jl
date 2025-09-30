@@ -317,9 +317,21 @@ function layerwise_reverse_pruning(tstate, input; dtype = Float32, lr = dtype(0.
                 end
             end
         end
-        if tstate.model.name == "masked model"
+
+        if hasproperty(tstate.model, :name)
+            comparison_name = tstate.model.name
+        elseif hasproperty(tstate.model, :layer)
+            if hasproperty(tstate.model.layer, :name)
+                comparison_name = tstate.model.layer.name
+            else
+                comparison_name = ""
+            end
+        else
+            comparison_name = ""
+        end
+        if comparison_name == "masked model"
             mask = (weight = tstate.states[layer_ind].weight_mask, bias=tstate.states[layer_ind].bias_mask)
-        elseif tstate.model.name == "PMMP model" && !haskey(tstate.parameters, :pp)
+        elseif comparison_name == "PMMP model" && !haskey(tstate.parameters, :pp)
             mask = (weight = layer.weight_p, bias=layer.bias_p)
         elseif haskey(tstate.parameters, :pp)
             mask = (weight = tstate.parameters.pp[layer_ind].weight, bias = tstate.parameters.pp[layer_ind].bias)
@@ -329,10 +341,10 @@ function layerwise_reverse_pruning(tstate, input; dtype = Float32, lr = dtype(0.
 
         pruned_params, logs = prune_layer(layer_input, layer_output, layer.weight, layer.bias; dtype = dtype, lr = lr, alpha = alpha, dev = dev, epochs=epochs, verbose=verbose, smoothing_window=smoothing_window, mask_start_value=mask_start_value, use_gauss_loss=use_gauss_loss, mask=mask, initial_sigma=initial_sigma)
 
-        if tstate.model.name == "masked model"
+        if comparison_name == "masked model"
             tstate.states[layer_ind].weight_mask .= pruned_params.pw
             tstate.states[layer_ind].bias_mask .= pruned_params.pb
-        elseif tstate.model.name == "PMMP model" && !haskey(tstate.parameters, :pp)
+        elseif comparison_name == "PMMP model" && !haskey(tstate.parameters, :pp)
             tps[layer_ind].weight_p .= pruned_params.pw
             tps[layer_ind].bias_p .= pruned_params.pb
         elseif haskey(tstate.parameters, :pp)
