@@ -24,7 +24,7 @@ args = TrainArgs(; T=Float32);
 
 ## Load one of the following datasets
 # train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; seed=123)
-# train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; seed=123);
+train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; seed=123);
 
 ## IMAGENET
 include("../DatasetsModels/imagenet/imagenet_path.jl")
@@ -57,7 +57,7 @@ args.gradient_repetition_factor = 5
 # model = Lenet_5_Caffe()
 # model = Lenet_MLP(Lux.sigmoid_fast; hidden_layer_sizes=[20, 20])
 # model = Lenet_MLP(Lux.sigmoid_fast)
-# model = VGG(dropout=0.0f0);
+model = VGG(dropout=0.0f0);
 model = resnet()
 # model = alexnet()
 
@@ -65,10 +65,11 @@ initial_parameter_count = Lux.parameterlength(model)
 
 
 tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
+Base.summarysize(tstate) / 1024^2 # 292.7252197265625
 
 # run one of the following procedures.
 # One should not run them one after another without re-initializing the networks (by re-running the functions above)
-@time tstate, logs, loss_fun = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
+@run tstate, logs, loss_fun = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = DRR_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
 @run tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
@@ -122,3 +123,46 @@ display(q);
 # end
 # l0_mask= recursive_sum(tstate.states.mask, args.dtype(0))
 # Lux.parameterlength(tstate.model) / l0_mask
+
+
+# # Get memory usage in bytes
+# used = CUDA.used_memory()
+# total = CUDA.total_memory()
+# available = CUDA.available_memory()
+
+# # Convert to GB
+# println("Used: ", used / 1024^3, " GB")
+# println("Total: ", total / 1024^3, " GB")
+# println("Available: ", available / 1024^3, " GB")
+# println("Percentage used: ", 100 * used / total, "%")
+
+
+# total_mem = Sys.total_memory()
+# free_mem = Sys.free_memory()
+# used_mem = total_mem - free_mem
+
+# println("Total: ", total_mem / 1024^3, " GB")
+# println("Free: ", free_mem / 1024^3, " GB")
+# println("Used: ", used_mem / 1024^3, " GB")
+# println("Percentage used: ", 100 * used_mem / total_mem, "%")
+
+# varinfo(sortby=:size, descending=true)
+# varinfs = varinfo();
+# df = varinfo(sortby=:size, imported=false);
+
+# display(df)
+# # Add column in MB
+# df.size_mb = df.size ./ 1024^2
+
+# using DataFrames
+
+# vars = names(Main, all=false, imported=false)
+# data = [(name=string(v), size_mb=Base.summarysize(getfield(Main, v))/1024^2) 
+#         for v in vars if isdefined(Main, v)]
+# df = DataFrame(data)
+# sort!(df, :size_mb, rev=true)
+# df.size_mb = round.(df.size_mb, digits=2)
+# sum(df.size_mb)
+# sum(df.size_mb[2:end])
+
+# Sys.maxrss() / 1024^3

@@ -80,7 +80,7 @@ function FPP_procedure(
             grad_template = (grad_template..., sigma=sigma) |> args.dev
             loss_fun = FPP_Gauss(grad_template, parameter_avgs, model_param_number;  gradient_repetition_factor=args.gradient_repetition_factor, alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha)
         else
-            loss_fun = FPP(grad_template, parameter_avgs, model_param_number; gradient_repetition_factor=args.gradient_repetition_factor, alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha)
+            loss_fun = FPP(grad_template, parameter_avgs, model_param_number; gradient_repetition_factor=args.gradient_repetition_factor, alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha);
         end
     end
 
