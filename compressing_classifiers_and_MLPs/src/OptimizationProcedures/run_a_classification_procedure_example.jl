@@ -46,11 +46,7 @@ args.schedule = Step(
     30                   # [30, 60, 90]        # Epochs where decay happens
 )
 ## IMAGENET END
-ms = Step(
-    0.1f0,                                   # Initial learning rate
-    0.1f0,                                     # Decay factor (multiply by 0.1 = divide by 10)
-    30                   # [30, 60, 90]        # Epochs where decay happens
-)
+
 # args.val_batch_size = size(validation_set[1][2])[2]
 # args.test_batch_size = size(test_set[1][2])[2]
 args.α = 1f-4
@@ -75,7 +71,7 @@ tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.de
 @time tstate, logs, loss_fun = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = DRR_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
-@time tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
+@run tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 
 # Visalize Results
 using PlotlyJS
