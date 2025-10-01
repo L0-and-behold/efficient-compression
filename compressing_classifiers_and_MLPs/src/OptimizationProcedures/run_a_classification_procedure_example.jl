@@ -46,7 +46,11 @@ args.schedule = Step(
     30                   # [30, 60, 90]        # Epochs where decay happens
 )
 ## IMAGENET END
-
+ms = Step(
+    0.1f0,                                   # Initial learning rate
+    0.1f0,                                     # Decay factor (multiply by 0.1 = divide by 10)
+    30                   # [30, 60, 90]        # Epochs where decay happens
+)
 # args.val_batch_size = size(validation_set[1][2])[2]
 # args.test_batch_size = size(test_set[1][2])[2]
 args.α = 1f-4

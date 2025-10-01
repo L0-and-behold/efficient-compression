@@ -1,4 +1,5 @@
 using Lux, LuxCUDA, Optimisers, Printf, Random, Zygote, Accessors, Revise
+import ParameterSchedulers
 
 include("break_loop.jl")
 include("tamade.jl")
@@ -142,7 +143,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     last_lr = copy(args.lr)
     for epoch in 1:max_epochs
         
-        if !isnothing(args.schedule) # update learning rate if schedule is specified
+        if typeof(args.schedule) <: ParameterSchedulers.AbstractSchedule # update learning rate if schedule is specified
             new_lr = args.schedule(epoch)
             if new_lr != last_lr
                 tstate = Optimisers.adjust!(tstate, new_lr)

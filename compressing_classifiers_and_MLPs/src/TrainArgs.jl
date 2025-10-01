@@ -70,7 +70,7 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     u_value_multiply_factor::T = 1.0
     gradient_repetition_factor::Int64 = 1
     seed::Int = 42
-    schedule = nothing
+    schedule = 0
 end
 
 function TrainArgs(; T=Float32)
