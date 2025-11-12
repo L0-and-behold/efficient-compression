@@ -1,8 +1,8 @@
 module DatasetsModels
 
 using Base.Iterators: partition
-using Flux
-using Flux: gpu, Chain, Conv, Dense, relu, MaxPool, flatten, softmax, onehotbatch, onecold, logitcrossentropy
+# using Flux
+# using Flux: gpu, Chain, Conv, Dense, relu, MaxPool, flatten, softmax, onehotbatch, onecold, logitcrossentropy
 using CUDA
 using Statistics: mean
 using MLDatasets: CIFAR10

@@ -1,0 +1,14 @@
+"""
+This file defines constants such as paths which need to be adjusted for the local machine.
+
+SETUP INSTRUCTIONS:
+1. Copy this file to `config.jl` (without the .example extension)
+2. Update the paths below with your local machine's paths
+3. The `config.jl` file is gitignored and will not be committed
+"""
+
+# Path to folder where experiment results are saved
+path_to_db = "/path/to/folder_where_experiment_results_are_saved"
+
+# Path to folder containing the ImageNet dataset
+imagenet_path = "/path/to/folder_containing_the_imagenet_dataset"
