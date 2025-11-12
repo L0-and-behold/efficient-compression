@@ -27,13 +27,16 @@ cd path/to/project/efficient-compression/compressing_classifiers_and_MLPs
 julia
 ```
 
-In julia in shell, the environment can be instantiated like this 
+In shell, the environment can be instantiated by running the `init_env.jl` file:
+```shell
+julia init_env.jl
+```
+or by executing the following julia commands:
 ```julia
 using Pkg
 Pkg.activate(".")
 Pkg.resolve()
 Pkg.instantiate()
-Pkg.precompile()
 ```
 
 Now, an experiment can be run
@@ -43,6 +46,8 @@ julia run_an_experiment.jl
 where the default settings in the file `run_an_experiment.jl` serve as a simple example.
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
+
+In order to run experiments with the ImageNet dataset, the dataset needs to be installed on local disc. See [installingImageNet](installingImageNet/installingImageNet.md) for instructions.
 
 ## Experiment Parameters and Setup
 

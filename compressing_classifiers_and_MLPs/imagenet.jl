@@ -6,6 +6,7 @@ Pkg.activate(".")
 # Pkg.add("DeviceIterator")
 # Pkg.instantiate()
 using CUDA
+using TOML
 
 using Revise, ArgParse, Suppressor
 using Lux: gpu_device
@@ -41,9 +42,11 @@ using .BatchRun: do_batch_run,
 args = TrainArgs(; T=Float32)
 
 # Load configuration and assert that required configuration and variables are defined
-include("config.jl")
-@assert @isdefined(path_to_db) "path_to_db must be defined in config.jl"
-@assert @isdefined(imagenet_path) "imagenet_path must be defined in config.jl"
+@assert isfile("config.toml") "File `config.toml` does not exist or script run from wrong path."
+cfg = TOML.parsefile("config.toml")
+@assert @isdefined(cfg["paths"]["path_to_db"]) "path_to_db must be defined in config.toml"
+@assert @isdefined(cfg["paths"]["imagenet_path"]) "imagenet_path must be defined in config.toml"
+path_to_db, imagenet_path = cfg["paths"]["path_to_db"], cfg["paths"]["imagenet_path"]
 println("Using experiment data path: ", path_to_db)
 println("Using ImageNet path: ", imagenet_path)
 
