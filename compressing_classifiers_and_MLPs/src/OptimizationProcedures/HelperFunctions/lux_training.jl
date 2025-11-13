@@ -108,7 +108,6 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             "final_train_accuracy" => args.dtype(0),
             "validation_accuracy" => args.dtype[],
             "test_accuracy" => Tuple{Int, Number}[],
-            "test_loss" => Tuple{Int, Number}[],
             "l0_mask" => args.dtype[],
             "converged_at" => Int[],
             "turning_points_val_loss" => Int[],
@@ -116,7 +115,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         )
     else
         @assert isa(args.logs, Dict{String, Any})
-        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("test_loss" => Tuple{Int, Number}[]), ("final_train_accuracy" => args.dtype(0)), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
+        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("final_train_accuracy" => args.dtype(0)), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
             if !haskey(args.logs, key)
                 args.logs[key] = value
             end
@@ -141,7 +140,6 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
 
     last_lr = copy(args.lr)
     for epoch in 1:max_epochs
-        
         if !isnothing(args.schedule) # update learning rate if schedule is specified
             new_lr = args.schedule(epoch)
             if new_lr != last_lr
@@ -152,17 +150,23 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         # Batch loop
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
-        for batch in train_set
+        for (i, batch) in enumerate(train_set)
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
             epoch_loss += loss
+            if args.debug && i > 5
+                break
+            end
         end
         epoch_end_time = time()
         epoch_loss /= num_batches
+        if epoch_loss == NaN && args.debug
+            epoch_loss = 0f0
+        end
+        @assert epoch_loss > 0
 
-        
         push!(args.logs["epochs"], start_epoch+epoch)
         push!(args.logs["train_loss"], epoch_loss)
         push!(args.logs["epoch_execution_time"], epoch_end_time - epoch_start_time)
@@ -173,8 +177,11 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         end
         if args.log_val_loss
             epoch_val_loss = zero(args.dtype)
-            for val_batch in validation_set
+            for (i, val_batch) in enumerate(validation_set)
                 epoch_val_loss += loss_fun(tstate.model, tstate.parameters, tstate.states, val_batch)[1]
+                if args.debug && i > 5
+                    break
+                end
             end
             epoch_val_loss /= length(validation_set)
             push!(args.logs["val_loss"], epoch_val_loss)

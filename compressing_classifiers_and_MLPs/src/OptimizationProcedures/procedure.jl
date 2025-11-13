@@ -35,7 +35,7 @@ include("HelperFunctions/assert_arg_correctness.jl")
 function procedure(
     train_set::Union{Vector{<:Tuple}, DeviceIterator},
     validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
     tstate::Lux.Training.TrainState,
     loss_fun::LossFunction,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}

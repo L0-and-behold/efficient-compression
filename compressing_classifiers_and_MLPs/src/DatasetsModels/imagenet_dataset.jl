@@ -142,7 +142,8 @@ end
 
 function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
     train_set, val_set = construct_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
-    test_set = deepcopy(val_set)
+    # test_set = deepcopy(val_set)
+    test_set = nothing
     return train_set, val_set, test_set
 end
 

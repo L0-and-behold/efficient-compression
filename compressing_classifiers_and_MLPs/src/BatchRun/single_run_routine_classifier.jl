@@ -57,8 +57,6 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
         do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args) 
     catch e
         println("Error during precompilation run. Continue with actual training")
-        println("Error message:", e)
-        # <- continue working here
     end
     
     # do actual training

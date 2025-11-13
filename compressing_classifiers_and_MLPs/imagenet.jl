@@ -41,12 +41,14 @@ using .BatchRun: do_batch_run,
 #####
 args = TrainArgs(; T=Float32)
 
-# Load configuration and assert that required configuration and variables are defined
+# Load configuration
 @assert isfile("config.toml") "File `config.toml` does not exist or script run from wrong path."
 cfg = TOML.parsefile("config.toml")
-@assert @isdefined(cfg["paths"]["path_to_db"]) "path_to_db must be defined in config.toml"
-@assert @isdefined(cfg["paths"]["imagenet_path"]) "imagenet_path must be defined in config.toml"
-path_to_db, imagenet_path = cfg["paths"]["path_to_db"], cfg["paths"]["imagenet_path"]
+@assert haskey(cfg, "paths") "config file should have [paths] section"
+@assert haskey(cfg["paths"], "path_to_db")
+@assert haskey(cfg["paths"], "imagenet_path")
+path_to_db = cfg["paths"]["path_to_db"]
+imagenet_path = cfg["paths"]["imagenet_path"]
 println("Using experiment data path: ", path_to_db)
 println("Using ImageNet path: ", imagenet_path)
 
@@ -189,13 +191,15 @@ args.train_set_size = 1_281_024 # 1_281_167
 args.val_set_size = 50000
 args.test_set_size = 50000
 batches_per_epoch = length(Base.Iterators.partition(1:args.train_set_size, args.train_batch_size))
-decay_epochs = round(Int64, 100000/batches_per_epoch)
+decay_epochs = max(1, round(Int64, 100_000 / batches_per_epoch))
 args.schedule = Step(
     args.lr,            # Initial learning rate
     0.1f0,              # Decay factor (multiply by 0.1 = divide by 10)
     decay_epochs        # Decay happens every (-) epochs
 )
 
+
+args.debug = true
 break_if_one_run_errors = true
 
 #####

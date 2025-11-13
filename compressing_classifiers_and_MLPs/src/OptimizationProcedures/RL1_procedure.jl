@@ -29,7 +29,7 @@ include("procedure.jl")
 function RL1_procedure(
     train_set::Union{Vector{<:Tuple}, DeviceIterator},
     validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
