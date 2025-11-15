@@ -53,7 +53,7 @@ println("Using experiment data path: ", path_to_db)
 println("Using ImageNet path: ", imagenet_path)
 
 # set experiment name
-experiment_name = "alexnet"
+experiment_name = "resnet"
 
 # Function defining a single run of training, metric calculation, and result saving
 single_run_routine = single_run_routine_classifier
@@ -160,7 +160,7 @@ append!(batch, RL1_runs)
 imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
 args.dataset = imagenet_data_function
 
-args.architecture = alexnet
+args.architecture = resnet
 args.delete_neurons = false
 args.layerwise_pruning = false
 args.smoothing_window = 5
@@ -169,9 +169,9 @@ args.finetuning_max_epochs = 50
 args.train_set_size = "see dataset"
 args.val_set_size = "see dataset"
 args.test_set_size = "see dataset"
-args.train_batch_size = 1
-args.val_batch_size = 1
-args.test_batch_size = 1
+args.train_batch_size = 32
+args.val_batch_size = 32
+args.test_batch_size = 32
 args.noise = 0f0
 args.prune_window = 10
 args.shrinking_from_deviation_of = 1e-2
@@ -198,7 +198,7 @@ args.schedule = Step(
     decay_epochs        # Decay happens every (-) epochs
 )
 
-
+args.multiply_mask_after_each_batch = true
 args.debug = true
 break_if_one_run_errors = true
 

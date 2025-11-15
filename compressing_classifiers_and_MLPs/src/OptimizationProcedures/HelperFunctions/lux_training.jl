@@ -147,11 +147,17 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             end
             last_lr = new_lr
         end
+
         # Batch loop
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
         for (i, batch) in enumerate(train_set)
+            batch_time = time()
+            if args.debug 
+                println("▶ Epoch $epoch – batch $i  start update-step")
+            end
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
+            println("▶ Epoch $epoch – batch $i  update-step finished after $(time() - batch_time) s")
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
@@ -161,16 +167,20 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             end
         end
         epoch_end_time = time()
-        epoch_loss /= num_batches
-        if epoch_loss == NaN && args.debug
-            epoch_loss = 0f0
+        if !args.debug
+            epoch_loss /= num_batches
         end
-        @assert epoch_loss > 0
+        @assert epoch_loss >= 0f0 "epoch_loss: $epoch_loss. args: $args"
 
         push!(args.logs["epochs"], start_epoch+epoch)
         push!(args.logs["train_loss"], epoch_loss)
         push!(args.logs["epoch_execution_time"], epoch_end_time - epoch_start_time)
         
+        if args.debug
+            metrics_time = time()
+            println("▶ Epoch $epoch Start rest of training loop evaluations")
+        end
+
         if haskey(tstate.states, :mask)
             l0_mask= recursive_sum(tstate.states.mask, args.dtype(0))
             push!(args.logs["l0_mask"], l0_mask)
@@ -178,7 +188,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         if args.log_val_loss
             epoch_val_loss = zero(args.dtype)
             for (i, val_batch) in enumerate(validation_set)
-                epoch_val_loss += loss_fun(tstate.model, tstate.parameters, tstate.states, val_batch)[1]
+                epoch_val_loss += loss_fun(tstate.model, tstate.parameters, Lux.testmode(tstate.states), val_batch)[1]
                 if args.debug && i > 5
                     break
                 end
@@ -192,7 +202,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             if !isnothing(test_set)
                 epoch_test_loss = zero(args.dtype)
                 for test_batch in test_set
-                    epoch_test_loss += loss_fun(tstate.model, tstate.parameters, tstate.states, test_batch)[1]
+                    epoch_test_loss += loss_fun(tstate.model, tstate.parameters, Lux.testmode(tstate.states), test_batch)[1]
                 end
                 epoch_test_loss /= length(test_set)
                 push!(args.logs["test_loss"], (start_epoch+epoch, epoch_test_loss))
@@ -274,6 +284,9 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
                     break
                 end
             end
+        end
+        if args.debug
+            println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
         end
     end
     total_time_end = time()
