@@ -161,7 +161,6 @@ imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbat
 args.dataset = imagenet_data_function
 
 args.architecture = resnet
-args.architecture = resnet
 args.delete_neurons = false
 args.layerwise_pruning = false
 args.smoothing_window = 5
