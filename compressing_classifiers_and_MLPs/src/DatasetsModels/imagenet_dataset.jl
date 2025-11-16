@@ -126,7 +126,7 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
         partial=false,
         collate=true,
         shuffle=true,
-        parallel=true,
+        parallel=false,
     )
     val_dataloader = DataLoader(
         val_dataset;
@@ -134,7 +134,7 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
         partial=true,
         collate=true,
         shuffle=false,
-        parallel=true,
+        parallel=false,
     )
 
     return dev(train_dataloader), dev(val_dataloader)

@@ -62,14 +62,17 @@ function accuracy(tstate, dataset)::Float32
     return accuracy(tstate.model, tstate.parameters, tstate.states, dataset)
 end
 
-function accuracy(model, ps, st, dataset)::Float32
+function accuracy(model, ps, st, dataset; debug=false)::Float32
     total_correct, total = 0, 0
     stt = Lux.testmode(st)
-    for (x, y) in dataset
-        target_class = onecold(y)
-        predicted_class = onecold(first(model(x, ps, stt)))
+    for (i, (x, y)) in enumerate(dataset)
+        target_class = onecold(y) |> Lux.cpu_device()
+        predicted_class = onecold(first(model(x, ps, stt))) |> Lux.cpu_device()
         total_correct += sum(target_class .== predicted_class)
         total += length(target_class)
+        if debug && i>5
+            break
+        end
     end
     return total_correct / total
 end

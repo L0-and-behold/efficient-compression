@@ -106,6 +106,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             "total_time" => args.dtype(0),
             "sigmas" => args.dtype[],
             "final_train_accuracy" => args.dtype(0),
+            "final_validation_accuracy" => args.dtype(0),
             "validation_accuracy" => args.dtype[],
             "test_accuracy" => Tuple{Int, Number}[],
             "l0_mask" => args.dtype[],
@@ -115,7 +116,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         )
     else
         @assert isa(args.logs, Dict{String, Any})
-        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("final_train_accuracy" => args.dtype(0)), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
+        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("final_train_accuracy" => args.dtype(0)), ("final_validation_accuracy" => args.dtype(0)), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
             if !haskey(args.logs, key)
                 args.logs[key] = value
             end
@@ -151,7 +152,12 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
         for (i, batch) in enumerate(train_set)
+            batch_time = time()
+            if args.debug 
+                println("▶ Epoch $epoch – batch $i  start update-step")
+            end
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
+            println("▶ Epoch $epoch – batch $i  update-step finished after $(time() - batch_time) s")
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
@@ -161,11 +167,10 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             end
         end
         epoch_end_time = time()
-        epoch_loss /= num_batches
-        if epoch_loss == NaN && args.debug
-            epoch_loss = 0f0
+        if !args.debug
+            epoch_loss /= num_batches
         end
-        @assert epoch_loss > 0
+        @assert epoch_loss >= 0f0 "epoch_loss: $epoch_loss. args: $args"
 
         push!(args.logs["epochs"], start_epoch+epoch)
         push!(args.logs["train_loss"], epoch_loss)
@@ -205,7 +210,8 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             push!(args.logs["sigmas"], sum(tstate.parameters.sigma))
         end
         if loss_fun.loss_f == logitcrossentropy
-            push!(args.logs["validation_accuracy"], accuracy(tstate, validation_set))
+            # this line is super slow for some reason
+            push!(args.logs["validation_accuracy"], accuracy(tstate, validation_set, debug=args.debug))
         end
         
         # Pruning and Convergence check is done at most every prune_window epochs
@@ -280,6 +286,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     args.logs["total_time"] += total_time_end - total_time_start
 
     args.logs["final_train_accuracy"] = accuracy(tstate, train_set)
+    args.logs["final_validation_accuracy"] = accuracy(tstate, validation_set)
     if !convergence_triggered
         push!(args.logs["converged_at"], max_epochs)
     end
