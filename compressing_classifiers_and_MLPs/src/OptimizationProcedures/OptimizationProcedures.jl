@@ -28,15 +28,15 @@ An optimization procedure is a function with
 
 module OptimizationProcedures
 
-using Lux, Optimisers, PlotlyJS, CUDA, Revise
+using Lux, Optimisers, PlotlyJS, CUDA, Revise, JLD2
 
 __precompile__()
 
 include("HelperFunctions/generate_networks_and_data.jl")
-export generate_dense_network, generate_dataset, setup_data_teacher_and_student, generate_tstate, scale_alpha_rho!, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG, resnet, alexnet
+export generate_dense_network, generate_dataset, setup_data_teacher_and_student, generate_tstate, scale_alpha_rho!, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG, resnet50, resnet18, toy_resnet, alexnet
 
 include("HelperFunctions/plot_networks_and_their_output.jl")
-export plot_weights, net_scatter_plot, net_smooth_plot, plot_data_teacher_and_student
+export plot_weights, net_scatter_plot, net_smooth_plot, plot_data_teacher_ßand_student
 
 include("HelperFunctions/break_loop.jl")
 export is_saturated

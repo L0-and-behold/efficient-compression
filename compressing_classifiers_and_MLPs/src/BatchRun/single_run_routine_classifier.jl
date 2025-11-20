@@ -22,7 +22,7 @@ Execute a single training run for a classifier model with the given parameters.
 # Returns
 Nothing, but saves training results, plots, and model state to the database
 """
-function single_run_routine_classifier(path_to_db::String, experiment_name::String, args, variables)
+function single_run_routine_classifier(path_to_db::String, experiment_name::String, args, variables; checkpoint_metadata=nothing)
 
     assertions_classifier(args)
 
@@ -131,8 +131,10 @@ Calculate and log the final accuracy and loss values for all datasets.
 function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, test_set, loss_fctn, args)
     run_df[end, :final_accuracy_trainset] = accuracy(tstate, train_set)
     run_df[end, :final_accuracy_valset] = accuracy(tstate, validation_set)
-    run_df[end, :final_accuracy_testset] = accuracy(tstate, test_set)
-    
+    if test_set !== nothing
+        run_df[end, :final_accuracy_testset] = accuracy(tstate, test_set)
+    end
+
     function loss_on_dataset(dataset)::Number
         vjp = AutoZygote()
         total_loss = zero(args.dtype)
@@ -145,7 +147,9 @@ function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, 
 
     run_df[end, :final_loss_trainset] = loss_on_dataset(train_set)
     run_df[end, :final_loss_valset] = loss_on_dataset(validation_set)
-    run_df[end, :final_loss_testset] = loss_on_dataset(test_set)
+    if testset !== nothing
+        run_df[end, :final_loss_testset] = loss_on_dataset(test_set)
+    end
     
     return run_df
 end

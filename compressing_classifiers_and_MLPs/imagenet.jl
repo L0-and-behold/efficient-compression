@@ -28,9 +28,11 @@ using .OptimizationProcedures:
     VGG,
     Lenet_5_Caffe,
     Lenet_MLP,
-    resnet, 
+    resnet50,
+    resnet18, 
+    toy_resnet,
     alexnet
-using .DatasetsModels: MNIST_data, CIFAR_data, imagenet_data
+using .DatasetsModels: MNIST_data, CIFAR_data, imagenet_data, toy_imagenet_data
 using .BatchRun: do_batch_run, 
     get_sub_batch,
     single_run_routine_classifier,
@@ -157,10 +159,11 @@ append!(batch, DRR_runs)
 
 # Fixed arguments for all runs
 
-imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
-args.dataset = imagenet_data_function
+# imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
+toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
+args.dataset = toy_imagenet_data_function
 
-args.architecture = resnet
+args.architecture = toy_resnet
 args.delete_neurons = false
 args.layerwise_pruning = false
 args.smoothing_window = 5
@@ -169,9 +172,9 @@ args.finetuning_max_epochs = 50
 args.train_set_size = "see dataset"
 args.val_set_size = "see dataset"
 args.test_set_size = "see dataset"
-args.train_batch_size = 32
-args.val_batch_size = 32
-args.test_batch_size = 32
+args.train_batch_size = 2
+args.val_batch_size = 2
+args.test_batch_size = 2
 args.noise = 0f0
 args.prune_window = 10
 args.shrinking_from_deviation_of = 1e-2
@@ -179,8 +182,8 @@ args.gauss_loss = false
 args.dev = gpu_device()
 args.converge_val_loss = true # this implies val_loss convergence criterium
 
-args.min_epochs = 100
-args.max_epochs = 100
+args.min_epochs = 10 # 100
+args.max_epochs = 10 # 100
 args.optimizer = lr -> Momentum(lr, 0.9f0)
 # args.optimizer = lr -> Optimisers.OptimiserChain( # if weight decay (L2 regularization) is desired
 #     Optimisers.WeightDecay(0.0005f0),     # L2 regularization
@@ -200,6 +203,12 @@ args.schedule = Step(
 
 args.multiply_mask_after_each_batch = true
 args.debug = true
+args.use_checkpoints = true
+args.checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
+args.checkpoint_frequency = 1
+args.max_runtime_seconds = 3600 * 23.5
+
+
 break_if_one_run_errors = true
 
 #####

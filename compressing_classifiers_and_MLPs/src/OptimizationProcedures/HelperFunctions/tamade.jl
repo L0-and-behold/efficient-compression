@@ -154,7 +154,8 @@ function prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_reso
     end
 
     if random_gradient_pruning
-        data_size = [size(data[1][1]),size(data[1][2])]
+        sample_batch = first(data)
+        data_size = [size(sample_batch[1]), size(sample_batch[2])]
         prune_with_random_gradient!(tstate, data_size, loss_fun; dev=dev)
     end
 
@@ -171,7 +172,8 @@ function prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_reso
     end
 
     if random_gradient_pruning
-        data_size = [size(data[1][1]),size(data[1][2])]
+        sample_batch = first(data)
+        data_size = [size(sample_batch[1]), size(sample_batch[2])]
         prune_with_random_gradient!(tstate, data_size, loss_fun; dev=dev)
     end
 

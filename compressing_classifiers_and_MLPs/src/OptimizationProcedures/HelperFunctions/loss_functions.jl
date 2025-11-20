@@ -55,22 +55,24 @@ multiply_mask(A,B) = A .* B
 
 #################
 
-function accuracy(tstate, dataset)::Float32
+function accuracy(tstate, dataset; debug=false)::Float32
     if haskey(tstate.parameters, :p)
-        return accuracy(tstate.model, tstate.parameters.p, tstate.states.st, dataset)
+        return accuracy(tstate.model, tstate.parameters.p, tstate.states.st, dataset; debug=debug)
     end
-    return accuracy(tstate.model, tstate.parameters, tstate.states, dataset)
+    return accuracy(tstate.model, tstate.parameters, tstate.states, dataset; debug=debug)
 end
 
 function accuracy(model, ps, st, dataset; debug=false)::Float32
     total_correct, total = 0, 0
     stt = Lux.testmode(st)
+    cpu = Lux.cpu_device()
+    
     for (i, (x, y)) in enumerate(dataset)
-        target_class = onecold(y) |> Lux.cpu_device()
-        predicted_class = onecold(first(model(x, ps, stt))) |> Lux.cpu_device()
+        target_class = onecold(cpu(y))
+        predicted_class = onecold(cpu(first(model(x, ps, stt))))
         total_correct += sum(target_class .== predicted_class)
         total += length(target_class)
-        if debug && i>5
+        if debug && i > 5
             break
         end
     end

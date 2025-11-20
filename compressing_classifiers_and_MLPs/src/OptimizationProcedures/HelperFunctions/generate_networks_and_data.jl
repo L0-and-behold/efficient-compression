@@ -277,8 +277,34 @@ function VGG(input_dims = (32,32), in_channels = 3; depth=16, nclasses=10, batch
     return Vision.VGG(input_dims; config=Vision.VGG_CONFIG[depth], inchannels=in_channels, batchnorm=batchnorm, nclasses=nclasses, fcsize=fcsize, dropout=dropout)
 end
 
-function resnet(; depth=50) # for Imagenet
+function resnet50(; depth=50) # for Imagenet
     return Vision.ResNet(depth; pretrained=false)
+end
+
+function resnet18(; depth=18) # for Imagenet
+    return Vision.ResNet(depth; pretrained=false)
+end
+
+using Lux
+using Random
+
+"""
+    toy_resnet(img_size::Int=224, n_classes::Int=1000; rng=Random.default_rng())
+
+Returns a trivial one-layer MLP that accepts images of shape (H, W, C, B)
+and outputs logits of shape (n_classes, B).
+
+A toy model to use in-place of resnet18/resnet50 during development.
+"""
+function toy_resnet(;img_size::Int=224, n_classes::Int=1000, rng=Random.default_rng())
+    n_input = img_size * img_size * 3  # H × W × C
+    
+    model = Chain(
+        FlattenLayer(),  # (H, W, C, B) -> (H*W*C, B)
+        Dense(n_input => n_classes)
+    )
+    
+    return model
 end
 
 function alexnet() # for Imagenet

@@ -35,8 +35,16 @@ function is_saturated(mylog::Vector, smoothing_window::Int; plot_graph::Bool = f
         w2 = reshape(mylog[end-th+1:end], 1, th)
         
         # fit smooth curves to w1 and w2:
-        _, u1 = collocate_data(w1, 1:th, EpanechnikovKernel())
-        _, u2 = collocate_data(w2, 1:th, EpanechnikovKernel())
+        u1 = nothing
+        u2 = nothing
+        try
+            _, u1 = collocate_data(w1, 1:th, EpanechnikovKernel())
+            _, u2 = collocate_data(w2, 1:th, EpanechnikovKernel())
+        catch e
+            @warn "Collocation failed, using raw data" exception=e
+            u1 = w1  # Fallback to unsmoothed data
+            u2 = w2
+        end
         # other kernels: https://docs.sciml.ai/DiffEqFlux/stable/utilities/Collocation/
         # example: https://docs.sciml.ai/DiffEqFlux/stable/examples/collocation/
         

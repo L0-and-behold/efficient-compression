@@ -28,6 +28,10 @@ do_batch_run("./results", "experiment1", run_training, params, variable_names, b
 ```
 """
 
+using JLD2
+# using Revise: includet
+include("../Checkpointer.jl")
+
 function do_batch_run(
     path_to_db::String,
     experiment_name::String,
@@ -37,7 +41,47 @@ function do_batch_run(
     batch_of_values::Union{Vector{<:Tuple}, DeviceIterator};
     break_if_one_run_errors::Bool = true
 )
-    @assert length(variable_names) == length(batch_of_values[1]) "Each tuple in batch_of_values must have the same length as variable_names"
+    @assert length(variable_names) == length(batch_of_values[1])
+    
+    # Setup checkpoint directory
+    checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
+    mkpath(checkpoint_dir)
+    
+    # Check for available checkpoints to resume
+    if args.use_checkpoints
+        available_checkpoint = find_available_checkpoint(checkpoint_dir)
+        if !isnothing(available_checkpoint)
+            println("Found available checkpoint: $available_checkpoint")
+            println("Resuming interrupted run...")
+            
+            @load available_checkpoint tstate args epoch prev_val_loss best_tstate loss_fun convergence_triggered metadata
+            
+            # Mark as running
+            metadata_running = CheckpointMetadata(
+                metadata.checkpoint_id, :running, metadata.created_at, now(),
+                metadata.current_epoch, metadata.max_runtime_seconds, time()
+            )
+            @save available_checkpoint tstate args epoch prev_val_loss best_tstate loss_fun convergence_triggered metadata_running
+            
+            # Resume the run
+            try
+                single_run_routine(path_to_db, experiment_name, args, variable_names, 
+                                 checkpoint_metadata=metadata_running)
+                println("✓ Resumed run completed successfully")
+            catch e
+                if occursin("MaxRuntimeReached", string(e))
+                    println("Run paused due to timeout. Will resume on next execution.")
+                else
+                    rethrow(e)
+                end
+            end
+            println("Continuing with batchrun")
+        else
+            println("No checkpoints found. Continuing with batchrun.")
+        end
+    end
+
+    # Normal batch execution
 
     # randomize order of runs such that we can run the script in parallel
     # one run is not run twice, this is ensured by 'has_been_run_before' logic in the 'single_run_routine'

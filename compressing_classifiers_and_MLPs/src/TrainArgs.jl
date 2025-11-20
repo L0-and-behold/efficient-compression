@@ -72,6 +72,10 @@ Base.@kwdef mutable struct TrainArgs{T<:Union{Float32,Float64}} <: AbstractTrain
     seed::Int = 42
     schedule = nothing
     debug::Bool = false
+    use_checkpoints = false
+    checkpoint_dir = ""
+    checkpoint_frequency = 10 
+    max_runtime_seconds = 3600 * 23.5
 end
 
 function TrainArgs(; T=Float32)
