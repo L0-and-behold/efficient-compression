@@ -1,8 +1,11 @@
-
 using Statistics
 using DiffEqFlux: collocate_data, EpanechnikovKernel
-using Plots, Revise
-plotlyjs()
+using Plots
+
+# # Only activate PlotlyJS backend in interactive sessions to avoid precompilation side‑effects
+if Base.JLOptions().isinteractive != 0
+    plotlyjs()
+end
 
 """
     is_saturated(mylog::Vector, smoothing_window::Int; plot_graph::Bool = false, min_possible_deviation=1e-10, return_plot::Bool=false, twosided=false)

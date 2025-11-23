@@ -1,28 +1,11 @@
-using Pkg
-Pkg.activate(".")
-# Pkg.add("ParameterSchedulers")
-# Pkg.add("CUDA")
-# Pkg.build("CUDA")
-# Pkg.add("DeviceIterator")
-# Pkg.instantiate()
-using CUDA
-using TOML
+using Pkg; Pkg.activate(".")
+using Revise
 
-using Revise, ArgParse, Suppressor
+using CUDA, TOML, ArgParse, Suppressor, Optimisers, ParameterSchedulers
 using Lux: gpu_device
-using Optimisers, ParameterSchedulers
 
-
-include("src/TrainArgs.jl")
-
-@suppress begin
-include("src/OptimizationProcedures/OptimizationProcedures.jl")
-end
-include("src/DatasetsModels/DatasetsModels.jl")
-include("src/BatchRun/BatchRun.jl")
-using .OptimizationProcedures: 
-    # FPP_procedure,
-    PMMP_procedure,
+using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
+using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
     RL1_procedure,
     DRR_procedure,
     VGG,
@@ -32,8 +15,11 @@ using .OptimizationProcedures:
     resnet18, 
     toy_resnet,
     alexnet
-using .DatasetsModels: MNIST_data, CIFAR_data, imagenet_data, toy_imagenet_data
-using .BatchRun: do_batch_run, 
+using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, 
+    CIFAR_data, 
+    imagenet_data, 
+    toy_imagenet_data
+using CompressingClassifiersMLPs.BatchRun: do_batch_run, 
     get_sub_batch,
     single_run_routine_classifier,
     single_run_routine_teacherstudent  
@@ -41,7 +27,7 @@ using .BatchRun: do_batch_run,
 #####
 # Experiment setup
 #####
-args = TrainArgs(; T=Float32)
+args = TrainArgs{Float32}()
 
 # Load configuration
 @assert isfile("config.toml") "File `config.toml` does not exist or script run from wrong path."

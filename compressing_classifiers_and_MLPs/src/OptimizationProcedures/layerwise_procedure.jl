@@ -1,8 +1,3 @@
-using Revise, CUDA
-import Lux
-include("procedure.jl")
-
-
 """
     layerwise_procedure(
         train_set::Union{Vector{<:Tuple}, DeviceIterator},

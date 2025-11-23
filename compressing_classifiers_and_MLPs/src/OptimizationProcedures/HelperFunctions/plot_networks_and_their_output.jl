@@ -1,7 +1,5 @@
 using Lux: cpu_device
 using Plots, ColorSchemes, PlotlyJS, Revise
-
-
 """
     plot_weights(tstate; legend = :topright, title = "")
 

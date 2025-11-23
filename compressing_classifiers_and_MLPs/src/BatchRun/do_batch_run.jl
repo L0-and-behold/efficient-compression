@@ -31,6 +31,7 @@ do_batch_run("./results", "experiment1", run_training, params, variable_names, b
 using JLD2
 # using Revise: includet
 include("../Checkpointer.jl")
+# TODO: resolve Checkpointing
 
 function do_batch_run(
     path_to_db::String,

@@ -1,12 +1,3 @@
-
-using Flux: onehotbatch, gpu
-using MLDatasets: MNIST
-using Base.Iterators: partition
-using Random
-
-using Lux: gpu_device, cpu_device
-
-
 """
     get_dataset(args)
 

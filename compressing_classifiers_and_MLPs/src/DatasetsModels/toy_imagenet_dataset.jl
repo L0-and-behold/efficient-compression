@@ -1,11 +1,3 @@
-using MLUtils: DataLoader
-using OneHotArrays
-using Random
-using Lux
-using Distributed
-using Lux: DistributedUtils
-import Lux.DistributedUtils.DistributedDataContainer
-
 """
     SimpleToyDataset(n_samples, n_classes, image_dims; rng=Random.GLOBAL_RNG)
 

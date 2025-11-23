@@ -1,6 +1,3 @@
-using CUDA, Revise
-include("loss_functions.jl")
-
 # The following file contains recursive update operations that are applied to objects of type NamedTuple.
 # They are used by update_functions.jl to modify gradients of parameters explicitly without the need to do backpropagation.
 # Such explicit gradients arise in the regularization procedures we employ (like DRR, PMMP or RL1) and are more efficient than their corresponding backprop counterparts.

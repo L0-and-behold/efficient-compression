@@ -3,7 +3,7 @@ A simple script to run, test and develop the different optimization procedures i
 """
 
 using CUDA
-include("../TrainArgs_classifier.jl")
+include("../TrainArgs.jl")
 include("HelperFunctions/loss_functions.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
@@ -20,7 +20,7 @@ include("FPP_procedure.jl")
 # Note that if RL1 is initialized with alpha=0=rho, then it corresponds to unregularized ("vanilla") optimization
 
 # Training arguments are initialized
-args = TrainArgs(; T=Float32);
+args = TrainArgs{Float32}();
 
 ## Load one of the following datasets
 # train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; seed=123)

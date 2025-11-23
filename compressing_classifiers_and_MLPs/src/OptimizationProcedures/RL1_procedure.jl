@@ -1,7 +1,4 @@
 
-using Revise
-include("procedure.jl")
-
 """
     RL1_procedure(
         train_set::Union{Vector{<:Tuple}, DeviceIterator},

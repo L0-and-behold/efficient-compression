@@ -5,9 +5,6 @@ Helper functions shared by
 """
 
 ########## Helper functions ##########
-using DataFrames, Dates, CSV, Plots, CUDA
-import Lux
-import Lux: DeviceIterator
 
 """
     do_small_run_to_trigger_precompilation(optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args)
@@ -231,8 +228,8 @@ function do_and_save_plots(artifact_folder, logs, args)
     do_and_save_plot(artifact_folder, logs, "train_loss", "val_loss", ft_starts_at=logs["converged_at"][1])
     do_and_save_plot(artifact_folder, logs, "epoch_execution_time", ft_starts_at=logs["converged_at"][1])
 
-    if OptimizationProcedures.is_saturated(logs["val_loss"], args.smoothing_window; min_possible_deviation=args.shrinking_from_deviation_of)
-        p = OptimizationProcedures.is_saturated(logs["val_loss"], args.smoothing_window; min_possible_deviation=args.shrinking_from_deviation_of, plot_graph=true, return_plot=true)
+    if is_saturated(logs["val_loss"], args.smoothing_window; min_possible_deviation=args.shrinking_from_deviation_of)
+        p = is_saturated(logs["val_loss"], args.smoothing_window; min_possible_deviation=args.shrinking_from_deviation_of, plot_graph=true, return_plot=true)
         savefig(p, joinpath(artifact_folder, "saturated.pdf"))
     end
 end

@@ -8,9 +8,6 @@ using LuxCUDA, Revise
 using Boltz
 using CUDA
 using Metalhead
-
-include("loss_functions.jl")
-
 """
     generate_dense_network(
         architecture::Vector{Int64};

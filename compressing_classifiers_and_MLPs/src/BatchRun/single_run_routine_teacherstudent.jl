@@ -1,27 +1,3 @@
-using Dates, CUDA, CSV, DataFrames, Random
-using Dates: now
-import PlotlyJS, Plots, Lux, Optimisers
-import Plots
-import Lux: AutoZygote
-import Lux.Training: compute_gradients
-
-using .Database: create_experiment, 
-    initialize_runs_csv, 
-    create_run, 
-    initialize_single_run_df, 
-    log_params, 
-    get_artifact_folder, 
-    append_run_to_csv!, 
-    has_been_run_before, 
-    pretrained_models_exist
-using .TrainingTools: save_train_state, 
-    load_train_state
-using .OptimizationProcedures: scale_alpha_rho!, 
-    generate_tstate, 
-    setup_data_teacher_and_student, 
-    plot_data_teacher_and_student, 
-    plot_weights
-
 """
     single_run_routine_teacherstudent(path_to_db, experiment_name, args, variables)
 
@@ -87,7 +63,7 @@ function single_run_routine_teacherstudent(
     current_run_df = initialize_single_run_df(args)
     current_run_df = log_params(current_run_df, args)
     current_run_df = log_final_losses(current_run_df, train_set, validation_set, test_set, tstate, loss_fctn, args)
-    current_run_df = log_meta_data_and_metrics(current_run_df, run_id, experiment_name, start_time, logs)
+    current_run_df = log_meta_data_and_metrics_teacherstudent(current_run_df, run_id, experiment_name, start_time, logs)
     append_run_to_csv!(path_to_db, experiment_name, current_run_df)
 
     # save plots, .csv files, and trained weights
@@ -198,7 +174,7 @@ function log_final_losses(run_df::DataFrame, train_set, validation_set, test_set
 end
 
 """
-    log_meta_data_and_metrics(run_df, run_id, experiment_name, start_time, logs)
+    log_meta_data_and_metrics_teacherstudent(run_df, run_id, experiment_name, start_time, logs)
 
 Add experiment metadata and metrics to the run DataFrame.
 
@@ -215,7 +191,7 @@ L0 norm and sigma values if they exist in the logs.
 # Returns
 - Updated DataFrame with metadata and metrics added
 """
-function log_meta_data_and_metrics(run_df::DataFrame, run_id::String, experiment_name::String, start_time::Dates.DateTime, logs::Dict)
+function log_meta_data_and_metrics_teacherstudent(run_df::DataFrame, run_id::String, experiment_name::String, start_time::Dates.DateTime, logs::Dict)
     run_df[end, :run_id] = run_id
     run_df[end, :experiment_name] = experiment_name
     run_df[end, :timestamp] = string(start_time)

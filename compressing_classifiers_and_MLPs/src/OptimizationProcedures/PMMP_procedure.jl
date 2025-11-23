@@ -1,4 +1,3 @@
-include("procedure.jl")
 
 function recursively_modify_PMMP!(params, fun)
     for subparams in params
@@ -10,22 +9,7 @@ function recursively_modify_PMMP!(params, fun)
     end
 end
 
-function convert_tstate!(tstate, args)
-    pw = deepcopy(tstate.parameters)
-    pp = deepcopy(tstate.parameters)
-    u = deepcopy(tstate.parameters)
-    
-    recursively_modify_PMMP!(pp, x -> args.initial_p_value .* one.(x))
-    recursively_modify_PMMP!(u, x -> args.initial_u_value .* one.(x))
 
-    tstate = Training.TrainState(tstate.model, (p = tstate.parameters, pw=pw, pp=pp, u=u), tstate.states, tstate.optimizer)
-    if hasproperty(tstate.model, :name)
-        @reset tstate.model.name = "PMMP model"
-    elseif hasproperty(tstate.model.layer, :name)
-        @reset tstate.model.layer.name = "PMMP model"
-    end
-    return tstate
-end
 
 """
     PMMP_procedure(
@@ -59,8 +43,25 @@ function PMMP_procedure(
     loss_fctn::Function,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
     
+    function _convert_tstate!(tstate, args)
+        pw = deepcopy(tstate.parameters)
+        pp = deepcopy(tstate.parameters)
+        u = deepcopy(tstate.parameters)
+        
+        recursively_modify_PMMP!(pp, x -> args.initial_p_value .* one.(x))
+        recursively_modify_PMMP!(u, x -> args.initial_u_value .* one.(x))
+
+        tstate = Training.TrainState(tstate.model, (p = tstate.parameters, pw=pw, pp=pp, u=u), tstate.states, tstate.optimizer)
+        if hasproperty(tstate.model, :name)
+            @reset tstate.model.name = "PMMP model"
+        elseif hasproperty(tstate.model.layer, :name)
+            @reset tstate.model.layer.name = "PMMP model"
+        end
+        return tstate
+    end
+
     if !haskey(tstate.parameters, :pp)
-        tstate = convert_tstate!(tstate, args)
+        tstate = _convert_tstate!(tstate, args)
     end
     if !((@isdefined loss_fun) && typeof(loss_fun) <: PMMP)
         initial_grad_p = deepcopy(tstate.parameters.p)

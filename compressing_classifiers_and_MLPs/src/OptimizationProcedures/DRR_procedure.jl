@@ -1,7 +1,3 @@
-using Revise, CUDA
-import Lux
-include("procedure.jl")
-
 """
     DRR_procedure(
         train_set::Union{Vector{<:Tuple}, DeviceIterator},

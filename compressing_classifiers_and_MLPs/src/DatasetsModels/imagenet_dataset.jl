@@ -3,12 +3,6 @@
 # We need the data to be in a specific format. See the
 # [README.md](<unknown>/examples/ImageNet/README.md) for more details.
 
-using DataAugmentation
-using MLUtils: DataLoader
-using Lux
-using FileIO
-using OneHotArrays
-
 const IMAGENET_CORRUPTED_FILES = [
     "n01739381_1309.JPEG",
     "n02077923_14822.JPEG",

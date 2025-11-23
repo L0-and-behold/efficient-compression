@@ -23,12 +23,7 @@ path_to_db
 
 module Database
 
-    using DataFrames, CSV, UUIDs
-
-    using JLD2, JSON
-
-    include("../TrainingTools.jl")
-    using .TrainingTools
+    using DataFrames, CSV, UUIDs, JLD2, JSON
 
     include("db_structure.jl")
     export create_experiment, 
@@ -50,4 +45,4 @@ module Database
         fetch_pretrained_model_state, 
         fetch_pretrained_optimizer_state
 
-end
+end # module Database

@@ -9,6 +9,8 @@ Supports sub-batch execution via --num_sub_batches and --sub_batch command line 
 # Header
 #####
 
+# TODO: change how the packages are loaded here.
+
 using Pkg
 Pkg.activate(".")
 
@@ -48,7 +50,7 @@ This structure encapsulates the configuration needed to reproduce
 a specific training run.
 """
 
-args = TrainArgs(; T=Float32)
+args = TrainArgsP{Float32}()
 
 """
 Output location configuration.

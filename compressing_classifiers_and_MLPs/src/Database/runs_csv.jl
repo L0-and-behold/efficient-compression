@@ -4,8 +4,6 @@ This module provides utilities for creating, initializing, and appending to run 
 in CSV format for experiment tracking.
 """
 
-using DataFrames
-
 META_FIELD_NAMES = [
     :run_id,
     :experiment_name,
