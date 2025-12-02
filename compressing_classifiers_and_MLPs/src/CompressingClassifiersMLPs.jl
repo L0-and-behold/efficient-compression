@@ -2,6 +2,8 @@
 module CompressingClassifiersMLPs
 
     include("TrainArgs.jl")
+    include("Checkpointer.jl")
+    
     include("OptimizationProcedures/OptimizationProcedures.jl")
     include("DatasetsModels/DatasetsModels.jl")
     include("TrainingTools.jl")

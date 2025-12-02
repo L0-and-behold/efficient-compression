@@ -28,6 +28,9 @@ An optimization procedure is a function with
 
 module OptimizationProcedures
    using Lux, Optimisers, PlotlyJS, CUDA, Revise, JLD2
+
+   using ..Checkpointer
+   using ..TrainingArguments
    
    include("HelperFunctions/loss_functions.jl")
    export accuracy
@@ -44,9 +47,6 @@ module OptimizationProcedures
    include("LayerWiseFunctions/projected_implementation/layerwise_pruning.jl")
    include("HelperFunctions/random_gradient_pruning.jl")
 
- 
-   # TODO: load Checkpointer as module
-   include("../Checkpointer.jl")
 
    # __precompile__()
 

@@ -29,7 +29,9 @@ function RL1_procedure(
     test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     if args.gauss_loss
         if hasproperty(tstate.model, :name)
@@ -49,5 +51,5 @@ function RL1_procedure(
         loss_fun = RL1_loss(; alpha=args.α, rho=args.ρ, loss_f=loss_fctn)
     end
 
-    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args)
+    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end

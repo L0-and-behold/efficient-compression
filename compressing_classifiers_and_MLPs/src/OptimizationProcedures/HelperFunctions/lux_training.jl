@@ -73,10 +73,23 @@ end
         - `layerwise_pruning_flag`: A boolean that determines whether layerwise pruning is carried out every args.prune_window epochs.
         - `converge_val_loss`: A boolean that determines whether the validation loss or the train loss should be used to determine convergence. (default is true, which however requires to hand a non-empty validation set to lux_training!)
 """
-function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, args; 
-                       vjp = AutoZygote(), min_epochs = 20000, max_epochs=40000, 
-                       shrinking=true, layerwise_pruning_flag=false, converge_val_loss=true,
-                       checkpoint_metadata=nothing)
+function lux_training!(
+    train_set, 
+    validation_set, 
+    test_set, 
+    loss_fun, 
+    tstate, 
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    ; 
+    vjp = AutoZygote(), 
+    min_epochs=20000, 
+    max_epochs=40000, 
+    shrinking=true, 
+    layerwise_pruning_flag=false, 
+    converge_val_loss=true,
+    checkpoint_enabled=true
+    )
     
     convergence_triggered = false
     if args.log_val_loss
@@ -92,6 +105,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     if layerwise_pruning_flag
         input = [batch[1] for batch in train_set]
     end
+
     # Initialization
     start_epoch = 0
     if isnothing(args.logs)
@@ -127,20 +141,23 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     end
     num_batches = args.dtype(length(train_set))
 
-    # Checkpoint loading
-    start_epoch_offset = 0
-    if !isnothing(checkpoint_metadata)
-        if checkpoint_metadata.current_epoch > 0
-            println("Resuming from epoch $(checkpoint_metadata.current_epoch)")
-            start_epoch_offset = checkpoint_metadata.current_epoch
-        end
+    # Checkpoint loading and initialization of variables
+    if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 0
+        println("Resuming from epoch $(checkpoint.metadata.epoch)")
+        start_epoch_offset = checkpoint.content.epoch
+        prev_val_loss = checkpoint.content.prev_val_loss
+        total_time_start = checkpoint.metadata.start_time
+        prev_prev_val_loss = checkpoint.content.prev_prev_val_loss
+        best_tstate = deepcopy(checkpoint.content.best_tstate)
+    else
+        start_epoch_offset = 0
+        prev_val_loss = Inf32
+        total_time_start = time()
+        prev_prev_val_loss = 0
+        best_tstate = deepcopy(tstate)
     end
 
     # Main loop
-    total_time_start = time()
-    prev_val_loss = Inf32
-    prev_prev_val_loss = 0
-    best_tstate = deepcopy(tstate)
     obs_window = round(Int,args.smoothing_window/1)
     start_turn_point = length(args.logs["turning_points_val_loss"])
     push!(args.logs["turning_points_val_loss"], start_epoch+1)
@@ -149,23 +166,24 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     last_lr = copy(args.lr)
     for epoch in (start_epoch_offset+1):max_epochs
         # Check for timeout before starting epoch
-        if !isnothing(checkpoint_metadata) && should_stop_for_timeout(checkpoint_metadata)
+        if checkpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
             println("Maximum runtime approaching. Saving checkpoint and exiting...")
-            save_checkpoint(args.checkpoint_dir, checkpoint_metadata.checkpoint_id, 
-                          tstate, args, epoch-1, prev_val_loss, best_tstate, 
-                          loss_fun, convergence_triggered, checkpoint_metadata)
-            
-            # Mark as available for resume
-            checkpoint_path = joinpath(args.checkpoint_dir, "checkpoint_$(checkpoint_metadata.checkpoint_id).jld2")
-            @load checkpoint_path tstate args epoch prev_val_loss best_tstate loss_fun convergence_triggered metadata
-            metadata_paused = CheckpointMetadata(
-                metadata.checkpoint_id, :available, metadata.created_at, now(),
-                epoch-1, metadata.max_runtime_seconds, metadata.start_time
+            update_checkpoint_state!(
+                checkpoint;
+                args=args,
+                tstate=tstate,
+                epoch=epoch - 1,
+                prev_val_loss=prev_val_loss,
+                prev_prev_val_loss=prev_prev_val_loss,
+                best_tstate=best_tstate,
+                loss_fun=loss_fun,
+                convergence_triggered=convergence_triggered,
+                status=:available
             )
-            @save checkpoint_path tstate args epoch prev_val_loss best_tstate loss_fun convergence_triggered metadata_paused
-            
-            error("MaxRuntimeReached: Checkpoint saved. Restart to resume.")
+            maybe_save_checkpoint(checkpoint)
+            error("MaxRuntimeReached")
         end
+
         if !isnothing(args.schedule) # update learning rate if schedule is specified
             new_lr = args.schedule(epoch)
             if new_lr != last_lr
@@ -311,11 +329,6 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
                     break
                 end
             end
-            if args.use_checkpoints && epoch % args.checkpoint_frequency == 0
-                save_checkpoint(args.checkpoint_dir, checkpoint_metadata.checkpoint_id,
-                            tstate, args, epoch, prev_val_loss, best_tstate,
-                            loss_fun, convergence_triggered, checkpoint_metadata)
-            end
         end
         if args.debug
             println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
@@ -343,9 +356,46 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         return_tstate = tstate
     end
 
-    if !isnothing(checkpoint_metadata)
-        finalize_checkpoint(args.checkpoint_dir, checkpoint_metadata.checkpoint_id)
+    if checkpoint.do_checkpointing && checkpoint_enabled
+        update_checkpoint_state!(
+            checkpoint;
+            args=args,
+            tstate=return_tstate,
+            epoch=checkpoint.content.epoch, # last completed epoch
+            prev_val_loss=prev_val_loss,
+            prev_prev_val_loss=prev_prev_val_loss,
+            best_tstate=best_tstate,
+            loss_fun=loss_fun,
+            convergence_triggered=convergence_triggered,
+            status=:available
+        )
+        maybe_save_checkpoint(checkpoint)
     end
 
-    return return_tstate, args.logs, loss_fun
+    return return_tstate, args.logs, loss_fun, checkpoint
+end
+
+function update_checkpoint_state!(
+    checkpoint::CheckpointManager;
+    args,
+    tstate,
+    epoch,
+    prev_val_loss,
+    prev_prev_val_loss,
+    best_tstate,
+    loss_fun,
+    convergence_triggered,
+    status::Symbol
+)
+    checkpoint.metadata.status = status
+    checkpoint.metadata.last_updated = time()
+
+    checkpoint.content.args = args
+    checkpoint.content.tstate = tstate
+    checkpoint.content.epoch = epoch
+    checkpoint.content.prev_val_loss = prev_val_loss
+    checkpoint.content.prev_prev_val_loss = prev_prev_val_loss
+    checkpoint.content.best_tstate = best_tstate
+    checkpoint.content.loss_fun = loss_fun
+    checkpoint.content.convergence_triggered = convergence_triggered
 end

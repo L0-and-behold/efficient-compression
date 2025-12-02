@@ -12,7 +12,17 @@ Execute a single training run for a classifier model with the given parameters.
 # Returns
 Nothing, but saves training results, plots, and model state to the database
 """
-function single_run_routine_classifier(path_to_db::String, experiment_name::String, args, variables; checkpoint_metadata=nothing)
+function single_run_routine_classifier(
+        path_to_db::String, 
+        experiment_name::String, 
+        args::AbstractTrainArgs, 
+        variables,
+        checkpoint::CheckpointManager
+    )
+
+    if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
+        args = checkpoint.content.args
+    end
 
     assertions_classifier(args)
 
@@ -36,7 +46,7 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
 
     model_seed = args.seed + 42; loss_fctn = logitcrossentropy;
     
-    start_time = now()
+    start_time = time()
 
     println("Start training for $run_id with architecture '$(args.architecture)', dataset '$(args.dataset)' and optimization procedure '$(args.optimization_procedure)'")
 
@@ -50,9 +60,22 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
     end
     
     # do actual training
-    tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
+    if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
+        if args.verbose
+            println("Loading tstate from checkpoint")
+        end
+        if isnothing(checkpoint.content.tstate)
+            error("Checkpoint indicates loaded run but tstate is nothing")
+        end
+        tstate = checkpoint.content.tstate
+    else
+        if args.verbose
+            println("Generating fresh training state")
+        end
+        tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
+    end
 
-    tstate, logs, loss_fctn = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
+    tstate, logs, loss_fctn, checkpoint = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args, checkpoint)
 
     # save results
     args.logs = Dict{String, Any}() # There is no need to save all logs in the summary csv file
@@ -68,6 +91,10 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
 
     do_and_save_plots(artifact_folder, logs, args)
     save_train_state(tstate, model, Random.GLOBAL_RNG, joinpath(artifact_folder, "train_state.bson"))
+
+    # save checkpoint
+    checkpoint.metadata.status = :finished
+    maybe_save_checkpoint(checkpoint)
 
     println("Training and saving of results finished for $run_id.")
 end

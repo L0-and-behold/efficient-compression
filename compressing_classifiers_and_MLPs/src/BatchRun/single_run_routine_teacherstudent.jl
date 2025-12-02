@@ -17,10 +17,12 @@ duplicate runs by checking if parameters have been used before.
 Nothing. Results are saved to the database and artifact folder.
 """
 function single_run_routine_teacherstudent(
-    path_to_db::String, 
-    experiment_name::String, 
-    args, 
-    variables::Vector{Symbol})
+        path_to_db::String, 
+        experiment_name::String, 
+        args, 
+        variables::Vector{Symbol},
+        checkpoint::CheckpointManager
+    )
 
     assertions_teacherstudent(args)
     plotlyjs()
@@ -48,7 +50,7 @@ function single_run_routine_teacherstudent(
 
     save_network_plots_before_training(tstate, teacher_tstate, train_set, artifact_folder)
    
-    start_time = now()
+    start_time = time()
 
     println("Start training for $run_id with teacher of dimensions '$(architecture_teacher)', and optimization procedure '$(args.optimization_procedure)'")
 

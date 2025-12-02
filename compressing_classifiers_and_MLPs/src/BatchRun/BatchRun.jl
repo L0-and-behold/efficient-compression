@@ -26,8 +26,9 @@ module BatchRun
         pretrained_models_exist
     using ..TrainingTools: save_train_state, 
         load_train_state
-    using ..TrainingArguments: TrainArgs
+    using ..TrainingArguments
     # using ..DatasetsModels
+    using ..Checkpointer
 
     include("procedures_runs_helpers.jl")
     export do_small_run_to_trigger_precompilation, 

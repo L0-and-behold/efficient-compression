@@ -28,7 +28,9 @@ function DRR_procedure(
     test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     if args.gauss_loss
         if hasproperty(tstate.model, :name)
@@ -61,7 +63,7 @@ function DRR_procedure(
         loss_fun = DRR(model_param_number, layernumber_model; alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn, fun1 = fun1)
     end
 
-    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args)
+    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end
 
 function get_layer_number(params)

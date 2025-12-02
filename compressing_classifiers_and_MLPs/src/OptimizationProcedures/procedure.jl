@@ -25,13 +25,18 @@
         - `loss_fun`: The regularized loss function (e.g. RL1_loss, DRR or PMMP)
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
+
+using .Checkpointer
+
 function procedure(
     train_set::Union{Vector{<:Tuple}, DeviceIterator},
     validation_set::Union{Vector{<:Tuple}, DeviceIterator},
     test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
     tstate::Lux.Training.TrainState,
     loss_fun::LossFunction,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
 
     assert_arg_correctness(args, validation_set)
     
@@ -47,10 +52,8 @@ function procedure(
         end
     end
 
-    # Phase 1 consists of a regularized training procedure.
-    tstate, logs, loss_fun = lux_training!(train_set, validation_set, test_set, loss_fun, tstate, args; min_epochs=args.min_epochs, max_epochs=args.max_epochs, shrinking=args.shrinking, layerwise_pruning_flag=args.layerwise_pruning, converge_val_loss=args.converge_val_loss);
-
-    # loss_fun_after_training = deepcopy(loss_fun)
+    # Phase 1 consists of a regularized training procedure. Checkpointing during this stage. No checkpointing afterwards.
+    tstate, logs, loss_fun, checkpoint = lux_training!(train_set, validation_set, test_set, loss_fun, tstate, args, checkpoint; min_epochs=args.min_epochs, max_epochs=args.max_epochs, shrinking=args.shrinking, layerwise_pruning_flag=args.layerwise_pruning, converge_val_loss=args.converge_val_loss, checkpoint_enabled=true);
 
     # Phase 1 consists of a pruning step.
     if args.layerwise_pruning
@@ -71,11 +74,11 @@ function procedure(
     end
     
     # Phase 3 consists of finetuning.
-    tstate, logs, loss_fun = lux_training!(train_set, validation_set, test_set, finetuning_loss, tstate, args; min_epochs=args.finetuning_min_epochs, max_epochs=args.finetuning_max_epochs, shrinking=args.finetuning_shrinking, layerwise_pruning_flag=args.finetuning_layerwise_pruning, converge_val_loss=args.finetuning_converge_val_loss)
+    tstate, logs, loss_fun, checkpoint = lux_training!(train_set, validation_set, test_set, finetuning_loss, tstate, args, checkpoint; min_epochs=args.finetuning_min_epochs, max_epochs=args.finetuning_max_epochs, shrinking=args.finetuning_shrinking, layerwise_pruning_flag=args.finetuning_layerwise_pruning, converge_val_loss=args.finetuning_converge_val_loss, checkpoint_enabled=false)
 
     if args.verbose
         println("\nProcedure finished.\n")
     end
 
-    return tstate, logs, loss_fun #, loss_fun_after_training
+    return tstate, logs, loss_fun, checkpoint #, loss_fun_after_training
 end

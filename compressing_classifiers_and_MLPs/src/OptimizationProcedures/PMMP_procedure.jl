@@ -41,7 +41,9 @@ function PMMP_procedure(
     test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     function _convert_tstate!(tstate, args)
         pw = deepcopy(tstate.parameters)
@@ -81,5 +83,5 @@ function PMMP_procedure(
         end
     end
 
-    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args)
+    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end

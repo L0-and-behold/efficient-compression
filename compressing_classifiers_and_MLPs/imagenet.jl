@@ -189,11 +189,11 @@ args.schedule = Step(
 
 args.multiply_mask_after_each_batch = true
 args.debug = true
+
 args.use_checkpoints = true
 args.checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
 args.checkpoint_frequency = 1
 args.max_runtime_seconds = 3600 * 23.5
-
 
 break_if_one_run_errors = true
 

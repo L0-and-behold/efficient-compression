@@ -29,9 +29,7 @@ do_batch_run("./results", "experiment1", run_training, params, variable_names, b
 """
 
 using JLD2
-# using Revise: includet
-include("../Checkpointer.jl")
-# TODO: resolve Checkpointing
+using ..Checkpointer
 
 function do_batch_run(
     path_to_db::String,
@@ -44,43 +42,72 @@ function do_batch_run(
 )
     @assert length(variable_names) == length(batch_of_values[1])
     
-    # Setup checkpoint directory
-    checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
-    mkpath(checkpoint_dir)
-    
-    # Check for available checkpoints to resume
-    if args.use_checkpoints
-        available_checkpoint = find_available_checkpoint(checkpoint_dir)
-        if !isnothing(available_checkpoint)
-            println("Found available checkpoint: $available_checkpoint")
-            println("Resuming interrupted run...")
-            
-            @load available_checkpoint tstate args epoch prev_val_loss best_tstate loss_fun convergence_triggered metadata
-            
-            # Mark as running
-            metadata_running = CheckpointMetadata(
-                metadata.checkpoint_id, :running, metadata.created_at, now(),
-                metadata.current_epoch, metadata.max_runtime_seconds, time()
-            )
-            @save available_checkpoint tstate args epoch prev_val_loss best_tstate loss_fun convergence_triggered metadata_running
-            
-            # Resume the run
-            try
-                single_run_routine(path_to_db, experiment_name, args, variable_names, 
-                                 checkpoint_metadata=metadata_running)
-                println("✓ Resumed run completed successfully")
-            catch e
-                if occursin("MaxRuntimeReached", string(e))
-                    println("Run paused due to timeout. Will resume on next execution.")
-                else
-                    rethrow(e)
-                end
+    # init checkpoint
+    checkpoint = CheckpointManager(
+        args.use_checkpoints,
+        CheckpointMetadata(
+            path=joinpath(path_to_db, experiment_name, "checkpoints"),
+            max_runtime_seconds=args.max_runtime_seconds
+        ),
+        CheckpointContent(args=args)
+    )
+
+    # if using checkpoints, load checkpoint and continue training
+    checkpoint, checkpoint_found_and_loaded = maybe_load_checkpoint(checkpoint)
+    if checkpoint_found_and_loaded
+        println("Found available checkpoint: $(checkpoint.metadata.checkpoint_id)")
+        println("Resuming interrupted run...")
+        try
+            single_run_routine(path_to_db, experiment_name, args, variable_names, checkpoint)
+            println("✓ Resumed run completed successfully")
+        catch e
+            if occursin("MaxRuntimeReached", string(e))
+                println("Run paused due to timeout. Will resume on next execution.")
+            else
+                rethrow(e)
             end
-            println("Continuing with batchrun")
-        else
-            println("No checkpoints found. Continuing with batchrun.")
         end
+        println("Continuing with batchrun")
     end
+    
+    
+    # # Setup checkpoint and potentially continue training for available checkpoint
+    # if args.use_checkpoints
+    #     checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
+    #     metadata = CheckpointMetadata(path=checkpoint_dir, max_runtime_seconds=args.max_runtime_seconds)
+    #     content = CheckpointContent(args, "")
+
+    #     # try to load an available checkpoint
+    #     filepath = find_available_checkpoint(checkpoint_dir)
+    #     if filepath !== nothing
+    #         metadata, content = load_checkpoint(filepath)
+    #         println("Found available checkpoint. Coninue training for checkpoint $(metadata.checkpoint_id)")
+    #     end
+    
+    #     # Check for available checkpoints to resume
+    #     available_checkpoint = find_available_checkpoint(checkpoint_dir)
+    #     if !isnothing(available_checkpoint)
+    #         println("Found available checkpoint: $available_checkpoint")
+    #         println("Resuming interrupted run...")
+            
+    #         metadata, content = load_checkpoint(available_checkpoint)
+
+    #         # Resume the run
+    #         try
+    #             single_run_routine(path_to_db, experiment_name, args, variable_names, checkpoint)
+    #             println("✓ Resumed run completed successfully")
+    #         catch e
+    #             if occursin("MaxRuntimeReached", string(e))
+    #                 println("Run paused due to timeout. Will resume on next execution.")
+    #             else
+    #                 rethrow(e)
+    #             end
+    #         end
+    #         println("Continuing with batchrun")
+    #     else
+    #         println("No checkpoints found. Continuing with batchrun.")
+    #     end
+    # end
 
     # Normal batch execution
 
@@ -126,11 +153,11 @@ function do_batch_run(
 
         # Do training and save results for this run
         if break_if_one_run_errors
-            single_run_routine(path_to_db, experiment_name, local_args, variable_names)
+            single_run_routine(path_to_db, experiment_name, local_args, variable_names, checkpoint)
             summary *= " - success \n"
         else
             try
-                single_run_routine(path_to_db, experiment_name, local_args, variable_names)
+                single_run_routine(path_to_db, experiment_name, local_args, variable_names, checkpoint)
                 summary *= " - success \n"
             catch e
                 println("Run failed with error: $e")
