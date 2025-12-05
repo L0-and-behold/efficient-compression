@@ -143,8 +143,8 @@ function lux_training!(
 
     # Checkpoint loading and initialization of variables
     if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 0
-        println("Resuming from epoch $(checkpoint.metadata.epoch)")
-        start_epoch_offset = checkpoint.content.epoch
+        println("Starting/Resuming from epoch $(checkpoint.content.epoch)")
+        start_epoch_offset = checkpoint.content.epoch - 1
         prev_val_loss = checkpoint.content.prev_val_loss
         total_time_start = checkpoint.metadata.start_time
         prev_prev_val_loss = checkpoint.content.prev_prev_val_loss
@@ -240,7 +240,7 @@ function lux_training!(
             epoch_val_loss /= length(validation_set)
             push!(args.logs["val_loss"], epoch_val_loss)
             if args.verbose 
-                @printf "\rEpoch: %5d \t Train_loss: %.4g \t Val_loss: %.4g \t" epoch epoch_loss epoch_val_loss
+                @printf "\rEpoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
             end
 
             if !isnothing(test_set)
@@ -396,6 +396,5 @@ function update_checkpoint_state!(
     checkpoint.content.prev_val_loss = prev_val_loss
     checkpoint.content.prev_prev_val_loss = prev_prev_val_loss
     checkpoint.content.best_tstate = best_tstate
-    checkpoint.content.loss_fun = loss_fun
     checkpoint.content.convergence_triggered = convergence_triggered
 end

@@ -140,9 +140,5 @@ function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_
     test_set = nothing
     return train_set, val_set, test_set
 end
-
-# include("imagenet/imagenet_path.jl")
-# train_set, val_set, test_set = imagenet_data(imagenet_path, 256, 256, 224; dev=gpu_device())
-
-# typeof(train_set) <: DeviceIterator
+imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
 

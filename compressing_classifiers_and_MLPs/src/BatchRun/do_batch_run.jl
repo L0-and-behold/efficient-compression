@@ -53,7 +53,7 @@ function do_batch_run(
     )
 
     # if using checkpoints, load checkpoint and continue training
-    checkpoint, checkpoint_found_and_loaded = maybe_load_checkpoint(checkpoint)
+    checkpoint, checkpoint_found_and_loaded = maybe_load_checkpoint(checkpoint, args)
     if checkpoint_found_and_loaded
         println("Found available checkpoint: $(checkpoint.metadata.checkpoint_id)")
         println("Resuming interrupted run...")

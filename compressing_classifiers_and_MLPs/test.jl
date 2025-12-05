@@ -60,7 +60,7 @@ filepath = find_available_checkpoint(tmpdir)
 @assert filepath !== nothing "Failed to locate available checkpoint"
 
 # Load the checkpoint – status becomes :running
-md, ct = load_checkpoint(filepath)
+md, ct = load_checkpoint(filepath, args)
 @assert md.status == :running "Status should be :running after loading"
 
 # Mark as finished and persist

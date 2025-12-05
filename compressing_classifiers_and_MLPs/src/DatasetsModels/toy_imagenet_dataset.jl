@@ -76,3 +76,4 @@ function toy_imagenet_data(
 
     return train_dl, val_dl, nothing
 end
+toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())

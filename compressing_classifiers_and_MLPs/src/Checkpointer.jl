@@ -1,6 +1,6 @@
 module Checkpointer
 
-using JLD2, Dates, UUIDs
+using JLD2, Dates, UUIDs, CUDA, Lux
 using Base: @kwdef
 
 using ..TrainingArguments: TrainArgs, AbstractTrainArgs
@@ -25,7 +25,6 @@ end
     prev_val_loss::Number = 0f0
     prev_prev_val_loss::Number = 0f0
     best_tstate = nothing
-    loss_fun = nothing
     convergence_triggered::Bool = false
 end
 mutable struct CheckpointManager
@@ -101,7 +100,7 @@ function list_checkpoint_status(checkpoint_dir::String)
     end
 end
 
-function maybe_load_checkpoint(checkpoint::CheckpointManager)::Tuple{CheckpointManager, Bool}
+function maybe_load_checkpoint(checkpoint::CheckpointManager, args::AbstractTrainArgs)::Tuple{CheckpointManager, Bool}
     # No checkpointing requested → nothing loaded.
     if !(checkpoint.do_checkpointing)
         return checkpoint, false
@@ -110,7 +109,7 @@ function maybe_load_checkpoint(checkpoint::CheckpointManager)::Tuple{CheckpointM
     filepath = find_available_checkpoint(checkpoint.metadata.path)
     if filepath !== nothing
         # Load metadata, update its status, then persist the change before loading heavy content.
-        metadata, content = load_checkpoint(filepath)
+        metadata, content = load_checkpoint(filepath, args)
         checkpoint.metadata = metadata
         checkpoint.content = content
         return checkpoint, true
@@ -119,7 +118,7 @@ function maybe_load_checkpoint(checkpoint::CheckpointManager)::Tuple{CheckpointM
     end
 end
 
-function load_checkpoint(filepath::String)::Tuple{CheckpointMetadata, CheckpointContent}
+function load_checkpoint(filepath::String, args::AbstractTrainArgs)::Tuple{CheckpointMetadata, CheckpointContent}
     # Load metadata only
     metadata = jldopen(filepath, "r") do f
         f["metadata"]
@@ -136,6 +135,8 @@ function load_checkpoint(filepath::String)::Tuple{CheckpointMetadata, Checkpoint
     content = jldopen(filepath, "r") do f
         f["content"]
     end
+    content.tstate |> args.dev
+    content.best_tstate |> args.dev
 
     return metadata, content
 end
