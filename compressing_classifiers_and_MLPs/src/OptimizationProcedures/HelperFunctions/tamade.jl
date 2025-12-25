@@ -144,7 +144,18 @@ end
         - `random_gradient_pruning`: Boolean that determines whether random gradient pruning should be performed to eliminate spurious weights or not.
         - `final_epoch`: A Boolean that indicates whether training reached its final epoch or not. This is important for the PMMP procedure where pruning should only be performed in the last epoch to prevent interference with the PMMP mask.
 """
-function prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_resolution=1e-7 ; dtype=Float32, dev=cpu_device(), delete_neurons=true, random_gradient_pruning=true, final_epoch=false)
+function prune_and_shrink!(
+    tstate::Lux.Training.TrainState, 
+    loss_fun, 
+    data, 
+    tolerance, 
+    binary_search_resolution::Number=1e-7 ; 
+    dtype=Float32, 
+    dev=cpu_device(), 
+    delete_neurons::Bool=true, 
+    random_gradient_pruning::Bool=true, 
+    final_epoch::Bool=false
+    )
     
     if haskey(tstate.states, :mask)
         recursively_set_to_zero!(tstate.parameters.p, tstate.states.mask)

@@ -46,7 +46,7 @@ function single_run_routine_classifier(
 
     model_seed = args.seed + 42; loss_fctn = logitcrossentropy;
     
-    start_time = time()
+    start_time = now()
 
     println("Start training for $run_id with architecture '$(args.architecture)', dataset '$(args.dataset)' and optimization procedure '$(args.optimization_procedure)'")
 
@@ -74,6 +74,8 @@ function single_run_routine_classifier(
         end
         tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
     end
+
+    @assert tstate != nothing
 
     tstate, logs, loss_fctn, checkpoint = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args, checkpoint)
 

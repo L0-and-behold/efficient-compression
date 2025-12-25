@@ -16,9 +16,9 @@ module DatasetsModels
     export CIFAR_data
 
     include("imagenet_dataset.jl")
-    export imagenet_data, magenet_data_function
+    export imagenet_data
 
     include("toy_imagenet_dataset.jl")
-    export imagenet_data, toy_imagenet_data_function
+    export toy_imagenet_data
 
 end # module

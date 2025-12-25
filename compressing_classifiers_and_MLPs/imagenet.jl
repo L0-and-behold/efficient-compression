@@ -1,8 +1,10 @@
-using Pkg; Pkg.activate(".")
+using Pkg; Pkg.activate("."); 
+# Pkg.resolve(); Pkg.instantiate()
 using Revise
 
 using CUDA, TOML, ArgParse, Suppressor, Optimisers, ParameterSchedulers
 using Lux: gpu_device
+using TOML: parsefile
 
 using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
 using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
@@ -17,8 +19,8 @@ using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
     alexnet
 using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, 
     CIFAR_data, 
-    imagenet_data_function, 
-    toy_imagenet_data_function
+    imagenet_data, 
+    toy_imagenet_data
 using CompressingClassifiersMLPs.BatchRun: do_batch_run, 
     get_sub_batch,
     single_run_routine_classifier,
@@ -31,7 +33,7 @@ args = TrainArgs{Float32}()
 
 # Load configuration
 @assert isfile("config.toml") "File `config.toml` does not exist or script run from wrong path."
-cfg = TOML.parsefile("config.toml")
+cfg = parsefile("config.toml")
 @assert haskey(cfg, "paths") "config file should have [paths] section"
 @assert haskey(cfg["paths"], "path_to_db")
 @assert haskey(cfg["paths"], "imagenet_path")
@@ -144,9 +146,11 @@ append!(batch, DRR_runs)
 # append!(batch, FPP_runs)
 
 # Fixed arguments for all runs
-args.dataset = toy_imagenet_data_function
+imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
+toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
+args.dataset = imagenet_data_function # toy_imagenet_data_function # imagenet_data_function
 
-args.architecture = toy_resnet
+args.architecture = resnet50 #toy_resnet # resnet50
 args.delete_neurons = false
 args.layerwise_pruning = false
 args.smoothing_window = 5
@@ -186,12 +190,12 @@ args.schedule = Step(
 )
 
 args.multiply_mask_after_each_batch = true
-args.debug = true
+args.debug = false # false
 
 args.use_checkpoints = true
 args.checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
 args.checkpoint_frequency = 1
-args.max_runtime_seconds = 3600 * 23.5 / 5 # /5 for dev
+args.max_runtime_seconds = 3600 * 23.5
 
 break_if_one_run_errors = true
 

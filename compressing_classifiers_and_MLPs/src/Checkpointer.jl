@@ -48,6 +48,13 @@ function maybe_save_checkpoint(checkpoint::CheckpointManager)
     end
 end
 function save_checkpoint(metadata::CheckpointMetadata, content::CheckpointContent)
+
+    for field in fieldnames(CheckpointContent)
+        if getfield(content, field) == nothing 
+            @warn "CheckpointContent field `$(field)` is `nothing`."
+        end
+    end
+
     mkpath(metadata.path)
     path = joinpath(metadata.path, metadata.checkpoint_id*".jld2")
     jldopen(path, "w") do f
@@ -135,6 +142,12 @@ function load_checkpoint(filepath::String, args::AbstractTrainArgs)::Tuple{Check
     content = jldopen(filepath, "r") do f
         f["content"]
     end
+    
+    if content.best_tstate == nothing && content.tstate != nothing
+        @warn "Checkpoint loaded with a `nothing` best_tstate. Substituting for tstate."
+        content.best_tstate = deepcopy(content.tstate)
+    end
+    
     content.tstate |> args.dev
     content.best_tstate |> args.dev
 

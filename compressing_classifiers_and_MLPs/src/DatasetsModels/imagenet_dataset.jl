@@ -140,5 +140,4 @@ function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_
     test_set = nothing
     return train_set, val_set, test_set
 end
-imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
 

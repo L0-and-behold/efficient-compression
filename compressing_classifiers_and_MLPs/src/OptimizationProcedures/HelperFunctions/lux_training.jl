@@ -142,8 +142,8 @@ function lux_training!(
     num_batches = args.dtype(length(train_set))
 
     # Checkpoint loading and initialization of variables
-    if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 0
-        println("Starting/Resuming from epoch $(checkpoint.content.epoch)")
+    if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 1
+        println("Resuming from epoch $(checkpoint.content.epoch)")
         start_epoch_offset = checkpoint.content.epoch - 1
         prev_val_loss = checkpoint.content.prev_val_loss
         total_time_start = checkpoint.metadata.start_time
@@ -167,7 +167,7 @@ function lux_training!(
     for epoch in (start_epoch_offset+1):max_epochs
         # Check for timeout before starting epoch
         if checkpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
-            println("Maximum runtime approaching. Saving checkpoint and exiting...")
+            println("Saving checkpoint")
             update_checkpoint_state!(
                 checkpoint;
                 args=args,
@@ -181,6 +181,9 @@ function lux_training!(
                 status=:available
             )
             maybe_save_checkpoint(checkpoint)
+        end
+        if heckpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
+            println("Maximum runtime approaching. Saving checkpoint and exiting...")
             error("MaxRuntimeReached")
         end
 
@@ -198,10 +201,9 @@ function lux_training!(
         for (i, batch) in enumerate(train_set)
             batch_time = time()
             if args.debug 
-                println("▶ Epoch $epoch – batch $i  start update-step")
+                println("▶ Epoch $epoch – batch $i  update-step finished after $(time() - batch_time) s")
             end
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
-            println("▶ Epoch $epoch – batch $i  update-step finished after $(time() - batch_time) s")
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
@@ -219,11 +221,13 @@ function lux_training!(
         push!(args.logs["epochs"], start_epoch+epoch)
         push!(args.logs["train_loss"], epoch_loss)
         push!(args.logs["epoch_execution_time"], epoch_end_time - epoch_start_time)
+
+        println("▶ Epoch $epoch finished in $(time() - batch_time) s")
         
-        if args.debug
-            metrics_time = time()
-            println("▶ Epoch $epoch Start rest of training loop evaluations")
-        end
+        # if args.debug
+            # metrics_time = time()
+            # println("▶ Epoch $epoch Start rest of training loop evaluations")
+        # end
 
         if haskey(tstate.states, :mask)
             l0_mask= recursive_sum(tstate.states.mask, args.dtype(0))
@@ -231,6 +235,7 @@ function lux_training!(
         end
         if args.log_val_loss
             epoch_val_loss = zero(args.dtype)
+            t = time()
             for (i, val_batch) in enumerate(validation_set)
                 epoch_val_loss += loss_fun(tstate.model, tstate.parameters, Lux.testmode(tstate.states), val_batch)[1]
                 if args.debug && i > 5
@@ -242,14 +247,17 @@ function lux_training!(
             if args.verbose 
                 @printf "\rEpoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
             end
+            println("▶ Validiation loss evaluated in $(time()-t)s")
 
             if !isnothing(test_set)
+                t = time()
                 epoch_test_loss = zero(args.dtype)
                 for test_batch in test_set
                     epoch_test_loss += loss_fun(tstate.model, tstate.parameters, Lux.testmode(tstate.states), test_batch)[1]
                 end
                 epoch_test_loss /= length(test_set)
                 push!(args.logs["test_loss"], (start_epoch+epoch, epoch_test_loss))
+                println("▶ Test loss evaluated in $(time()-t)s")
             end            
         end
         if args.verbose && !args.log_val_loss
@@ -259,11 +267,13 @@ function lux_training!(
             push!(args.logs["sigmas"], sum(tstate.parameters.sigma))
         end
         if loss_fun.loss_f == logitcrossentropy
-            # this line is super slow for some reason
+            t = time()
             push!(args.logs["validation_accuracy"], accuracy(tstate, validation_set, debug=args.debug))
+            println("▶ Validation accuracy evaluated in $(time()-t)s")
         end
         
         # Pruning and Convergence check is done at most every prune_window epochs
+        time_pruning_and_convergence = time()
         if epoch % args.prune_window == 0 || epoch == max_epochs
 
             if converge_val_loss && args.log_val_loss
@@ -330,9 +340,10 @@ function lux_training!(
                 end
             end
         end
-        if args.debug
-            println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
-        end
+        println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
+        # if args.debug
+            # println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
+        # end
     end
     total_time_end = time()
     args.logs["total_time"] += total_time_end - total_time_start
@@ -342,6 +353,8 @@ function lux_training!(
     if !convergence_triggered
         push!(args.logs["converged_at"], max_epochs)
     end
+
+    @assert tstate != nothing
 
     # take the tstate closest to where val_loss was smallest:
     if converge_val_loss && args.log_val_loss
@@ -372,6 +385,8 @@ function lux_training!(
         maybe_save_checkpoint(checkpoint)
     end
 
+    @assert return_tstate != nothing
+
     return return_tstate, args.logs, loss_fun, checkpoint
 end
 
@@ -387,6 +402,12 @@ function update_checkpoint_state!(
     convergence_triggered,
     status::Symbol
 )
+
+    if best_tstate === nothing
+        @warn "best_tstate is `nothing` when saving checkpoint – using current tstate as fallback."
+        best_tstate = tstate
+    end
+
     checkpoint.metadata.status = status
     checkpoint.metadata.last_updated = time()
 
@@ -398,3 +419,4 @@ function update_checkpoint_state!(
     checkpoint.content.best_tstate = best_tstate
     checkpoint.content.convergence_triggered = convergence_triggered
 end
+

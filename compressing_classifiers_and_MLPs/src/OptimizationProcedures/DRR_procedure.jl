@@ -63,6 +63,8 @@ function DRR_procedure(
         loss_fun = DRR(model_param_number, layernumber_model; alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn, fun1 = fun1)
     end
 
+    @assert tstate != nothing
+
     return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end
 
