@@ -170,9 +170,9 @@ class ProcedureTrainer:
             pbar = tqdm(total=len(dataloader), desc=f"Epoch {checkpointer.epoch+1}/{epochs}", position=0, leave=True)
             if checkpointer.chunk > 0:
                 pbar.update(checkpointer.chunk)
-            else:
-                pbar = None
-        
+        else:
+            pbar = None
+    
         # Training for one epoch
         iter_runtime = time.time()
         for i, batch in enumerate(dataloader):
