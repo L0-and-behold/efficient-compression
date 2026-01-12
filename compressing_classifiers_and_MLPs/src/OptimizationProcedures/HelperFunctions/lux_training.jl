@@ -182,7 +182,7 @@ function lux_training!(
             )
             maybe_save_checkpoint(checkpoint)
         end
-        if heckpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
+        if checkpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
             println("Maximum runtime approaching. Saving checkpoint and exiting...")
             error("MaxRuntimeReached")
         end
@@ -196,6 +196,8 @@ function lux_training!(
         end
 
         # Batch loop
+        # the excessive print statements are for testing and debugging
+        # TODO: remove print statements
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
         for (i, batch) in enumerate(train_set)
@@ -203,16 +205,21 @@ function lux_training!(
             if args.debug 
                 println("▶ Epoch $epoch – batch $i  update-step finished after $(time() - batch_time) s")
             end
+            update_time = time()
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
+            println("▶ Epoch $epoch – batch $i - update_state!: $(time() - update_time)")
+            multiply_time = time()
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
+            println("▶ Epoch $epoch – batch $i recursively_multiply!-time: $(time() - multiply_time)")
             epoch_loss += loss
             if args.debug && i > 5
                 break
             end
+            println("▶ Epoch $epoch – batch $i batch-time: $(time() - batch_time)")
         end
-        epoch_end_time = time()
+        println("▶ Epoch $epoch - epoch-time: $(time() - epoch_start_time)")
         if !args.debug
             epoch_loss /= num_batches
         end
@@ -247,7 +254,7 @@ function lux_training!(
             if args.verbose 
                 @printf "\rEpoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
             end
-            println("▶ Validiation loss evaluated in $(time()-t)s")
+            println("▶ Validation loss evaluated in $(time()-t)s")
 
             if !isnothing(test_set)
                 t = time()

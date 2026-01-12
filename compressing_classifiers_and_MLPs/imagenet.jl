@@ -1,4 +1,4 @@
-using Pkg; Pkg.activate("."); 
+using Pkg; Pkg.activate(".")
 # Pkg.resolve(); Pkg.instantiate()
 using Revise
 
@@ -74,38 +74,38 @@ append!(additional_alphas, alphas)
 #     Float32[0.0001, 0.1, 0.2, 0.5, 1.0, 2.0, 3.4, 4.8]./45000
 # )
 
-# vanilla_runs = [
-#     (
-#         RL1_procedure, 
-#         0f0, 
-#         0f0, 
-#         false,
-#         0f0,
-#         1f0,
-#         seed,
-#         false,
-#         1
-#     )
-#     for seed in seeds
-# ]
-# append!(batch, vanilla_runs)
-
-DRR_runs = [
+vanilla_runs = [
     (
-        DRR_procedure, 
-        α,
-        5f0,
+        RL1_procedure, 
+        0f0, 
+        0f0, 
         false,
         0f0,
         1f0,
         seed,
-        true,
+        false,
         1
     )
-    for α in additional_alphas
     for seed in seeds
 ]
-append!(batch, DRR_runs)
+append!(batch, vanilla_runs)
+
+# DRR_runs = [
+#     (
+#         DRR_procedure, 
+#         α,
+#         5f0,
+#         false,
+#         0f0,
+#         1f0,
+#         seed,
+#         true,
+#         1
+#     )
+#     for α in additional_alphas
+#     for seed in seeds
+# ]
+# append!(batch, DRR_runs)
 
 # RL1_runs = [
 #     (
@@ -189,7 +189,7 @@ args.schedule = Step(
     25 # devide lr by 10 every (-) epochs. 100k iterations for Alexnet
 )
 
-args.multiply_mask_after_each_batch = true
+args.multiply_mask_after_each_batch = false
 args.debug = false # false
 
 args.use_checkpoints = true

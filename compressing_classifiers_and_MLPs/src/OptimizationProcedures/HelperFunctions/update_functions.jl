@@ -76,14 +76,22 @@ end
 
 
 function update_state!(vjp::Lux.AbstractADType, loss_fun::RL1_loss, batch, tstate::Lux.Training.TrainState)
+    # The printstatements are only here for testing and debugging.
+    # TODO: remove print statements.
+    compute_gradients_time = time()
     grads, loss, _, tstate = Training.compute_gradients(vjp, loss_fun, batch, tstate)
+    println("computed gradients in: $(time() - compute_gradients_time)")
+    modify_time = time()
     if loss_fun.alpha != 0
         recursively_modify!(grads, tstate.parameters, loss_fun, loss_fun.fun1)
     end
     if loss_fun.rho != 0
         recursively_modify!(grads, tstate.parameters, loss_fun, loss_fun.fun2)
     end
+    println("recursively modified gradients in: $(time() - modify_time)")
+    apply_gradients = time()
     tstate = Training.apply_gradients!(tstate, grads)
+    println("applied gradients in: $(time() - apply_gradients)")   
     return tstate, loss, nothing
 end
 
