@@ -70,6 +70,19 @@ class TransformerConfig:
             num_layers = 5
             seq_length = 2048
             batch_size = 32
+        elif model == "big-transformer":
+            embedding_dim = 1024
+            num_heads = 16
+            num_layers = 24
+            seq_length = 2048
+            batch_size = 32
+        elif model == "char-transformer": # similar to Al-Rfou et al. (2018)
+            embedding_dim = 512
+            num_heads = 8
+            num_layers = 64
+            seq_length = 2048
+            batch_size = 32
+            # 1e6 iterations, which corresponds to #todo epochs
         elif model == "development": # for development purposes
             embedding_dim = 64
             num_heads = 4

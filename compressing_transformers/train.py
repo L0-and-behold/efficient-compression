@@ -53,11 +53,11 @@ args["alpha"] = 1e-4                          # Regularization strength for ℓ�
 args["pmmp"] = True                           # Whether to use  PMMP method
 args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
 args["beta"] = 10.0                           # Sharpness parameter β for DRR method
-args["transformer_config"] = "transformer200k" # Size of transformer model (options: transformer200k, transformer800k, transformer4.1m)
+args["transformer_config"] = "big-transformer" # Size of transformer model (options: transformer200k, transformer800k, transformer4.1m)
 args["training_method"] = rl1_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
 
 # Dataset size and training schedule parameters
-args["train_only_on_leading_tokens"] = int(2*4*2048) # Limit training to first N tokens (False or int)
+args["train_only_on_leading_tokens"] = int(32*32*2*4*2048) # Limit training to first N tokens (False or int)
 args["epochs_prelude"] = 1                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
