@@ -30,6 +30,35 @@ const IMAGENET_CORRUPTED_FILES = [
     "ILSVRC2012_val_00019877.JPEG",
 ]
 
+const IMAGENET_MEAN = (0.485f0, 0.456f0, 0.406f0)
+const IMAGENET_STD  = (0.229f0, 0.224f0, 0.225f0)
+
+struct MakeColoredImage <: DataAugmentation.Transform end
+
+struct FileDataset
+    files
+    labels
+    augment
+end
+
+struct ChunkedImageNet
+    chunk_files::Vector{String}
+    chunk_size::Int
+    image_size::Int
+    split::Symbol
+end
+
+struct ChunkedBatch
+    images::Array{Float32,4}
+    labels::Vector{Int}
+end
+
+struct DeviceDataLoader
+    loader
+    crop_size::Union{Nothing,Int}
+    dev
+end
+
 function load_imagenet1k(base_path::String, split::Symbol)
     @assert split in (:train, :val)
     full_path = joinpath(base_path, string(split))
@@ -54,20 +83,12 @@ end
 default_image_size(_, ::Nothing) = 224
 default_image_size(_, size::Int) = size
 
-struct MakeColoredImage <: DataAugmentation.Transform end
-
 function DataAugmentation.apply(
     ::MakeColoredImage, item::DataAugmentation.AbstractArrayItem; randstate=nothing
 )
     data = itemdata(item)
     (ndims(data) == 2 || size(data, 3) == 1) && (data = cat(data, data, data; dims=Val(3)))
     return DataAugmentation.setdata(item, data)
-end
-
-struct FileDataset
-    files
-    labels
-    augment
 end
 
 Base.length(dataset::FileDataset) = length(dataset.files)
@@ -89,7 +110,7 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
         ImageToTensor() |>
         MakeColoredImage() |>
         ToEltype(Float32) |>
-        Normalize((0.485f0, 0.456f0, 0.406f0), (0.229f0, 0.224f0, 0.225f0))
+        Normalize(IMAGENET_MEAN, IMAGENET_STD)
     train_files, train_labels = load_imagenet1k(base_path, :train)
 
     train_dataset = FileDataset(train_files, train_labels, train_augment)
@@ -100,7 +121,7 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
         ImageToTensor() |>
         MakeColoredImage() |>
         ToEltype(Float32) |>
-        Normalize((0.485f0, 0.456f0, 0.406f0), (0.229f0, 0.224f0, 0.225f0))
+        Normalize(IMAGENET_MEAN, IMAGENET_STD)
     val_files, val_labels = load_imagenet1k(base_path, :val)
 
     val_dataset = FileDataset(val_files, val_labels, val_augment)
@@ -141,3 +162,180 @@ function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_
     return train_set, val_set, test_set
 end
 
+function make_preprocess_pipeline(image_size::Int)
+    ScaleFixed((image_size, image_size)) |>
+    PinOrigin() |>
+    ImageToTensor() |>
+    MakeColoredImage() |>
+    ToEltype(Float32) |>
+    Normalize(IMAGENET_MEAN, IMAGENET_STD)
+end
+
+function save_chunk(out_path, chunk_id, images, labels)
+    filename = joinpath(out_path, @sprintf("chunk_%06d.jld2", chunk_id))
+    @save filename images labels
+end
+
+function preprocess_split(
+    base_path::String,
+    out_path::String,
+    split::Symbol;
+    chunk_size::Int = 16,
+    image_size::Int = 256,
+)
+    files, labels = load_imagenet1k(base_path, split)
+    augment = make_preprocess_pipeline(image_size)
+
+    mkpath(out_path)
+
+    chunk_images = Array{Float32,4}(undef, 0, 3, image_size, image_size)
+    chunk_labels = Int64[]
+
+    chunk_id = 1
+
+    @showprogress for (i, (file, label)) in enumerate(zip(files, labels))
+
+        # TODO: remove this after testing
+        if i > 5 break end
+
+        img = Image(FileIO.load(file))
+
+        x = itemdata(DataAugmentation.apply(augment, img)) # (H,W,3)
+        x = permutedims(x, (3, 1, 2)) # (3,H,W)
+
+        x = reshape(x, 1, size(x)...) # (1,3,H,W)
+
+        @assert size(x) == (1, 3, image_size, image_size)
+
+        chunk_images = vcat(chunk_images, x)
+        push!(chunk_labels, label)
+
+
+        if size(chunk_images, 1) == chunk_size
+            save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
+            chunk_id += 1
+            chunk_images = Array{Float32,4}(undef, 0, 3, image_size, image_size)
+            empty!(chunk_labels)
+        end
+    end
+
+    # flush remainder
+    if size(chunk_images, 1) > 0
+        save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
+    end
+end
+
+
+
+function ChunkedImageNet(
+    root::String,
+    split::Symbol;
+    chunk_size::Int,
+    image_size::Int,
+)
+    dir = joinpath(root, string(split))
+    files = sort(filter(f -> endswith(f, ".jld2"), readdir(dir; join=true)))
+    @assert !isempty(files) "No chunks found in $dir"
+
+    # invariant check once
+    @load files[1] images labels
+    @assert size(images, 1) ≤ chunk_size
+    @assert size(images, 2) == 3
+    @assert size(images, 3) == image_size
+    @assert size(images, 4) == image_size
+    @assert length(labels) == size(images, 1)
+
+    return ChunkedImageNet(files, chunk_size, image_size, split)
+end
+
+Base.length(ds::ChunkedImageNet) = length(ds.chunk_files)
+
+function Base.getindex(ds::ChunkedImageNet, i::Int)
+    @load ds.chunk_files[i] images labels
+    return ChunkedBatch(images, labels)
+end
+
+function collate_chunks(batches::Vector{ChunkedBatch})
+    images = cat((b.images for b in batches)...; dims=1)
+    labels = vcat((b.labels for b in batches)...)
+    return images, labels
+end
+
+function random_crop!(out, x, crop_size)
+    _, _, H, W = size(x)
+    h0 = rand(0:(H - crop_size))
+    w0 = rand(0:(W - crop_size))
+    out .= @view x[:, :, h0+1:h0+crop_size, w0+1:w0+crop_size]
+end
+
+
+
+function Base.iterate(dl::DeviceDataLoader, state...)
+    res = iterate(dl.loader, state...)
+    res === nothing && return nothing
+
+    ((x, y), st) = res
+
+    x = dl.dev(x)
+    y = dl.dev(y)
+
+    if dl.crop_size !== nothing
+        cropped = similar(x, size(x,1), 3, dl.crop_size, dl.crop_size)
+        random_crop!(cropped, x, dl.crop_size)
+        x = cropped
+    end
+
+    return (x, y), st
+end
+
+
+function construct_dataloaders_chunked(
+    root::String,
+    train_batchsize::Int,
+    val_batchsize::Int;
+    chunk_size::Int = 16,
+    train_image_size::Int = 256,
+    val_image_size::Int = 224,
+    crop_size::Int = 224,
+    dev = gpu_device(),
+    workers::Int = 4,
+)
+
+    @assert train_batchsize % chunk_size == 0
+    @assert val_batchsize % chunk_size == 0
+
+    train_ds = ChunkedImageNet(
+        root, :train;
+        chunk_size=chunk_size,
+        image_size=train_image_size,
+    )
+
+    val_ds = ChunkedImageNet(
+        root, :val;
+        chunk_size=chunk_size,
+        image_size=val_image_size,
+    )
+
+    train_loader = DataLoader(
+        train_ds;
+        batchsize = train_batchsize ÷ chunk_size,
+        shuffle = true,
+        collate = collate_chunks,
+        parallel = true,
+        num_workers = workers,
+    )
+
+    val_loader = DataLoader(
+        val_ds;
+        batchsize = val_batchsize ÷ chunk_size,
+        shuffle = false,
+        collate = collate_chunks,
+        parallel = true,
+        num_workers = workers,
+    )
+
+    train_loader = DeviceDataLoader(train_loader, crop_size, dev)
+    val_loader   = DeviceDataLoader(val_loader, nothing, dev)
+
+    return train_loader, val_loader
+end

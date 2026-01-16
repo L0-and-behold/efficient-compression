@@ -14,4 +14,5 @@ token = "YOUR_HF_TOKEN_HERE"
 
 [paths]
 imagenet_path = "/path/to/folder_containing_the_imagenet_dataset"
+imagenet_preprocessed_path = "/path/to/folder_containing_the_pre_processed_imagenet_dataset"
 path_to_db = "/path/to/save_results_here"

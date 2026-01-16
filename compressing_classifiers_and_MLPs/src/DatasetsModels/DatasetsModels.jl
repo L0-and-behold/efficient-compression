@@ -1,6 +1,7 @@
 module DatasetsModels
 
-    using Lux, Random, Distributed, OneHotArrays, CUDA, DataAugmentation, FileIO
+    using Lux, Random, Distributed, OneHotArrays, CUDA, DataAugmentation, FileIO, ImageIO, Images, JLD2, ProgressMeter, Printf
+    
     using Flux: onehotbatch, gpu
     using Lux: DistributedUtils, gpu_device, cpu_device
     using Base.Iterators: partition
@@ -16,9 +17,10 @@ module DatasetsModels
     export CIFAR_data
 
     include("imagenet_dataset.jl")
-    export imagenet_data
+    export imagenet_data, preprocess_split
 
     include("toy_imagenet_dataset.jl")
     export toy_imagenet_data
+
 
 end # module

@@ -13,3 +13,4 @@ compressing_classifiers_and_MLPs/slurm_scripts
 compressing_classifiers_and_MLPs/experiments
 compressing_classifiers_and_MLPs/src/DatasetsModels/imagenet
 compressing_classifiers_and_MLPs/config.toml
+prototyping.jl
