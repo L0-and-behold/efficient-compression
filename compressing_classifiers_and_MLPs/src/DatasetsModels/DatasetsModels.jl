@@ -17,7 +17,7 @@ module DatasetsModels
     export CIFAR_data
 
     include("imagenet_dataset.jl")
-    export imagenet_data, preprocess_split
+    export imagenet_data, preprocess_split, ChunkedImageNet, ChunkedBatch, DeviceDataLoader
 
     include("toy_imagenet_dataset.jl")
     export toy_imagenet_data

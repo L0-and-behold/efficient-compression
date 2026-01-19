@@ -1,7 +1,17 @@
 ## modified version of: https://lux.csail.mit.edu/stable/tutorials/advanced/3_ImageNet
+#
+# NOTE:
+# This file currently contains both the legacy JPEG-based ImageNet
+# dataloader and a new chunked (preprocessed) ImageNet pipeline.
+# The chunked pipeline is intended to replace the legacy loader
+# once fully validated.
 
-# We need the data to be in a specific format. See the
-# [README.md](<unknown>/examples/ImageNet/README.md) for more details.
+# ==============================================================================
+# Constants and utilities
+# ==============================================================================
+
+# TODO: update README to reflect this, also that we should run julia with multiple threads.
+# TODO: update slrum script to use several julia threads.
 
 const IMAGENET_CORRUPTED_FILES = [
     "n01739381_1309.JPEG",
@@ -32,6 +42,11 @@ const IMAGENET_CORRUPTED_FILES = [
 
 const IMAGENET_MEAN = (0.485f0, 0.456f0, 0.406f0)
 const IMAGENET_STD  = (0.229f0, 0.224f0, 0.225f0)
+const CHANNELS = 3
+
+# ==============================================================================
+# Legacy ImageNet dataset (JPEG-based, runtime decoding)
+# ==============================================================================
 
 struct MakeColoredImage <: DataAugmentation.Transform end
 
@@ -41,24 +56,10 @@ struct FileDataset
     augment
 end
 
-struct ChunkedImageNet
-    chunk_files::Vector{String}
-    chunk_size::Int
-    image_size::Int
-    split::Symbol
-end
-
-struct ChunkedBatch
-    images::Array{Float32,4}
-    labels::Vector{Int}
-end
-
-struct DeviceDataLoader
-    loader
-    crop_size::Union{Nothing,Int}
-    dev
-end
-
+# TODO(deprecation):
+# This function is part of the legacy ImageNet pipeline that loads and
+# decodes JPEGs at runtime. Once the chunked ImageNet pipeline is fully
+# validated, this loader should be removed or replaced.
 function load_imagenet1k(base_path::String, split::Symbol)
     @assert split in (:train, :val)
     full_path = joinpath(base_path, string(split))
@@ -96,15 +97,25 @@ Base.length(dataset::FileDataset) = length(dataset.files)
 function Base.getindex(dataset::FileDataset, i::Int)
     img = Image(FileIO.load(dataset.files[i]))
     aug_img = itemdata(DataAugmentation.apply(dataset.augment, img))
+
+    # each image is a (C, H, W) tensor
+    @assert ndims(aug_img) == 3
+    @assert size(aug_img, 1) == CHANNELS
+    @assert size(aug_img, 2) > 8 # should be 224 or 256
+    @assert size(aug_img, 3) > 8 # should be 224 or 256
+
     return aug_img, OneHotArrays.onehot(dataset.labels[i], 0:999)
 end
 
+# TODO(deprecation):
+# Legacy ImageNet dataloader that performs JPEG decoding and augmentation
+# at runtime. This should be replaced by `construct_dataloaders_chunked`
+# (renamed to `construct_dataloaders`) once validated.
 function construct_dataloaders(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
     println("=> creating dataloaders.")
 
     train_augment =
         ScaleFixed((256, 256)) |>
-        # Maybe(DataAugmentation.FlipX, 0.5) |>
         RandomResizeCrop((image_size, image_size)) |>
         PinOrigin() |>
         ImageToTensor() |>
@@ -126,18 +137,9 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
 
     val_dataset = FileDataset(val_files, val_labels, val_augment)
 
-    # if is_distributed
-    #     train_dataset = DistributedUtils.DistributedDataContainer(
-    #         distributed_backend, train_dataset
-    #     )
-    #     val_dataset = DistributedUtils.DistributedDataContainer(
-    #         distributed_backend, val_dataset
-    #     )
-    # end
-
     train_dataloader = DataLoader(
         train_dataset;
-        batchsize=train_batchsize, # ÷ total_workers,
+        batchsize=train_batchsize,
         partial=false,
         collate=true,
         shuffle=true,
@@ -145,7 +147,7 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
     )
     val_dataloader = DataLoader(
         val_dataset;
-        batchsize=val_batchsize, # ÷ total_workers,
+        batchsize=val_batchsize,
         partial=true,
         collate=true,
         shuffle=false,
@@ -162,6 +164,21 @@ function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_
     return train_set, val_set, test_set
 end
 
+# ==============================================================================
+# ImageNet preprocessing (offline, chunked)
+# ==============================================================================
+
+@inline function assert_nchw(x; name::AbstractString="tensor")
+    @assert ndims(x) == 4 "$name must be 4D (N,C,H,W), got ndims=$(ndims(x))"
+    @assert size(x, 2) == CHANNELS "$name must have C=$CHANNELS as 2nd dim, got size(x,2)=$(size(x,2))"
+    @assert size(x, 3) > 8 "$name should have H=224 or 256, got H=$(size(x,3))"
+    @assert size(x, 4) > 8 "$name should have W=224 or 256, got W=$(size(x,4))"
+    return nothing
+end
+
+# TODO(refactor):
+# These preprocessing utilities should eventually live in a separate
+# file/module (e.g. imagenet_preprocessing.jl), not alongside dataloaders.
 function make_preprocess_pipeline(image_size::Int)
     ScaleFixed((image_size, image_size)) |>
     PinOrigin() |>
@@ -176,6 +193,10 @@ function save_chunk(out_path, chunk_id, images, labels)
     @save filename images labels
 end
 
+# TODO(cleanup):
+# - Remove temporary early-break used for testing.
+# - Run once to build the full preprocessed ImageNet dataset.
+# - Move this function into a dedicated preprocessing script or module.
 function preprocess_split(
     base_path::String,
     out_path::String,
@@ -188,7 +209,7 @@ function preprocess_split(
 
     mkpath(out_path)
 
-    chunk_images = Array{Float32,4}(undef, 0, 3, image_size, image_size)
+    chunk_images = Array{Float32,4}(undef, 0, CHANNELS, image_size, image_size) # NCHW-tensor
     chunk_labels = Int64[]
 
     chunk_id = 1
@@ -196,37 +217,61 @@ function preprocess_split(
     @showprogress for (i, (file, label)) in enumerate(zip(files, labels))
 
         # TODO: remove this after testing
-        if i > 5 break end
+        if i > 64 break end
 
         img = Image(FileIO.load(file))
 
-        x = itemdata(DataAugmentation.apply(augment, img)) # (H,W,3)
-        x = permutedims(x, (3, 1, 2)) # (3,H,W)
-
+        # x is a (1, C, H, W) tensor
+        x = itemdata(DataAugmentation.apply(augment, img)) # (3,H,W)
         x = reshape(x, 1, size(x)...) # (1,3,H,W)
 
-        @assert size(x) == (1, 3, image_size, image_size)
+        assert_nchw(chunk_images; name="chunk of images")
 
         chunk_images = vcat(chunk_images, x)
         push!(chunk_labels, label)
 
-
         if size(chunk_images, 1) == chunk_size
             save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
             chunk_id += 1
-            chunk_images = Array{Float32,4}(undef, 0, 3, image_size, image_size)
+            chunk_images = Array{Float32,4}(undef, 0, CHANNELS, image_size, image_size)
             empty!(chunk_labels)
         end
     end
 
-    # flush remainder
     if size(chunk_images, 1) > 0
+        assert_nchw(chunk_images; name="chunk of images")
         save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
     end
 end
 
+# ==============================================================================
+# Chunked ImageNet dataset and dataloader (intended future default)
+# ==============================================================================
 
+# TODO(finalize):
+# ChunkedImageNet represents the preprocessed ImageNet dataset and is
+# intended to become the default ImageNet dataset used during training.
+struct ChunkedImageNet
+    chunk_files::Vector{String}
+    chunk_size::Int
+    image_size::Int
+    split::Symbol
+end
 
+struct ChunkedBatch
+    images::Array{Float32,4}
+    labels::Vector{Int}
+end
+
+struct DeviceDataLoader
+    loader
+    crop_size::Union{Nothing,Int}
+    dev
+end
+
+# TODO(invariants):
+# Dataset invariants (chunk size, shape, dtype) are checked once here.
+# Consider making chunk_size a global constant or type parameter if stable.
 function ChunkedImageNet(
     root::String,
     split::Symbol;
@@ -237,12 +282,9 @@ function ChunkedImageNet(
     files = sort(filter(f -> endswith(f, ".jld2"), readdir(dir; join=true)))
     @assert !isempty(files) "No chunks found in $dir"
 
-    # invariant check once
     @load files[1] images labels
-    @assert size(images, 1) ≤ chunk_size
-    @assert size(images, 2) == 3
-    @assert size(images, 3) == image_size
-    @assert size(images, 4) == image_size
+
+    assert_nchw(images; name="images batch")
     @assert length(labels) == size(images, 1)
 
     return ChunkedImageNet(files, chunk_size, image_size, split)
@@ -255,21 +297,36 @@ function Base.getindex(ds::ChunkedImageNet, i::Int)
     return ChunkedBatch(images, labels)
 end
 
+# TODO(performance):
+# This collates chunk-level batches into a full batch.
+# Assumes batch_size % chunk_size == 0.
 function collate_chunks(batches::Vector{ChunkedBatch})
     images = cat((b.images for b in batches)...; dims=1)
     labels = vcat((b.labels for b in batches)...)
+    assert_nchw(iamges; name="iamges batch")
     return images, labels
 end
 
+# TODO(augmentation):
+# Random cropping is applied at runtime and can run on CPU or GPU
+# depending on `dev`. Evaluate whether this should remain here or
+# move into the training loop.
 function random_crop!(out, x, crop_size)
+
+    assert_nchw(x)
+
     _, _, H, W = size(x)
+    @assert H ≥ crop_size && W ≥ crop_size
+
     h0 = rand(0:(H - crop_size))
     w0 = rand(0:(W - crop_size))
+
     out .= @view x[:, :, h0+1:h0+crop_size, w0+1:w0+crop_size]
 end
 
-
-
+# TODO(abstraction):
+# Thin wrapper that moves batches to `dev` and applies runtime augmentation.
+# If this pattern generalizes, consider extracting a shared abstraction.
 function Base.iterate(dl::DeviceDataLoader, state...)
     res = iterate(dl.loader, state...)
     res === nothing && return nothing
@@ -279,8 +336,17 @@ function Base.iterate(dl::DeviceDataLoader, state...)
     x = dl.dev(x)
     y = dl.dev(y)
 
+    assert_nchw(x)
+
     if dl.crop_size !== nothing
-        cropped = similar(x, size(x,1), 3, dl.crop_size, dl.crop_size)
+        cropped = similar(
+            x,
+            size(x,1),
+            size(x,2),
+            dl.crop_size,
+            dl.crop_size,
+        )
+
         random_crop!(cropped, x, dl.crop_size)
         x = cropped
     end
@@ -288,7 +354,9 @@ function Base.iterate(dl::DeviceDataLoader, state...)
     return (x, y), st
 end
 
-
+# TODO(rename):
+# Once validated, this function should replace `construct_dataloaders`
+# and be renamed accordingly.
 function construct_dataloaders_chunked(
     root::String,
     train_batchsize::Int,
@@ -296,11 +364,10 @@ function construct_dataloaders_chunked(
     chunk_size::Int = 16,
     train_image_size::Int = 256,
     val_image_size::Int = 224,
-    crop_size::Int = 224,
+    crop_size::Union{Int, Nothing} = 224,
     dev = gpu_device(),
     workers::Int = 4,
 )
-
     @assert train_batchsize % chunk_size == 0
     @assert val_batchsize % chunk_size == 0
 
@@ -322,7 +389,6 @@ function construct_dataloaders_chunked(
         shuffle = true,
         collate = collate_chunks,
         parallel = true,
-        num_workers = workers,
     )
 
     val_loader = DataLoader(
@@ -331,7 +397,6 @@ function construct_dataloaders_chunked(
         shuffle = false,
         collate = collate_chunks,
         parallel = true,
-        num_workers = workers,
     )
 
     train_loader = DeviceDataLoader(train_loader, crop_size, dev)
