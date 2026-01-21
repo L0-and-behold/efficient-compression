@@ -32,7 +32,7 @@ args.train_batch_size = 256
 args.val_batch_size = 256
 args.test_batch_size = 256
 image_size = 224
-train_set, validation_set, test_set = imagenet_data(imagenet_path, args.train_batch_size, args.val_batch_size, image_size; dev=gpu_device())
+train_set, validation_set, test_set = imagenet_online_data(imagenet_path, args.train_batch_size, args.val_batch_size, image_size; dev=gpu_device())
 args.train_set_size = length(train_set) * args.train_batch_size
 args.val_set_size = 50000
 args.test_set_size = 50000

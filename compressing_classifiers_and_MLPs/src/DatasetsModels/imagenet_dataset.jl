@@ -108,9 +108,9 @@ end
 
 # TODO(deprecation):
 # Legacy ImageNet dataloader that performs JPEG decoding and augmentation
-# at runtime. This should be replaced by `construct_dataloaders_chunked`
+# at runtime. This should be replaced by `construct_chunked_dataloaders`
 # (renamed to `construct_dataloaders`) once validated.
-function construct_dataloaders(
+function construct_online_dataloaders(
         base_path::String, 
         train_batchsize, 
         val_batchsize, 
@@ -172,8 +172,8 @@ function construct_dataloaders(
     return dev(train_dataloader), dev(val_dataloader)
 end
 
-function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
-    train_set, val_set = construct_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
+function imagenet_online_data(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
+    train_set, val_set = construct_online_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
     # test_set = deepcopy(val_set)
     test_set = nothing
 
@@ -387,7 +387,7 @@ end
 # TODO(rename):
 # Once validated, this function should replace `construct_dataloaders`
 # and be renamed accordingly.
-function construct_dataloaders_chunked(
+function construct_chunked_dataloaders(
     root::String,
     train_batchsize::Int,
     val_batchsize::Int;
@@ -440,4 +440,20 @@ function construct_dataloaders_chunked(
     @assert size(x, 4) == length(onecold(y)) "There should be as many labels as number ob batches but evaluated: batch size n=$(size(x,4)), number of labels $(length(onecold(y)))"
 
     return train_loader, val_loader
+end
+
+function imagenet_preprocessed_data(
+    root::String,
+    train_batchsize,
+    val_batchsize;
+    kwargs...
+)
+    train, val = construct_chunked_dataloaders(
+        root,
+        train_batchsize,
+        val_batchsize;
+        kwargs...
+    )
+    test = nothing
+    return train, val, test
 end

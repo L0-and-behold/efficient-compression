@@ -146,7 +146,7 @@ append!(batch, vanilla_runs)
 # append!(batch, FPP_runs)
 
 # Fixed arguments for all runs
-imagenet_data_function = trainbatchsize -> imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
+imagenet_data_function = trainbatchsize -> imagenet_online_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
 toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
 args.dataset = imagenet_data_function # toy_imagenet_data_function # imagenet_data_function
 
