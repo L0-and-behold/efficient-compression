@@ -4,6 +4,7 @@ Codebase for the experiments from our paper regarding the classifier and teacher
 
 ## Table of Contents
 - [Quick Start](#quick-start)
+- [ImageNet](#imagenet)
 - [Environment Setup](#environment-setup)
 - [Experiment Parameters and Setup](#experiment-parameters-and-setup)
   - [General Parameters](#general-parameters)
@@ -47,7 +48,44 @@ where the default settings in the file `run_an_experiment.jl` serve as a simple 
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
-In order to run experiments with the ImageNet dataset, the dataset needs to be installed on local disc. See [installingImageNet](installingImageNet/installingImageNet.md) for instructions.
+
+## ImageNet
+
+This repository assumes that a standard ImageNet-1K directory structure
+is available on local disk:
+
+```
+imagenet/
+├── train/
+│   ├── n01440764/
+│   ├── n01443537/
+│   └── ...
+└── val/
+    ├── n01440764/
+    ├── n01443537/
+    └── ...
+```
+
+This repository contains a python script to download ImageNet from Hugging Face, located in the `installingImageNet/` directory.
+
+Please refer to: [installingImageNet.md](installingImageNet/installingImageNet.md)
+
+Assuming that ImageNet is available locally, preprocess it using the provided Julia
+script:
+
+```bash
+julia scripts/prepare_imagenet.jl
+```
+
+This step:
+- converts ImageNet into **chunked, preprocessed tensors**,
+- applies deterministic resizing and normalization,
+- prepares the dataset for efficient runtime loading on CPU or GPU.
+
+After this step, ImageNet is ready to be used via the
+`imagenet_chunked_data` or `imagenet_online_data` dataset APIs.
+
+
 
 ## Experiment Parameters and Setup
 

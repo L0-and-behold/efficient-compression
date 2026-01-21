@@ -97,6 +97,7 @@ function preprocess_split(
     split::Symbol;
     chunk_size::Int = 16,
     image_size::Int = 256,
+    debug=false
 )
     files, labels = load_imagenet1k(base_path, split)
     augment = make_preprocess_pipeline(image_size)
@@ -110,7 +111,11 @@ function preprocess_split(
 
     chunk_id = 1
 
-    @showprogress for (file, label) in zip(files, labels)
+    @showprogress for (i, (file, label)) in enumerate(zip(files, labels))
+
+        if debug && i > 128
+            break
+        end
 
         img = Image(FileIO.load(file))
 
