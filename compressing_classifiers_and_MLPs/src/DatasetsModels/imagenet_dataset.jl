@@ -98,11 +98,10 @@ function Base.getindex(dataset::FileDataset, i::Int)
     img = Image(FileIO.load(dataset.files[i]))
     aug_img = itemdata(DataAugmentation.apply(dataset.augment, img))
 
-    # each image is a (C, H, W) tensor
-    @assert ndims(aug_img) == 3
-    @assert size(aug_img, 1) == CHANNELS
-    @assert size(aug_img, 2) > 8 # should be 224 or 256
-    @assert size(aug_img, 3) > 8 # should be 224 or 256
+    # each image is a (H, W, C) tensor
+    @assert ndims(aug_img) == 3 "Each image should be a 3-tensor but got length $(ndims(aug_img))"
+    @assert size(aug_img, 3) == CHANNELS "Expected 3rd entry to be color-channels but got dimension $(size(aug_img, 1))"
+    @assert size(aug_img, 1) > 8 && size(aug_img, 2) > 8 "Expected the 1st and 3nd channels to be height and width, but got dimensions $(size(aug_img, 2)) and $(size(aug_img, 3))" # should be 224 or 256
 
     return aug_img, OneHotArrays.onehot(dataset.labels[i], 0:999)
 end
@@ -111,12 +110,23 @@ end
 # Legacy ImageNet dataloader that performs JPEG decoding and augmentation
 # at runtime. This should be replaced by `construct_dataloaders_chunked`
 # (renamed to `construct_dataloaders`) once validated.
-function construct_dataloaders(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
+function construct_dataloaders(
+        base_path::String, 
+        train_batchsize, 
+        val_batchsize, 
+        image_size::Int; 
+        dev=gpu_device(),
+        shuffle=true,
+        random_crop=true,
+        )
     println("=> creating dataloaders.")
+
+    @inline MaybeRandomResizeCrop(enabled::Bool, image_size::Int) =
+        enabled ? RandomResizeCrop((image_size, image_size)) : identity
 
     train_augment =
         ScaleFixed((256, 256)) |>
-        RandomResizeCrop((image_size, image_size)) |>
+        MaybeRandomResizeCrop(random_crop, image_size) |>
         PinOrigin() |>
         ImageToTensor() |>
         MakeColoredImage() |>
@@ -142,7 +152,7 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
         batchsize=train_batchsize,
         partial=false,
         collate=true,
-        shuffle=true,
+        shuffle=shuffle,
         parallel=false,
     )
     val_dataloader = DataLoader(
@@ -154,6 +164,11 @@ function construct_dataloaders(base_path::String, train_batchsize, val_batchsize
         parallel=false,
     )
 
+    # assert that the dataloader work as expected during initialization here
+    x, y = first(train_dataloader)
+    assert_hwcn(x)
+    @assert size(x, 4) == length(onecold(y)) "There should be as many labels as number ob batches but evaluated: batch size n=$(size(x,4)), number of labels $(length(onecold(y)))"
+
     return dev(train_dataloader), dev(val_dataloader)
 end
 
@@ -161,6 +176,7 @@ function imagenet_data(base_path::String, train_batchsize, val_batchsize, image_
     train_set, val_set = construct_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
     # test_set = deepcopy(val_set)
     test_set = nothing
+
     return train_set, val_set, test_set
 end
 
@@ -168,11 +184,11 @@ end
 # ImageNet preprocessing (offline, chunked)
 # ==============================================================================
 
-@inline function assert_nchw(x; name::AbstractString="tensor")
-    @assert ndims(x) == 4 "$name must be 4D (N,C,H,W), got ndims=$(ndims(x))"
-    @assert size(x, 2) == CHANNELS "$name must have C=$CHANNELS as 2nd dim, got size(x,2)=$(size(x,2))"
-    @assert size(x, 3) > 8 "$name should have H=224 or 256, got H=$(size(x,3))"
-    @assert size(x, 4) > 8 "$name should have W=224 or 256, got W=$(size(x,4))"
+@inline function assert_hwcn(x; name::AbstractString="tensor")
+    @assert ndims(x) == 4 "$name must be 4D (H,W,C,N), got ndims=$(ndims(x))"
+    @assert size(x, 1) > 200 "$name should have height H=224 or 256, got H=$(size(x,1))"
+    @assert size(x, 2) > 200 "$name should have width W=224 or 256, got W=$(size(x,2))"
+    @assert size(x, 3) == CHANNELS "$name must have C=$CHANNELS as 3rd dimension, got size(x,2)=$(size(x,2))"
     return nothing
 end
 
@@ -209,8 +225,10 @@ function preprocess_split(
 
     mkpath(out_path)
 
-    chunk_images = Array{Float32,4}(undef, 0, CHANNELS, image_size, image_size) # NCHW-tensor
+    chunk_images = Array{Float32,4}(undef, image_size, image_size, CHANNELS, 0) # HWCN-tensor
     chunk_labels = Int64[]
+
+    assert_hwcn(chunk_images; name="chunk of images")
 
     chunk_id = 1
 
@@ -221,25 +239,31 @@ function preprocess_split(
 
         img = Image(FileIO.load(file))
 
-        # x is a (1, C, H, W) tensor
-        x = itemdata(DataAugmentation.apply(augment, img)) # (3,H,W)
-        x = reshape(x, 1, size(x)...) # (1,3,H,W)
+        x = itemdata(DataAugmentation.apply(augment, img)) # (H,W,C)
+        @assert ndims(x) == 3
+        @assert size(x, 3) == CHANNELS
+        @assert size(x, 1) > 100 && size(x, 2) > 100
 
-        assert_nchw(chunk_images; name="chunk of images")
+        x = reshape(x, size(x)..., 1) # (H,W,C,1)
+        @assert ndims(x) == 4
+        @assert size(x, 3) == CHANNELS
+        @assert size(x, 4) == 1
 
-        chunk_images = vcat(chunk_images, x)
+        chunk_images = cat(chunk_images, x; dims = 4)
         push!(chunk_labels, label)
 
-        if size(chunk_images, 1) == chunk_size
+        assert_hwcn(chunk_images; name="chunk of images")
+
+        if size(chunk_images, 4) == chunk_size
             save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
             chunk_id += 1
-            chunk_images = Array{Float32,4}(undef, 0, CHANNELS, image_size, image_size)
+            chunk_images = Array{Float32,4}(undef, image_size, image_size, CHANNELS, 0)
             empty!(chunk_labels)
         end
     end
 
-    if size(chunk_images, 1) > 0
-        assert_nchw(chunk_images; name="chunk of images")
+    if size(chunk_images, 4) > 0
+        assert_hwcn(chunk_images; name="chunk of images")
         save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
     end
 end
@@ -284,8 +308,8 @@ function ChunkedImageNet(
 
     @load files[1] images labels
 
-    assert_nchw(images; name="images batch")
-    @assert length(labels) == size(images, 1)
+    assert_hwcn(images; name="images batch")
+    @assert length(labels) == size(images, 4) "The saved labels should be integer vectors"
 
     return ChunkedImageNet(files, chunk_size, image_size, split)
 end
@@ -301,9 +325,9 @@ end
 # This collates chunk-level batches into a full batch.
 # Assumes batch_size % chunk_size == 0.
 function collate_chunks(batches::Vector{ChunkedBatch})
-    images = cat((b.images for b in batches)...; dims=1)
+    images = cat((b.images for b in batches)...; dims=4)
     labels = vcat((b.labels for b in batches)...)
-    assert_nchw(iamges; name="iamges batch")
+    assert_hwcn(images; name="iamges batch")
     return images, labels
 end
 
@@ -313,20 +337,25 @@ end
 # move into the training loop.
 function random_crop!(out, x, crop_size)
 
-    assert_nchw(x)
+    assert_hwcn(x)
 
-    _, _, H, W = size(x)
+    H, W, _, _ = size(x)
     @assert H ≥ crop_size && W ≥ crop_size
 
     h0 = rand(0:(H - crop_size))
     w0 = rand(0:(W - crop_size))
 
-    out .= @view x[:, :, h0+1:h0+crop_size, w0+1:w0+crop_size]
+    out .= @view x[h0+1:h0+crop_size, w0+1:w0+crop_size, :, :]
 end
 
 # TODO(abstraction):
 # Thin wrapper that moves batches to `dev` and applies runtime augmentation.
 # If this pattern generalizes, consider extracting a shared abstraction.
+
+@inline function to_onehot(labels::Vector{Int})
+    return OneHotArrays.onehotbatch(labels, 0:999)
+end
+
 function Base.iterate(dl::DeviceDataLoader, state...)
     res = iterate(dl.loader, state...)
     res === nothing && return nothing
@@ -334,17 +363,18 @@ function Base.iterate(dl::DeviceDataLoader, state...)
     ((x, y), st) = res
 
     x = dl.dev(x)
+    y = to_onehot(y) # onehot encode labels after loading at runtime
     y = dl.dev(y)
 
-    assert_nchw(x)
+    assert_hwcn(x)
 
     if dl.crop_size !== nothing
         cropped = similar(
             x,
-            size(x,1),
-            size(x,2),
             dl.crop_size,
             dl.crop_size,
+            size(x,3),
+            size(x,4),
         )
 
         random_crop!(cropped, x, dl.crop_size)
@@ -367,6 +397,7 @@ function construct_dataloaders_chunked(
     crop_size::Union{Int, Nothing} = 224,
     dev = gpu_device(),
     workers::Int = 4,
+    shuffle=true,
 )
     @assert train_batchsize % chunk_size == 0
     @assert val_batchsize % chunk_size == 0
@@ -386,7 +417,7 @@ function construct_dataloaders_chunked(
     train_loader = DataLoader(
         train_ds;
         batchsize = train_batchsize ÷ chunk_size,
-        shuffle = true,
+        shuffle = shuffle,
         collate = collate_chunks,
         parallel = true,
     )
@@ -401,6 +432,12 @@ function construct_dataloaders_chunked(
 
     train_loader = DeviceDataLoader(train_loader, crop_size, dev)
     val_loader   = DeviceDataLoader(val_loader, nothing, dev)
+
+    # assert that the dataloader work as expected during initialization here
+    x, y = first(train_loader)
+    assert_hwcn(x)
+    @assert size(x, 4) != length(y) "The labels should be one-hot encoded"
+    @assert size(x, 4) == length(onecold(y)) "There should be as many labels as number ob batches but evaluated: batch size n=$(size(x,4)), number of labels $(length(onecold(y)))"
 
     return train_loader, val_loader
 end
