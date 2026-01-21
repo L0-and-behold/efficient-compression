@@ -16,10 +16,11 @@ module DatasetsModels
     include("cifar_dataset.jl")
     export CIFAR_data
 
-    include("imagenet_dataset.jl")
-    export imagenet_data, preprocess_split, ChunkedImageNet, ChunkedBatch, DeviceDataLoader
+    # load the ImageNet submodule and re-export its API
+    include("ImageNet/ImageNet.jl")
+    using .ImageNet
 
-    include("toy_imagenet_dataset.jl")
+    export imagenet_online_data, imagenet_chunked_data, preprocess_split, ChunkedImageNet, ChunkedBatch, DeviceDataLoader
     export toy_imagenet_data
 
 

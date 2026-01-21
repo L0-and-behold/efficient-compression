@@ -19,7 +19,7 @@ using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
     alexnet
 using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, 
     CIFAR_data, 
-    imagenet_data, 
+    imagenet_online_data, 
     toy_imagenet_data
 using CompressingClassifiersMLPs.BatchRun: do_batch_run, 
     get_sub_batch,
@@ -147,8 +147,8 @@ append!(batch, vanilla_runs)
 
 # Fixed arguments for all runs
 imagenet_data_function = trainbatchsize -> imagenet_online_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
-toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
-args.dataset = imagenet_data_function # toy_imagenet_data_function # imagenet_data_function
+# toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
+args.dataset = imagenet_data_function
 
 args.architecture = resnet50 #toy_resnet # resnet50
 args.delete_neurons = false
