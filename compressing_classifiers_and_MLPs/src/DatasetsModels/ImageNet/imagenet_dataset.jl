@@ -1,18 +1,21 @@
 ## modified version of: https://lux.csail.mit.edu/stable/tutorials/advanced/3_ImageNet
 #
-# NOTE:
-# This file currently contains both the legacy JPEG-based ImageNet
-# dataloader and a new chunked (preprocessed) ImageNet pipeline.
-# The chunked pipeline is intended to replace the legacy loader
-# once fully validated.
-
+#
 # ==============================================================================
 # Constants and utilities
 # ==============================================================================
-
+#
 # TODO: update README to reflect this, also that we should run julia with multiple threads.
 # TODO: update slrum script to use several julia threads.
 
+
+"""
+List of known corrupted ImageNet JPEG files that should be skipped when
+building the dataset.
+
+These filenames are excluded during dataset indexing to avoid runtime
+decode errors.
+"""
 const IMAGENET_CORRUPTED_FILES = [
     "n01739381_1309.JPEG",
     "n02077923_14822.JPEG",
@@ -40,26 +43,72 @@ const IMAGENET_CORRUPTED_FILES = [
     "ILSVRC2012_val_00019877.JPEG",
 ]
 
+"""
+Channel-wise mean used for ImageNet normalization.
+"""
 const IMAGENET_MEAN = (0.485f0, 0.456f0, 0.406f0)
+
+"""
+Channel-wise standard deviation used for ImageNet normalization.
+"""
 const IMAGENET_STD  = (0.229f0, 0.224f0, 0.225f0)
+
+"""
+Number of color channels expected for ImageNet images.
+"""
 const CHANNELS = 3
 
 # ==============================================================================
-# Legacy ImageNet dataset (JPEG-based, runtime decoding)
+# ImageNet dataset (JPEG-based, runtime decoding)
 # ==============================================================================
 
+"""
+Data augmentation transform that ensures grayscale images are converted
+to 3-channel RGB by replicating the single channel.
+"""
 struct MakeColoredImage <: DataAugmentation.Transform end
 
+"""
+Simple file-based dataset for ImageNet-style directory layouts.
+
+# Fields
+- `files`: Vector of absolute file paths to image files.
+- `labels`: Vector of integer class labels in the range `0:999`.
+- `augment`: DataAugmentation pipeline applied on-the-fly during indexing.
+"""
 struct FileDataset
     files
     labels
     augment
 end
 
-# TODO(deprecation):
-# This function is part of the legacy ImageNet pipeline that loads and
-# decodes JPEGs at runtime. Once the chunked ImageNet pipeline is fully
-# validated, this loader should be removed or replaced.
+"""
+    load_imagenet1k(base_path::String, split::Symbol)
+
+Load ImageNet-1k image file paths and labels for a given split.
+
+# Arguments
+- `base_path`: Root directory containing `train/` and `val/` subdirectories.
+- `split`: Either `:train` or `:val`.
+
+# Returns
+- `image_files::Vector{String}`: Absolute paths to all images in the split.
+- `labels::Vector{Int}`: Corresponding class labels in the range `0:999`.
+
+The directory structure is assumed to be:
+```
+base_path/
+  train/
+    n01440764/
+    n01443537/
+    ...
+  val/
+    n01440764/
+    ...
+```
+
+Known corrupted files are automatically filtered out.
+"""
 function load_imagenet1k(base_path::String, split::Symbol)
     @assert split in (:train, :val)
     full_path = joinpath(base_path, string(split))
@@ -79,11 +128,22 @@ function load_imagenet1k(base_path::String, split::Symbol)
     return image_files, labels
 end
 
-# default_image_size(::Type{Vision.VisionTransformer}, ::Nothing) = 256
-# default_image_size(::Type{Vision.VisionTransformer}, size::Int) = size
+"""
+Return the default ImageNet image size (224) if no size is provided.
+"""
 default_image_size(_, ::Nothing) = 224
+
+"""
+Return the explicitly requested image size.
+"""
 default_image_size(_, size::Int) = size
 
+"""
+Apply method for `MakeColoredImage`.
+
+Ensures that the output image has exactly three channels by converting
+grayscale images to RGB via channel replication.
+"""
 function DataAugmentation.apply(
     ::MakeColoredImage, item::DataAugmentation.AbstractArrayItem; randstate=nothing
 )
@@ -92,8 +152,22 @@ function DataAugmentation.apply(
     return DataAugmentation.setdata(item, data)
 end
 
+"""
+Return the number of samples in a `FileDataset`.
+"""
 Base.length(dataset::FileDataset) = length(dataset.files)
 
+"""
+    getindex(dataset::FileDataset, i::Int)
+
+Load and augment the `i`-th image from disk.
+
+# Returns
+- `image::Array{Float32,3}`: Image tensor of shape `(H, W, C)`.
+- `label::OneHotVector`: One-hot encoded label over classes `0:999`.
+
+All images are loaded lazily and transformed at access time.
+"""
 function Base.getindex(dataset::FileDataset, i::Int)
     img = Image(FileIO.load(dataset.files[i]))
     aug_img = itemdata(DataAugmentation.apply(dataset.augment, img))
@@ -101,20 +175,46 @@ function Base.getindex(dataset::FileDataset, i::Int)
     # each image is a (H, W, C) tensor
     @assert ndims(aug_img) == 3 "Each image should be a 3-tensor but got length $(ndims(aug_img))"
     @assert size(aug_img, 3) == CHANNELS "Expected 3rd entry to be color-channels but got dimension $(size(aug_img, 1))"
-    @assert size(aug_img, 1) > 8 && size(aug_img, 2) > 8 "Expected the 1st and 3nd channels to be height and width, but got dimensions $(size(aug_img, 2)) and $(size(aug_img, 3))" # should be 224 or 256
+    @assert size(aug_img, 1) > 8 && size(aug_img, 2) > 8 "Expected the 1st and 2nd dimensions to be height and width"
 
     return aug_img, OneHotArrays.onehot(dataset.labels[i], 0:999)
 end
 
-# TODO(deprecation):
-# Legacy ImageNet dataloader that performs JPEG decoding and augmentation
-# at runtime. This should be replaced by `construct_chunked_dataloaders`
-# (renamed to `construct_dataloaders`) once validated.
+"""
+    construct_online_dataloaders(
+        base_path::String,
+        train_batchsize,
+        val_batchsize,
+        image_size::Int;
+        dev=gpu_device(),
+        shuffle=true,
+        random_crop=true,
+    )
+
+Construct ImageNet training and validation dataloaders using on-the-fly
+JPEG decoding and data augmentation.
+
+# Arguments
+- `base_path`: Root ImageNet directory.
+- `train_batchsize`: Batch size for the training loader.
+- `val_batchsize`: Batch size for the validation loader.
+- `image_size`: Final spatial resolution of images (e.g. 224).
+- `dev`: Device mapping function (e.g. `gpu_device()` or `cpu_device()`).
+- `shuffle`: Whether to shuffle the training dataset.
+- `random_crop`: Whether to apply random resized cropping during training.
+
+# Returns
+- `train_loader`: Device-mapped training `DataLoader`.
+- `val_loader`: Device-mapped validation `DataLoader`.
+
+This function performs runtime image decoding and is intended for
+large-scale ImageNet training without preprocessed binaries.
+"""
 function construct_online_dataloaders(
-        base_path::String, 
-        train_batchsize, 
-        val_batchsize, 
-        image_size::Int; 
+        base_path::String,
+        train_batchsize,
+        val_batchsize,
+        image_size::Int;
         dev=gpu_device(),
         shuffle=true,
         random_crop=true,
@@ -132,8 +232,8 @@ function construct_online_dataloaders(
         MakeColoredImage() |>
         ToEltype(Float32) |>
         Normalize(IMAGENET_MEAN, IMAGENET_STD)
-    train_files, train_labels = load_imagenet1k(base_path, :train)
 
+    train_files, train_labels = load_imagenet1k(base_path, :train)
     train_dataset = FileDataset(train_files, train_labels, train_augment)
 
     val_augment =
@@ -143,8 +243,8 @@ function construct_online_dataloaders(
         MakeColoredImage() |>
         ToEltype(Float32) |>
         Normalize(IMAGENET_MEAN, IMAGENET_STD)
-    val_files, val_labels = load_imagenet1k(base_path, :val)
 
+    val_files, val_labels = load_imagenet1k(base_path, :val)
     val_dataset = FileDataset(val_files, val_labels, val_augment)
 
     train_dataloader = DataLoader(
@@ -164,296 +264,37 @@ function construct_online_dataloaders(
         parallel=false,
     )
 
-    # assert that the dataloader work as expected during initialization here
+    # Validate dataloader output format eagerly
     x, y = first(train_dataloader)
     assert_hwcn(x)
-    @assert size(x, 4) == length(onecold(y)) "There should be as many labels as number ob batches but evaluated: batch size n=$(size(x,4)), number of labels $(length(onecold(y)))"
+    @assert size(x, 4) == length(onecold(y)) "Mismatch between batch size and labels."
 
     return dev(train_dataloader), dev(val_dataloader)
 end
 
-function imagenet_online_data(base_path::String, train_batchsize, val_batchsize, image_size::Int; dev=gpu_device())
-    train_set, val_set = construct_online_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
-    # test_set = deepcopy(val_set)
-    test_set = nothing
+"""
+    imagenet_online_data(base_path, train_batchsize, val_batchsize, image_size; dev=gpu_device())
 
-    return train_set, val_set, test_set
-end
+High-level constructor for ImageNet dataloaders using online (JPEG-based)
+loading.
 
-# ==============================================================================
-# ImageNet preprocessing (offline, chunked)
-# ==============================================================================
+# Returns
+- `train_set`: Training dataloader.
+- `val_set`: Validation dataloader.
+- `test_set`: Always `nothing` (ImageNet has no official test labels).
 
-@inline function assert_hwcn(x; name::AbstractString="tensor")
-    @assert ndims(x) == 4 "$name must be 4D (H,W,C,N), got ndims=$(ndims(x))"
-    @assert size(x, 1) > 200 "$name should have height H=224 or 256, got H=$(size(x,1))"
-    @assert size(x, 2) > 200 "$name should have width W=224 or 256, got W=$(size(x,2))"
-    @assert size(x, 3) == CHANNELS "$name must have C=$CHANNELS as 3rd dimension, got size(x,2)=$(size(x,2))"
-    return nothing
-end
-
-# TODO(refactor):
-# These preprocessing utilities should eventually live in a separate
-# file/module (e.g. imagenet_preprocessing.jl), not alongside dataloaders.
-function make_preprocess_pipeline(image_size::Int)
-    ScaleFixed((image_size, image_size)) |>
-    PinOrigin() |>
-    ImageToTensor() |>
-    MakeColoredImage() |>
-    ToEltype(Float32) |>
-    Normalize(IMAGENET_MEAN, IMAGENET_STD)
-end
-
-function save_chunk(out_path, chunk_id, images, labels)
-    filename = joinpath(out_path, @sprintf("chunk_%06d.jld2", chunk_id))
-    @save filename images labels
-end
-
-# TODO(cleanup):
-# - Remove temporary early-break used for testing.
-# - Run once to build the full preprocessed ImageNet dataset.
-# - Move this function into a dedicated preprocessing script or module.
-function preprocess_split(
+This is the **unchunked** ImageNet dataloader implementation. (Very slow.)
+"""
+function imagenet_online_data(
     base_path::String,
-    out_path::String,
-    split::Symbol;
-    chunk_size::Int = 16,
-    image_size::Int = 256,
-)
-    files, labels = load_imagenet1k(base_path, split)
-    augment = make_preprocess_pipeline(image_size)
-
-    mkpath(out_path)
-
-    chunk_images = Array{Float32,4}(undef, image_size, image_size, CHANNELS, 0) # HWCN-tensor
-    chunk_labels = Int64[]
-
-    assert_hwcn(chunk_images; name="chunk of images")
-
-    chunk_id = 1
-
-    @showprogress for (i, (file, label)) in enumerate(zip(files, labels))
-
-        # TODO: remove this after testing
-        if i > 64 break end
-
-        img = Image(FileIO.load(file))
-
-        x = itemdata(DataAugmentation.apply(augment, img)) # (H,W,C)
-        @assert ndims(x) == 3
-        @assert size(x, 3) == CHANNELS
-        @assert size(x, 1) > 100 && size(x, 2) > 100
-
-        x = reshape(x, size(x)..., 1) # (H,W,C,1)
-        @assert ndims(x) == 4
-        @assert size(x, 3) == CHANNELS
-        @assert size(x, 4) == 1
-
-        chunk_images = cat(chunk_images, x; dims = 4)
-        push!(chunk_labels, label)
-
-        assert_hwcn(chunk_images; name="chunk of images")
-
-        if size(chunk_images, 4) == chunk_size
-            save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
-            chunk_id += 1
-            chunk_images = Array{Float32,4}(undef, image_size, image_size, CHANNELS, 0)
-            empty!(chunk_labels)
-        end
-    end
-
-    if size(chunk_images, 4) > 0
-        assert_hwcn(chunk_images; name="chunk of images")
-        save_chunk(out_path, chunk_id, chunk_images, chunk_labels)
-    end
-end
-
-# ==============================================================================
-# Chunked ImageNet dataset and dataloader (intended future default)
-# ==============================================================================
-
-# TODO(finalize):
-# ChunkedImageNet represents the preprocessed ImageNet dataset and is
-# intended to become the default ImageNet dataset used during training.
-struct ChunkedImageNet
-    chunk_files::Vector{String}
-    chunk_size::Int
-    image_size::Int
-    split::Symbol
-end
-
-struct ChunkedBatch
-    images::Array{Float32,4}
-    labels::Vector{Int}
-end
-
-struct DeviceDataLoader
-    loader
-    crop_size::Union{Nothing,Int}
-    dev
-end
-
-# TODO(invariants):
-# Dataset invariants (chunk size, shape, dtype) are checked once here.
-# Consider making chunk_size a global constant or type parameter if stable.
-function ChunkedImageNet(
-    root::String,
-    split::Symbol;
-    chunk_size::Int,
-    image_size::Int,
-)
-    dir = joinpath(root, string(split))
-    files = sort(filter(f -> endswith(f, ".jld2"), readdir(dir; join=true)))
-    @assert !isempty(files) "No chunks found in $dir"
-
-    @load files[1] images labels
-
-    assert_hwcn(images; name="images batch")
-    @assert length(labels) == size(images, 4) "The saved labels should be integer vectors"
-
-    return ChunkedImageNet(files, chunk_size, image_size, split)
-end
-
-Base.length(ds::ChunkedImageNet) = length(ds.chunk_files)
-
-function Base.getindex(ds::ChunkedImageNet, i::Int)
-    @load ds.chunk_files[i] images labels
-    return ChunkedBatch(images, labels)
-end
-
-# TODO(performance):
-# This collates chunk-level batches into a full batch.
-# Assumes batch_size % chunk_size == 0.
-function collate_chunks(batches::Vector{ChunkedBatch})
-    images = cat((b.images for b in batches)...; dims=4)
-    labels = vcat((b.labels for b in batches)...)
-    assert_hwcn(images; name="iamges batch")
-    return images, labels
-end
-
-# TODO(augmentation):
-# Random cropping is applied at runtime and can run on CPU or GPU
-# depending on `dev`. Evaluate whether this should remain here or
-# move into the training loop.
-function random_crop!(out, x, crop_size)
-
-    assert_hwcn(x)
-
-    H, W, _, _ = size(x)
-    @assert H ≥ crop_size && W ≥ crop_size
-
-    h0 = rand(0:(H - crop_size))
-    w0 = rand(0:(W - crop_size))
-
-    out .= @view x[h0+1:h0+crop_size, w0+1:w0+crop_size, :, :]
-end
-
-# TODO(abstraction):
-# Thin wrapper that moves batches to `dev` and applies runtime augmentation.
-# If this pattern generalizes, consider extracting a shared abstraction.
-
-@inline function to_onehot(labels::Vector{Int})
-    return OneHotArrays.onehotbatch(labels, 0:999)
-end
-
-function Base.iterate(dl::DeviceDataLoader, state...)
-    res = iterate(dl.loader, state...)
-    res === nothing && return nothing
-
-    ((x, y), st) = res
-
-    x = dl.dev(x)
-    y = to_onehot(y) # onehot encode labels after loading at runtime
-    y = dl.dev(y)
-
-    assert_hwcn(x)
-
-    if dl.crop_size !== nothing
-        cropped = similar(
-            x,
-            dl.crop_size,
-            dl.crop_size,
-            size(x,3),
-            size(x,4),
-        )
-
-        random_crop!(cropped, x, dl.crop_size)
-        x = cropped
-    end
-
-    return (x, y), st
-end
-
-# TODO(rename):
-# Once validated, this function should replace `construct_dataloaders`
-# and be renamed accordingly.
-function construct_chunked_dataloaders(
-    root::String,
-    train_batchsize::Int,
-    val_batchsize::Int;
-    chunk_size::Int = 16,
-    train_image_size::Int = 256,
-    val_image_size::Int = 224,
-    crop_size::Union{Int, Nothing} = 224,
-    dev = gpu_device(),
-    workers::Int = 4,
-    shuffle=true,
-)
-    @assert train_batchsize % chunk_size == 0
-    @assert val_batchsize % chunk_size == 0
-
-    train_ds = ChunkedImageNet(
-        root, :train;
-        chunk_size=chunk_size,
-        image_size=train_image_size,
-    )
-
-    val_ds = ChunkedImageNet(
-        root, :val;
-        chunk_size=chunk_size,
-        image_size=val_image_size,
-    )
-
-    train_loader = DataLoader(
-        train_ds;
-        batchsize = train_batchsize ÷ chunk_size,
-        shuffle = shuffle,
-        collate = collate_chunks,
-        parallel = true,
-    )
-
-    val_loader = DataLoader(
-        val_ds;
-        batchsize = val_batchsize ÷ chunk_size,
-        shuffle = false,
-        collate = collate_chunks,
-        parallel = true,
-    )
-
-    train_loader = DeviceDataLoader(train_loader, crop_size, dev)
-    val_loader   = DeviceDataLoader(val_loader, nothing, dev)
-
-    # assert that the dataloader work as expected during initialization here
-    x, y = first(train_loader)
-    assert_hwcn(x)
-    @assert size(x, 4) != length(y) "The labels should be one-hot encoded"
-    @assert size(x, 4) == length(onecold(y)) "There should be as many labels as number ob batches but evaluated: batch size n=$(size(x,4)), number of labels $(length(onecold(y)))"
-
-    return train_loader, val_loader
-end
-
-function imagenet_preprocessed_data(
-    root::String,
     train_batchsize,
-    val_batchsize;
-    kwargs...
+    val_batchsize,
+    image_size::Int;
+    dev=gpu_device(),
 )
-    train, val = construct_chunked_dataloaders(
-        root,
-        train_batchsize,
-        val_batchsize;
-        kwargs...
-    )
-    test = nothing
-    return train, val, test
+    train_set, val_set =
+        construct_online_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
+
+    test_set = nothing
+    return train_set, val_set, test_set
 end
