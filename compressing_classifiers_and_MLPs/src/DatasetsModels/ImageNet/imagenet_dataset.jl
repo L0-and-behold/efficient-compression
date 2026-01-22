@@ -184,8 +184,8 @@ end
     construct_online_dataloaders(
         base_path::String,
         train_batchsize,
-        val_batchsize,
-        image_size::Int;
+        val_batchsize;
+        crop_size::Int=224,
         dev=gpu_device(),
         shuffle=true,
         random_crop=true,
@@ -198,7 +198,7 @@ JPEG decoding and data augmentation.
 - `base_path`: Root ImageNet directory.
 - `train_batchsize`: Batch size for the training loader.
 - `val_batchsize`: Batch size for the validation loader.
-- `image_size`: Final spatial resolution of images (e.g. 224).
+- `crop_size`: Final spatial resolution of images (e.g. 224).
 - `dev`: Device mapping function (e.g. `gpu_device()` or `cpu_device()`).
 - `shuffle`: Whether to shuffle the training dataset.
 - `random_crop`: Whether to apply random resized cropping during training.
@@ -213,20 +213,20 @@ large-scale ImageNet training without preprocessed binaries.
 function construct_online_dataloaders(
         base_path::String,
         train_batchsize,
-        val_batchsize,
-        image_size::Int;
+        val_batchsize;
+        crop_size::Int=224,
         dev=gpu_device(),
         shuffle=true,
         random_crop=true,
         )
     println("=> creating dataloaders.")
 
-    @inline MaybeRandomResizeCrop(enabled::Bool, image_size::Int) =
-        enabled ? RandomResizeCrop((image_size, image_size)) : identity
+    @inline MaybeRandomResizeCrop(enabled::Bool, crop_size::Int) =
+        enabled ? RandomResizeCrop((crop_size, crop_size)) : identity
 
     train_augment =
         ScaleFixed((256, 256)) |>
-        MaybeRandomResizeCrop(random_crop, image_size) |>
+        MaybeRandomResizeCrop(random_crop, crop_size) |>
         PinOrigin() |>
         ImageToTensor() |>
         MakeColoredImage() |>
@@ -237,7 +237,7 @@ function construct_online_dataloaders(
     train_dataset = FileDataset(train_files, train_labels, train_augment)
 
     val_augment =
-        ScaleFixed((image_size, image_size)) |>
+        ScaleFixed((crop_size, crop_size)) |>
         PinOrigin() |>
         ImageToTensor() |>
         MakeColoredImage() |>
@@ -272,29 +272,35 @@ function construct_online_dataloaders(
     return dev(train_dataloader), dev(val_dataloader)
 end
 
-"""
-    imagenet_online_data(base_path, train_batchsize, val_batchsize, image_size; dev=gpu_device())
 
-High-level constructor for ImageNet dataloaders using online (JPEG-based)
-loading.
+"""
+Returns a function with the same signature as CIFAR_data and MNIST_data,
+configured to use a specific ImageNet dataloader constructor (online, chunked, or toy).
+
+# Arguments
+- `root::String`: Path to ImageNet data directory
+- `dataloader_constructor::Function`: One of `construct_online_dataloaders`, 
+  `construct_chunked_dataloaders`, or `construct_toy_dataloaders`
+- `crop_size::Int=224`: Image crop size
+- `dev`: Device function (gpu_device() or cpu_device())
 
 # Returns
-- `train_set`: Training dataloader.
-- `val_set`: Validation dataloader.
-- `test_set`: Always `nothing` (ImageNet has no official test labels).
-
-This is the **unchunked** ImageNet dataloader implementation. (Very slow.)
+A function `(batch_size::Int) -> (train_set, val_set, test_set)` where `test_set` is always `nothing`
 """
-function imagenet_online_data(
-    base_path::String,
-    train_batchsize,
-    val_batchsize,
-    image_size::Int;
-    dev=gpu_device(),
-)
-    train_set, val_set =
-        construct_online_dataloaders(base_path, train_batchsize, val_batchsize, image_size; dev=dev)
+function imagenet_data_function(
+    root::String,
+    dataloader_constructor::Function;
+    crop_size::Int=224,
+    dev=gpu_device()
+    )::Function
 
-    test_set = nothing
-    return train_set, val_set, test_set
+    function imagenet_dataset(batch_size::Int)
+
+        train_set, val_set = dataloader_constructor(root, batch_size, batch_size; crop_size=crop_size, dev=dev)
+        test_set = nothing
+
+        return train_set, val_set, test_set
+    end
+
+    return imagenet_dataset
 end

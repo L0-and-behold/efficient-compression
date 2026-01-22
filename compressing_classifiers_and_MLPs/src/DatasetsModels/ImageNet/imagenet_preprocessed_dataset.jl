@@ -373,8 +373,8 @@ Returns `(train, val, test)` where `test` is always `nothing`.
 """
 function imagenet_preprocessed_data(
     root::String,
-    train_batchsize,
-    val_batchsize;
+    train_batchsize::Int,
+    val_batchsize::Int;
     kwargs...
 )
     train, val = construct_chunked_dataloaders(

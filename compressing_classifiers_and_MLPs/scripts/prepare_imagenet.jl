@@ -41,7 +41,7 @@ const VAL_IMAGES   = 50_000
 
 const TRAIN_IMAGE_SIZE = 256
 const VAL_IMAGE_SIZE   = 224
-const CHUNK_SIZE       = 16
+const CHUNK_SIZE       = 32
 
 const EXPECTED_SYNSETS = 1000
 

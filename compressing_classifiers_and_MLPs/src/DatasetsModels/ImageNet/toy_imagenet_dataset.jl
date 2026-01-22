@@ -57,22 +57,22 @@ function construct_toy_dataloaders(
     return dev(train_dl), dev(val_dl)
 end
 
-"""
-    toy_imagenet_data(...; backend=nothing)
+# """
+#     toy_imagenet_data(...; backend=nothing)
 
-Convenient wrapper that mirrors the signature of the full `imagenet_data`
-helper, returning `(train_loader, val_loader, test_loader)`.
-"""
-function toy_imagenet_data(
-    path_placeholder, train_bs::Int, val_bs::Int,
-    img_size::Int; n_classes::Int=1000,
-    dev=gpu_device(),
-    n_val=1000, n_train=1000,
-    backend=nothing  # Pass backend instead of is_distributed flag
-)
-    train_dl, val_dl = construct_toy_dataloaders(
-        n_train, n_val, train_bs, val_bs, img_size;
-        n_classes=n_classes, dev=dev, backend=backend)
+# Convenient wrapper that mirrors the signature of the full `imagenet_data`
+# helper, returning `(train_loader, val_loader, test_loader)`.
+# """
+# function toy_imagenet_data(
+#     path_placeholder, train_bs::Int, val_bs::Int,
+#     img_size::Int; n_classes::Int=1000,
+#     dev=gpu_device(),
+#     n_val=1000, n_train=1000,
+#     backend=nothing  # Pass backend instead of is_distributed flag
+# )
+#     train_dl, val_dl = construct_toy_dataloaders(
+#         n_train, n_val, train_bs, val_bs, img_size;
+#         n_classes=n_classes, dev=dev, backend=backend)
 
-    return train_dl, val_dl, nothing
-end
+#     return train_dl, val_dl, nothing
+# end

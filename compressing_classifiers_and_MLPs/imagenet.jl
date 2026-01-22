@@ -8,23 +8,25 @@ using TOML: parsefile
 
 using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
 using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
-    RL1_procedure,
-    DRR_procedure,
-    VGG,
-    Lenet_5_Caffe,
-    Lenet_MLP,
-    resnet50,
-    resnet18, 
-    toy_resnet,
-    alexnet
+RL1_procedure,
+DRR_procedure,
+VGG,
+Lenet_5_Caffe,
+Lenet_MLP,
+resnet50,
+resnet18, 
+toy_resnet,
+alexnet
 using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, 
-    CIFAR_data, 
-    imagenet_online_data, 
-    toy_imagenet_data
+CIFAR_data, 
+imagenet_data_function, 
+construct_online_dataloaders, 
+construct_chunked_dataloaders, 
+construct_toy_dataloaders
 using CompressingClassifiersMLPs.BatchRun: do_batch_run, 
-    get_sub_batch,
-    single_run_routine_classifier,
-    single_run_routine_teacherstudent  
+get_sub_batch,
+single_run_routine_classifier,
+single_run_routine_teacherstudent  
 
 #####
 # Experiment setup
@@ -37,8 +39,10 @@ cfg = parsefile("config.toml")
 @assert haskey(cfg, "paths") "config file should have [paths] section"
 @assert haskey(cfg["paths"], "path_to_db")
 @assert haskey(cfg["paths"], "imagenet_path")
+@assert haskey(cfg["paths"], "imagenet_preprocessed_path")
 path_to_db = cfg["paths"]["path_to_db"]
 imagenet_path = cfg["paths"]["imagenet_path"]
+imagenet_preprocessed_path = cfg["paths"]["imagenet_preprocessed_path"]
 println("Using experiment data path: ", path_to_db)
 println("Using ImageNet path: ", imagenet_path)
 
@@ -50,16 +54,16 @@ single_run_routine = single_run_routine_classifier
 
 # Arguments that vary throughout the experiment
 variables = Symbol[
-    :optimization_procedure, 
-    :α, 
-    :β, 
-    :NORM,
-    :initial_p_value,
-    :u_value_multiply_factor,
-    :seed,
-    :shrinking,
-    :gradient_repetition_factor
-    ]
+:optimization_procedure, 
+:α, 
+:β, 
+:NORM,
+:initial_p_value,
+:u_value_multiply_factor,
+:seed,
+:shrinking,
+:gradient_repetition_factor
+]
 
 # Values for the varying arguments
 batch = Tuple[]
@@ -75,18 +79,18 @@ append!(additional_alphas, alphas)
 # )
 
 vanilla_runs = [
-    (
-        RL1_procedure, 
-        0f0, 
-        0f0, 
-        false,
-        0f0,
-        1f0,
-        seed,
-        false,
-        1
-    )
-    for seed in seeds
+(
+    RL1_procedure, 
+    0f0, 
+    0f0, 
+    false,
+    0f0,
+    1f0,
+    seed,
+    false,
+    1
+)
+for seed in seeds
 ]
 append!(batch, vanilla_runs)
 
@@ -146,14 +150,13 @@ append!(batch, vanilla_runs)
 # append!(batch, FPP_runs)
 
 # Fixed arguments for all runs
-imagenet_data_function = trainbatchsize -> imagenet_online_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
-# toy_imagenet_data_function = trainbatchsize -> toy_imagenet_data(imagenet_path, trainbatchsize, trainbatchsize, 224; dev=gpu_device())
-args.dataset = imagenet_data_function
+
+args.dataset = imagenet_data_function(imagenet_preprocessed_path, construct_chunked_dataloaders)
 
 args.architecture = resnet50 #toy_resnet # resnet50
 args.delete_neurons = false
 args.layerwise_pruning = false
-args.smoothing_window = 5
+args.smoothing_window = 5   
 args.finetuning_min_epochs = 10
 args.finetuning_max_epochs = 10
 args.train_set_size = "see dataset"
@@ -184,9 +187,9 @@ args.test_set_size = 50000
 batches_per_epoch = length(Base.Iterators.partition(1:args.train_set_size, args.train_batch_size))
 decay_epochs = max(1, round(Int64, 100_000 / batches_per_epoch))
 args.schedule = Step(
-    args.lr,            # Initial learning rate
-    0.1f0,              # Decay factor (multiply by 0.1 = divide by 10)
-    25 # devide lr by 10 every (-) epochs. 100k iterations for Alexnet
+args.lr,            # Initial learning rate
+0.1f0,              # Decay factor (multiply by 0.1 = divide by 10)
+25 # devide lr by 10 every (-) epochs. 100k iterations for Alexnet
 )
 
 args.multiply_mask_after_each_batch = false
@@ -206,4 +209,4 @@ break_if_one_run_errors = true
 # If provided via command line arguments, run only a subset of the batch
 experiment_name, batch = get_sub_batch(experiment_name, batch)
 
-do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)
+do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)a

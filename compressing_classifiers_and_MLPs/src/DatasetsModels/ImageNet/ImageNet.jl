@@ -36,28 +36,16 @@ module ImageNet
 
     import Lux.DistributedUtils.DistributedDataContainer
 
-    # --------------------------------------------------------------------------
+
     # Online (JPEG-based) ImageNet dataset
-    # --------------------------------------------------------------------------
     include("imagenet_dataset.jl")
 
-    # --------------------------------------------------------------------------
     # Offline preprocessing + chunked ImageNet dataset
-    # --------------------------------------------------------------------------
     include("imagenet_preprocessed_dataset.jl")
-
-    export
-        imagenet_online_data,
-        imagenet_chunked_data,
-        preprocess_split,
-        ChunkedImageNet,
-        ChunkedBatch,
-        DeviceDataLoader
-
-    # --------------------------------------------------------------------------
+    
     # Toy ImageNet (debug)
-    # --------------------------------------------------------------------------
     include("toy_imagenet_dataset.jl")
-    export toy_imagenet_data
+
+    export imagenet_data_function, construct_online_dataloaders, construct_chunked_dataloaders, construct_toy_dataloaders, preprocess_split, ChunkedImageNet, ChunkedBatch, DeviceDataLoader, imagenet_preprocessed_data
 
 end # module ImageNet

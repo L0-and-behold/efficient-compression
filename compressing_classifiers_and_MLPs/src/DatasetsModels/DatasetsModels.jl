@@ -20,8 +20,7 @@ module DatasetsModels
     include("ImageNet/ImageNet.jl")
     using .ImageNet
 
-    export imagenet_online_data, imagenet_chunked_data, preprocess_split, ChunkedImageNet, ChunkedBatch, DeviceDataLoader
-    export toy_imagenet_data
+    export imagenet_data_function, construct_online_dataloaders, construct_chunked_dataloaders, construct_toy_dataloaders, preprocess_split, ChunkedImageNet, ChunkedBatch, DeviceDataLoader, imagenet_preprocessed_data
 
 
 end # module
