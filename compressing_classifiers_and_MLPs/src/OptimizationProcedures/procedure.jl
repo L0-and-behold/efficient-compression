@@ -1,11 +1,13 @@
 """
     procedure(
-        train_set::Vector{<:Tuple},
-        validation_set::Vector{<:Tuple},
-        test_set::Vector{<:Tuple},
-        tstate::Lux.Training.TrainState,
-        loss_fun::LossFunction,
-        args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
+    tstate::Lux.Training.TrainState,
+    loss_fun::LossFunction,
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
 
     This function runs a compression procedure. The specific procedure that is run depends on the loss_fun handed to procedure. The loss_fun is a struct and muliple dispatch then determines during training which optimization updates have to be run given this struct. The procedure function is usually not run directly. Instead, it is called by one of available procedures in this repo (e.g. DRR, PMMP or RL1).
 
@@ -29,9 +31,9 @@
 using .Checkpointer
 
 function procedure(
-    train_set::Union{Vector{<:Tuple}, DeviceIterator},
-    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator, Nothing},
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
     tstate::Lux.Training.TrainState,
     loss_fun::LossFunction,
     args::AbstractTrainArgs,

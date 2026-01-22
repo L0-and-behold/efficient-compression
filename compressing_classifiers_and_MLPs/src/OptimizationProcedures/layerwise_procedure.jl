@@ -1,11 +1,11 @@
 """
     layerwise_procedure(
-        train_set::Union{Vector{<:Tuple}, DeviceIterator},
-        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-        test_set::Union{Vector{<:Tuple}, DeviceIterator},
-        tstate::Lux.Training.TrainState,
-        loss_fctn::Function,
-        args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
+    tstate::Lux.Training.TrainState,
+    loss_fctn::Function,
+    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
     
     This function runs a layerwise compression procedure. During this procedure, the network is pruned layer by layer every args.prune_window epochs. The pruning in a given layer is performed, employing a probabilistic reformulation of L0 regularized regression. 
 
@@ -23,9 +23,9 @@
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function layerwise_procedure(
-    train_set::Union{Vector{<:Tuple}, DeviceIterator},
-    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
