@@ -291,6 +291,13 @@ function Base.iterate(dl::DeviceDataLoader, state...)
     return (x, y), st
 end
 
+Base.length(dl::DeviceDataLoader) = length(dl.loader)
+
+Base.IteratorSize(::Type{DeviceDataLoader}) = Base.HasLength()
+
+Base.eltype(::Type{DeviceDataLoader}) = Tuple
+
+
 """
     construct_chunked_dataloaders(
         root,

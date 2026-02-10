@@ -207,19 +207,20 @@ function lux_training!(
             end
             update_time = time()
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
-            println("▶ Epoch $epoch – batch $i - update_state!: $(time() - update_time)")
+            # println("▶ Epoch $epoch – batch $i - update_state!: $(time() - update_time)")
             multiply_time = time()
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
-            println("▶ Epoch $epoch – batch $i recursively_multiply!-time: $(time() - multiply_time)")
+            # println("▶ Epoch $epoch – batch $i recursively_multiply!-time: $(time() - multiply_time)")
             epoch_loss += loss
             if args.debug && i > 5
                 break
             end
-            println("▶ Epoch $epoch – batch $i batch-time: $(time() - batch_time)")
+            # println("▶ Epoch $epoch – batch $i batch-time: $(time() - batch_time)")
         end
-        println("▶ Epoch $epoch - epoch-time: $(time() - epoch_start_time)")
+        epoch_end_time = ()
+        println("▶ Epoch $epoch - epoch-time: $(epoch_end_time - epoch_start_time)")
         if !args.debug
             epoch_loss /= num_batches
         end
