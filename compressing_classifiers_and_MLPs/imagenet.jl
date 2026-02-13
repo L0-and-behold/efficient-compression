@@ -6,6 +6,7 @@ using CUDA, TOML, ArgParse, Suppressor, Optimisers, ParameterSchedulers
 using Lux: gpu_device
 using TOML: parsefile
 
+using CompressingClassifiersMLPs
 using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
 using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
 RL1_procedure,
@@ -162,9 +163,9 @@ args.finetuning_max_epochs = 10
 args.train_set_size = "see dataset"
 args.val_set_size = "see dataset"
 args.test_set_size = "see dataset"
-args.train_batch_size = 64
-args.val_batch_size = 64
-args.test_batch_size = 64
+args.train_batch_size = 160
+args.val_batch_size = 160
+args.test_batch_size = 160
 args.noise = 0f0
 args.prune_window = 10
 args.shrinking_from_deviation_of = 1e-2
@@ -193,12 +194,12 @@ args.lr,            # Initial learning rate
 )
 
 args.multiply_mask_after_each_batch = false
-args.debug = false # false
+args.debug = true # false
 
-args.use_checkpoints = true
-args.checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
-args.checkpoint_frequency = 1
-args.max_runtime_seconds = 3600 * 23.5
+args.use_checkpoints = false
+# args.checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
+# args.checkpoint_frequency = 100
+# args.max_runtime_seconds = 3600 * 23.5 * 100
 
 break_if_one_run_errors = true
 
@@ -209,4 +210,4 @@ break_if_one_run_errors = true
 # If provided via command line arguments, run only a subset of the batch
 experiment_name, batch = get_sub_batch(experiment_name, batch)
 
-do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)a
+do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)

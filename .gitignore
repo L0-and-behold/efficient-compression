@@ -1,11 +1,13 @@
 *.pt
 *.txt
+*.log
+*.slurm
+diff
 __pycache__
 .vscode
 experiment-results
 Manifest.toml
 compressing_classifiers_and_MLPs/test_error_vs_alpha_results
-compressing_classifiers_and_MLPs/slurm_scripts
 compressing_classifiers_and_MLPs/core.*
 compressing_classifiers_and_MLPs/instantiateScript.jl
 compressing_classifiers_and_MLPs/reports

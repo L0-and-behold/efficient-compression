@@ -207,19 +207,16 @@ function lux_training!(
             end
             update_time = time()
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
-            # println("▶ Epoch $epoch – batch $i - update_state!: $(time() - update_time)")
             multiply_time = time()
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
-            # println("▶ Epoch $epoch – batch $i recursively_multiply!-time: $(time() - multiply_time)")
             epoch_loss += loss
             if args.debug && i > 5
                 break
             end
-            # println("▶ Epoch $epoch – batch $i batch-time: $(time() - batch_time)")
         end
-        epoch_end_time = ()
+        epoch_end_time = time()
         println("▶ Epoch $epoch - epoch-time: $(epoch_end_time - epoch_start_time)")
         if !args.debug
             epoch_loss /= num_batches
@@ -229,13 +226,11 @@ function lux_training!(
         push!(args.logs["epochs"], start_epoch+epoch)
         push!(args.logs["train_loss"], epoch_loss)
         push!(args.logs["epoch_execution_time"], epoch_end_time - epoch_start_time)
-
-        println("▶ Epoch $epoch finished in $(time() - batch_time) s")
         
-        # if args.debug
-            # metrics_time = time()
-            # println("▶ Epoch $epoch Start rest of training loop evaluations")
-        # end
+        if args.debug
+            metrics_time = time()
+            println("▶ Epoch $epoch Start rest of training loop evaluations")
+        end
 
         if haskey(tstate.states, :mask)
             l0_mask= recursive_sum(tstate.states.mask, args.dtype(0))
@@ -349,9 +344,9 @@ function lux_training!(
             end
         end
         println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
-        # if args.debug
-            # println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
-        # end
+        if args.debug
+            println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
+        end
     end
     total_time_end = time()
     args.logs["total_time"] += total_time_end - total_time_start

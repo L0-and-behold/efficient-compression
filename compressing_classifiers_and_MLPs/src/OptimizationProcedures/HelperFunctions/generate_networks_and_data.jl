@@ -270,6 +270,7 @@ end
 
     Generates VGG architecture following https://www.kaggle.com/code/vtu5118/cifar-10-using-vgg16 (but with both fc layers of equal size like in the original architecture https://arxiv.org/abs/1409.1556)
 """
+function VGG end
 function VGG(input_dims = (32,32), in_channels = 3; depth=16, nclasses=10, batchnorm=true, fcsize=512, dropout=0.4f0)
     return Vision.VGG(input_dims; config=Vision.VGG_CONFIG[depth], inchannels=in_channels, batchnorm=batchnorm, nclasses=nclasses, fcsize=fcsize, dropout=dropout)
 end
