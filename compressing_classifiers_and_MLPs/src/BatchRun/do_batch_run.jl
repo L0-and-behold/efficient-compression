@@ -168,4 +168,5 @@ function do_batch_run(
     end
     println("Batch finished!")
     println(summary)
+    flush(stdout); flush(stderr)
 end

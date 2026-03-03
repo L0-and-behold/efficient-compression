@@ -141,6 +141,8 @@ function lux_training!(
     end
     num_batches = args.dtype(length(train_set))
 
+    flush(stdout); flush(stderr)
+
     # Checkpoint loading and initialization of variables
     if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 1
         println("Resuming from epoch $(checkpoint.content.epoch)")
@@ -165,6 +167,8 @@ function lux_training!(
 
     last_lr = copy(args.lr)
     for epoch in (start_epoch_offset+1):max_epochs
+        flush(stdout); flush(stderr)
+
         # Check for timeout before starting epoch
         if checkpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
             println("Saving checkpoint")
@@ -275,6 +279,8 @@ function lux_training!(
             println("▶ Validation accuracy evaluated in $(time()-t)s")
         end
         
+        flush(stdout); flush(stderr)
+
         # Pruning and Convergence check is done at most every prune_window epochs
         time_pruning_and_convergence = time()
         if epoch % args.prune_window == 0 || epoch == max_epochs
@@ -347,6 +353,7 @@ function lux_training!(
         if args.debug
             println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
         end
+        flush(stdout); flush(stderr)
     end
     total_time_end = time()
     args.logs["total_time"] += total_time_end - total_time_start
@@ -389,6 +396,7 @@ function lux_training!(
     end
 
     @assert return_tstate != nothing
+    flush(stdout); flush(stderr)
 
     return return_tstate, args.logs, loss_fun, checkpoint
 end

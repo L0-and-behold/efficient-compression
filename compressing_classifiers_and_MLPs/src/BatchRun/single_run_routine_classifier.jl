@@ -59,6 +59,8 @@ function single_run_routine_classifier(
         println("Error during precompilation run. Continue with actual training")
     end
     
+    flush(stdout); flush(stderr)
+
     # do actual training
     if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
         if args.verbose
@@ -99,6 +101,8 @@ function single_run_routine_classifier(
     maybe_save_checkpoint(checkpoint)
 
     println("Training and saving of results finished for $run_id.")
+
+    flush(stdout); flush(stderr)
 end
 
 """

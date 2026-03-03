@@ -2,11 +2,18 @@ using Pkg; Pkg.activate(".")
 # Pkg.resolve(); Pkg.instantiate()
 using Revise
 
+flush(stdout); flush(stderr)
+
 using CUDA, TOML, ArgParse, Suppressor, Optimisers, ParameterSchedulers
+
+flush(stdout); flush(stderr)
 using Lux: gpu_device
 using TOML: parsefile
 
 using CompressingClassifiersMLPs
+
+flush(stdout); flush(stderr)
+
 using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
 using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure,
 RL1_procedure,
@@ -28,6 +35,8 @@ using CompressingClassifiersMLPs.BatchRun: do_batch_run,
 get_sub_batch,
 single_run_routine_classifier,
 single_run_routine_teacherstudent  
+
+flush(stdout); flush(stderr)
 
 #####
 # Experiment setup
@@ -202,6 +211,8 @@ args.use_checkpoints = false
 # args.max_runtime_seconds = 3600 * 23.5 * 100
 
 break_if_one_run_errors = true
+
+flush(stdout); flush(stderr)
 
 #####
 # Execute the experiment
