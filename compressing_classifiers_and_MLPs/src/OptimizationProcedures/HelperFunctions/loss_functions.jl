@@ -57,19 +57,24 @@ multiply_mask(A,B) = A .* B
 
 function accuracy(tstate, dataset; debug=false)::Float32
     if haskey(tstate.parameters, :p)
-        return accuracy(tstate.model, tstate.parameters.p, tstate.states.st, dataset; debug=debug)
+        return accuracy(tstate.model, tstate.parameters.p, testmode_states(tstate), dataset; debug=debug)
     end
-    return accuracy(tstate.model, tstate.parameters, tstate.states, dataset; debug=debug)
+    return accuracy(tstate.model, tstate.parameters, testmode_states(tstate), dataset; debug=debug)
+end
+
+function assert_in_testmode(st::NamedTuple)
+    inner = haskey(st, :st) ? st.st : st
+    @assert !Lux.istraining(inner) "accuracy called with states in training mode — use testmode_states(tstate) before calling accuracy"
 end
 
 function accuracy(model, ps, st, dataset; debug=false)::Float32
+    assert_in_testmode(st)
     total_correct, total = 0, 0
-    stt = Lux.testmode(st)
     cpu = Lux.cpu_device()
     
     for (i, (x, y)) in enumerate(dataset)
         target_class = onecold(cpu(y))
-        predicted_class = onecold(cpu(first(model(x, ps, stt))))
+        predicted_class = onecold(cpu(first(model(x, ps, st))))
         total_correct += sum(target_class .== predicted_class)
         total += length(target_class)
         if debug && i > 5
@@ -78,6 +83,7 @@ function accuracy(model, ps, st, dataset; debug=false)::Float32
     end
     return total_correct / total
 end
+
 
 
 

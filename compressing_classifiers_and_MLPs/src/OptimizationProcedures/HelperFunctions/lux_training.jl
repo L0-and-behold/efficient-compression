@@ -200,8 +200,6 @@ function lux_training!(
         end
 
         # Batch loop
-        # the excessive print statements are for testing and debugging
-        # TODO: remove print statements
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
         for (i, batch) in enumerate(train_set)
@@ -221,7 +219,6 @@ function lux_training!(
             end
         end
         epoch_end_time = time()
-        println("▶ Epoch $epoch - epoch-time: $(epoch_end_time - epoch_start_time)")
         if !args.debug
             epoch_loss /= num_batches
         end
@@ -244,7 +241,7 @@ function lux_training!(
             epoch_val_loss = zero(args.dtype)
             t = time()
             for (i, val_batch) in enumerate(validation_set)
-                epoch_val_loss += loss_fun(tstate.model, tstate.parameters, Lux.testmode(tstate.states), val_batch)[1]
+                epoch_val_loss += loss_fun(tstate.model, tstate.parameters, testmode_states(tstate), val_batch)[1]
                 if args.debug && i > 5
                     break
                 end
@@ -254,13 +251,13 @@ function lux_training!(
             if args.verbose 
                 @printf "\rEpoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
             end
-            println("▶ Validation loss evaluated in $(time()-t)s")
+            # println("▶ Validation loss evaluated in $(time()-t)s")
 
             if !isnothing(test_set)
                 t = time()
                 epoch_test_loss = zero(args.dtype)
                 for test_batch in test_set
-                    epoch_test_loss += loss_fun(tstate.model, tstate.parameters, Lux.testmode(tstate.states), test_batch)[1]
+                    epoch_test_loss += loss_fun(tstate.model, tstate.parameters, testmode_states(tstate), test_batch)[1]
                 end
                 epoch_test_loss /= length(test_set)
                 push!(args.logs["test_loss"], (start_epoch+epoch, epoch_test_loss))
@@ -275,8 +272,9 @@ function lux_training!(
         end
         if loss_fun.loss_f == logitcrossentropy
             t = time()
-            push!(args.logs["validation_accuracy"], accuracy(tstate, validation_set, debug=args.debug))
-            println("▶ Validation accuracy evaluated in $(time()-t)s")
+            val_accuracy = accuracy(tstate, validation_set, debug=args.debug)
+            push!(args.logs["validation_accuracy"], val_accuracy)
+            println("▶ Validation accuracy: $val_accuracy")
         end
         
         flush(stdout); flush(stderr)
@@ -348,8 +346,8 @@ function lux_training!(
                     break
                 end
             end
+            println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
         end
-        println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
         if args.debug
             println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
         end

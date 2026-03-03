@@ -335,8 +335,15 @@ function construct_chunked_dataloaders(
     workers::Int = 4,
     shuffle=true,
 )
-    @assert train_batchsize % chunk_size == 0
-    @assert val_batchsize % chunk_size == 0
+    @assert train_batchsize % chunk_size == 0 """
+        train_batchsize ($train_batchsize) must be divisible by chunk_size ($chunk_size).
+        The chunked dataloader loads chunk_size images per file; batch size must be a 
+        multiple of this. Either set train_batchsize to a multiple of $chunk_size, 
+        or re-preprocess ImageNet with a different chunk_size.
+    """
+    @assert val_batchsize % chunk_size == 0 """
+        val_batchsize ($val_batchsize) must be divisible by chunk_size ($chunk_size).
+    """
 
     train_ds = ChunkedImageNet(
         root, :train;

@@ -2,10 +2,15 @@
 # They are used by update_functions.jl to modify gradients of parameters explicitly without the need to do backpropagation.
 # Such explicit gradients arise in the regularization procedures we employ (like DRR, PMMP or RL1) and are more efficient than their corresponding backprop counterparts.
 
+
+const SKIP_REGULARIZATION_KEYS = Set([:scale]) 
+
 function recursively_modify!(params1, params2, loss_fun, fun)
     if !isnothing(params1)
         for (subparams1, subparams2) in zip(params1, params2)
-            if isa(subparams1, AbstractArray{T} where T)
+            if key in SKIP_REGULARIZATION_KEYS
+                continue
+            elseif isa(subparams1, AbstractArray{T} where T)
                 subparams1 .+= fun(loss_fun, subparams1, subparams2, params2)
             else
                 recursively_modify!(subparams1, subparams2, loss_fun, fun)
