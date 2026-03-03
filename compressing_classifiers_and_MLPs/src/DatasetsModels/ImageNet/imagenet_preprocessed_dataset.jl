@@ -178,6 +178,7 @@ struct DeviceDataLoader
     loader
     crop_size::Union{Nothing,Int}
     dev
+    augment::Bool
 end
 
 """
@@ -276,6 +277,7 @@ function Base.iterate(dl::DeviceDataLoader, state...)
 
     assert_hwcn(x)
 
+    # random cropping
     if dl.crop_size !== nothing
         cropped = similar(
             x,
@@ -286,6 +288,11 @@ function Base.iterate(dl::DeviceDataLoader, state...)
         )
         random_crop!(cropped, x, dl.crop_size)
         x = cropped
+    end
+
+    # horizontal flip
+    if dl.augment && rand() < 0.5
+        x = reverse(x, dims=2)
     end
 
     return (x, y), st
@@ -359,8 +366,8 @@ function construct_chunked_dataloaders(
         parallel = true,
     )
 
-    train_loader = DeviceDataLoader(train_loader, crop_size, dev)
-    val_loader   = DeviceDataLoader(val_loader, nothing, dev)
+    train_loader = DeviceDataLoader(train_loader, crop_size, dev, true)
+    val_loader   = DeviceDataLoader(val_loader, nothing, dev, false)
 
     # assert that the dataloader work as expected during initialization here
     x, y = first(train_loader)
