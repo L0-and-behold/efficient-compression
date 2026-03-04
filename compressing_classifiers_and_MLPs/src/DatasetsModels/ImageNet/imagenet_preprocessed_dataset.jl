@@ -100,6 +100,9 @@ function preprocess_split(
     debug=false
 )
     files, labels = load_imagenet1k(base_path, split)
+    perm = randperm(length(files))
+    files = files[perm]
+    labels = labels[perm]
     augment = make_preprocess_pipeline(image_size)
 
     mkpath(out_path)

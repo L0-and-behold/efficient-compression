@@ -62,19 +62,25 @@ function accuracy(tstate, dataset; debug=false)::Float32
     return accuracy(tstate.model, tstate.parameters, testmode_states(tstate), dataset; debug=debug)
 end
 
+_has_training_mode(st::NamedTuple) =
+    (haskey(st, :training) && st.training === Val(true)) ||
+    any(_has_training_mode(v) for v in values(st) if v isa NamedTuple)
+_has_training_mode(_) = false
+
 function assert_in_testmode(st::NamedTuple)
     inner = haskey(st, :st) ? st.st : st
-    @assert !Lux.istraining(inner) "accuracy called with states in training mode — use testmode_states(tstate) before calling accuracy"
+    @assert !_has_training_mode(inner) "accuracy called with states in training mode — use testmode_states(tstate) before calling accuracy"
 end
 
 function accuracy(model, ps, st, dataset; debug=false)::Float32
     assert_in_testmode(st)
+    inner_st = haskey(st, :st) ? st.st : st  # unwrap masked model states (same as assert_in_testmode)
     total_correct, total = 0, 0
     cpu = Lux.cpu_device()
-    
+
     for (i, (x, y)) in enumerate(dataset)
         target_class = onecold(cpu(y))
-        predicted_class = onecold(cpu(first(model(x, ps, st))))
+        predicted_class = onecold(cpu(first(model(x, ps, inner_st))))
         total_correct += sum(target_class .== predicted_class)
         total += length(target_class)
         if debug && i > 5
@@ -83,9 +89,6 @@ function accuracy(model, ps, st, dataset; debug=false)::Float32
     end
     return total_correct / total
 end
-
-
-
 
 function masked_loss(loss_params, model, ps, st, batch)
     if haskey(st, :mask)

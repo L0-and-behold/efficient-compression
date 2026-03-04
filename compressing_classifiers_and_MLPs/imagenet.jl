@@ -97,7 +97,7 @@ args.dataset = imagenet_data_function(imagenet_preprocessed_path, construct_chun
 args.architecture = resnet50 #toy_resnet or resnet50
 args.delete_neurons = false
 args.layerwise_pruning = false
-args.smoothing_window = 5   
+args.smoothing_window = 5
 args.finetuning_min_epochs = 10 # 10
 args.finetuning_max_epochs = 10 # 10
 args.train_batch_size = 128  # must be divisible by chunk_size in imagenet_preprocessed_path
@@ -137,6 +137,3 @@ flush(stdout); flush(stderr)
 experiment_name, batch = get_sub_batch(experiment_name, batch)
 
 do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)
-
-
-# todo: turn off early stopping for imagenet
