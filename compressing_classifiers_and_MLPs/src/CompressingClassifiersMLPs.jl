@@ -1,6 +1,7 @@
 # this is the root module
 module CompressingClassifiersMLPs
 
+    include("Config.jl")
     include("TrainArgs.jl")
     include("Checkpointer.jl")
     
