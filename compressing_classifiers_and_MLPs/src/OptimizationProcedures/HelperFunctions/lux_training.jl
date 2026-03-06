@@ -274,7 +274,7 @@ function lux_training!(
             t = time()
             val_accuracy = accuracy(tstate, validation_set, debug=args.debug)
             push!(args.logs["validation_accuracy"], val_accuracy)
-            println("▶ Validation accuracy: $val_accuracy")
+            println("▶ Validation accuracy: $(val_accuracy * 100) %")
         end
         
         flush(stdout); flush(stderr)
@@ -345,8 +345,8 @@ function lux_training!(
                     convergence_triggered = true
                     break
                 end
+                println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
             end
-            println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
         end
         if args.debug
             println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
