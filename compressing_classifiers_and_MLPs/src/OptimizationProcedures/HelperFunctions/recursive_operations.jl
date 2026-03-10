@@ -7,7 +7,7 @@ const SKIP_REGULARIZATION_KEYS = Set([:scale])
 
 function recursively_modify!(params1, params2, loss_fun, fun)
     if !isnothing(params1)
-        for (subparams1, subparams2) in zip(params1, params2)
+        for ((key, subparams1), subparams2) in zip(pairs(params1), params2)
             if key in SKIP_REGULARIZATION_KEYS
                 continue
             elseif isa(subparams1, AbstractArray{T} where T)

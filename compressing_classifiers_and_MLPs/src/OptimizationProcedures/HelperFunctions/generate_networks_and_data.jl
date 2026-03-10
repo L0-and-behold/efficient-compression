@@ -193,6 +193,7 @@ end
 function generate_tstate(model, seed, opt; lr_scheduler=nothing, dev=Lux.gpu_device())
     rng = Random.default_rng()
     Random.seed!(rng, seed)
+    # TODO: does this weight initialization match the canonical ResNet50 case?
     ps, st = Lux.setup(rng, model) |> dev
     tstate = Lux.Training.TrainState(model, ps, st, opt)
     return tstate
