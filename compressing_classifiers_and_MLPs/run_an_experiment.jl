@@ -9,36 +9,16 @@ Supports sub-batch execution via --num_sub_batches and --sub_batch command line 
 # Header
 #####
 
-# TODO: change how the packages are loaded here.
+using Pkg; Pkg.activate("."); using Revise
 
-using Pkg
-Pkg.activate(".")
-
-using Revise, ArgParse
+using ArgParse, Suppressor
 using Lux: cpu_device
-using Suppressor
 
-# We suppress warnings on docstring replacements. Turn off for development.
-@suppress begin
-    include("src/OptimizationProcedures/OptimizationProcedures.jl")
-    using .OptimizationProcedures: PMMP_procedure,
-        RL1_procedure,
-        DRR_procedure,
-        layerwise_procedure, 
-        Lenet_MLP, 
-        Lenet_5, 
-        Lenet_5_Caffe, 
-        VGG
-end
-
-include("src/TrainArgs.jl")
-include("src/BatchRun/BatchRun.jl")
-include("src/DatasetsModels/DatasetsModels.jl")
-using .DatasetsModels: MNIST_data, CIFAR_data
-using .BatchRun: do_batch_run, 
-    get_sub_batch,
-    single_run_routine_classifier,
-    single_run_routine_teacherstudent  
+using CompressingClassifiersMLPs
+using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
+using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure, RL1_procedure, DRR_procedure, layerwise_procedure, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG
+using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, CIFAR_data
+using CompressingClassifiersMLPs.BatchRun: do_batch_run, get_sub_batch, single_run_routine_classifier, single_run_routine_teacherstudent
 
 #####
 # Experiment setup
@@ -50,7 +30,7 @@ This structure encapsulates the configuration needed to reproduce
 a specific training run.
 """
 
-args = TrainArgsP{Float32}()
+args = TrainArgs{Float32}()
 
 """
 Output location configuration.

@@ -28,11 +28,6 @@ println("✓ CPU tensors saved successfully")
 
 ###
 
-
-# TODO:
-# then start imagenet experiments
-# continue by making sure the code executes as given in the readme.
-
 using CompressingClassifiersMLPs: Checkpointer, TrainingArguments
 using .Checkpointer
 using .TrainingArguments: TrainArgs, AbstractTrainArgs

@@ -85,6 +85,14 @@ This step:
 After this step, ImageNet is ready to be used via the
 `imagenet_chunked_data` or `imagenet_online_data` dataset APIs.
 
+To run the ImageNet experiment:
+
+```bash
+julia --threads auto imagenet.jl
+```
+
+The `--threads auto` flag is required: the data loader uses `parallel = true` (MLUtils `DataLoader`), which spawns Julia threads to prefetch batches concurrently. Without multiple threads, parallel prefetching falls back to serial loading and training will be significantly slower.
+
 
 
 ## Experiment Parameters and Setup

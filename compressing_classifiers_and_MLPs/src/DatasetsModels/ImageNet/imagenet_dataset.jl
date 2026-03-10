@@ -5,9 +5,6 @@
 # Constants and utilities
 # ==============================================================================
 #
-# TODO: update README to reflect this, also that we should run julia with multiple threads.
-# TODO: update slrum script to use several julia threads.
-
 
 """
 List of known corrupted ImageNet JPEG files that should be skipped when
