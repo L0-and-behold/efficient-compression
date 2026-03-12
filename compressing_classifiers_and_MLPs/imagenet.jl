@@ -28,7 +28,7 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "resnet_different_procedures_dev"
+experiment_name = "resnet_PMMP_init-u-value-dev"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
@@ -40,7 +40,7 @@ variables = Symbol[
 :α, 
 :β, 
 :initial_p_value,
-:u_value_multiply_factor,
+:initial_u_value,
 ]
 
 # Values for the varying arguments
@@ -69,14 +69,14 @@ DRR_runs = [
 
 PMMP_runs = [
     (
-        PMMP_procedure, alpha, 0f0, 1f0, 1f0
+        PMMP_procedure, 1f-14, 0f0, 1f0, u_value
     )
-    for alpha in alphas
+    for u_value in [0.5f0, 1.0f0]
 ]
 
 # append!(batch, vanilla_baseline)
-append!(batch, RL1_runs)
-append!(batch, DRR_runs)
+# append!(batch, RL1_runs)
+# append!(batch, DRR_runs)
 append!(batch, PMMP_runs)
 
 # Fixed arguments for all runs
@@ -90,17 +90,21 @@ args.test_set_size = 50000
 args.train_batch_size = 128  # must be divisible by chunk_size in imagenet_preprocessed_path
 args.val_batch_size = 128    # same constraint
 
-args.min_epochs = 10 # 90 # 85
-args.max_epochs = 10 # 90 # 85
-args.finetuning_min_epochs = 5
-args.finetuning_max_epochs = 5
+args.min_epochs = 8 # 90 # 85
+args.max_epochs = 8 # 90 # 85
+args.finetuning_min_epochs = 2
+args.finetuning_max_epochs = 2
+# args.min_epochs = 90 # 85
+# args.max_epochs = 90 # 85
+# args.finetuning_min_epochs = 0
+# args.finetuning_max_epochs = 0
 args.lr = 0.05f0
 args.optimizer = lr -> Optimisers.OptimiserChain(
     Optimisers.WeightDecay(0.0001f0),
     Optimisers.Momentum(lr, 0.9f0)
 )
 warmup_epochs = 5
-step_schedule = Step(args.lr, 0.1f0, 30)
+step_schedule = Step(args.lr, 0.1f0, 25)
 args.schedule = epoch -> epoch <= warmup_epochs ?
     args.lr * Float32(epoch) / Float32(warmup_epochs) :
     step_schedule(epoch - warmup_epochs)
@@ -118,6 +122,7 @@ args.finetuning_converge_val_loss= false
 args.shrinking = false
 args.NORM = false
 
+args.skip_precompilation = true
 args.debug = false
 
 flush(stdout); flush(stderr)

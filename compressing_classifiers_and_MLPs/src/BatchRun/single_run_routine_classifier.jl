@@ -51,12 +51,13 @@ function single_run_routine_classifier(
     println("Start training for $run_id with architecture '$(args.architecture)', dataset '$(args.dataset)' and optimization procedure '$(args.optimization_procedure)'")
 
     # do some training to trigger compilation of the involved functions
-    
-    throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
-    try 
-        do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args) 
-    catch e
-        println("Error during precompilation run. Continue with actual training")
+    if !args.skip_precompilation
+        throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
+        try
+            do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args)
+        catch e
+            println("Error during precompilation run. Continue with actual training")
+        end
     end
     
     flush(stdout); flush(stderr)

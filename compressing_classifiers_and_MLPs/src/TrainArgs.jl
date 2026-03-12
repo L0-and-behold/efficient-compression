@@ -75,6 +75,7 @@ module TrainingArguments
         gradient_repetition_factor::Int64 = 1
         seed::Int = 42
         schedule = nothing
+        skip_precompilation::Bool = false
         debug::Bool = false
         use_checkpoints = false
         checkpoint_dir = ""
