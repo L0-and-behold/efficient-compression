@@ -24,22 +24,40 @@ Throws an assertion error if the layout or dimensions are invalid.
 end
 
 """
-    make_preprocess_pipeline(image_size::Int)
+    make_train_preprocess_pipeline(image_size::Int)
 
-Create the deterministic preprocessing pipeline used for offline
-ImageNet preprocessing.
+Create the deterministic preprocessing pipeline for offline ImageNet
+train split preprocessing.
 
-This pipeline:
-- Resizes images to `(image_size, image_size)`
-- Converts grayscale images to RGB
-- Converts to `Float32`
-- Normalizes using ImageNet statistics
+Resizes the shorter side to `image_size` (preserving aspect ratio), then
+center-crops to `image_size × image_size`. This avoids the distortion
+caused by `ScaleFixed`, which squishes non-square images.
 
-Random augmentations are intentionally excluded and are applied later
-at runtime.
+Random augmentations (random crop, horizontal flip) are applied later
+at runtime by `DeviceDataLoader`.
 """
-function make_preprocess_pipeline(image_size::Int)
-    ScaleFixed((image_size, image_size)) |>
+function make_train_preprocess_pipeline(image_size::Int)
+    CenterResizeCrop((image_size, image_size)) |>
+    ImageToTensor() |>
+    MakeColoredImage() |>
+    ToEltype(Float32) |>
+    Normalize(IMAGENET_MEAN, IMAGENET_STD)
+end
+
+"""
+    make_val_preprocess_pipeline(resize_size::Int, crop_size::Int)
+
+Create the deterministic preprocessing pipeline for offline ImageNet
+val split preprocessing.
+
+Equivalent to the standard PyTorch val pipeline:
+`Resize(resize_size)` (shorter side) → `CenterCrop(crop_size)`.
+
+Typical usage: `resize_size=256`, `crop_size=224`.
+"""
+function make_val_preprocess_pipeline(resize_size::Int, crop_size::Int)
+    ScaleKeepAspect((resize_size, resize_size)) |>
+    CenterCrop((crop_size, crop_size)) |>
     PinOrigin() |>
     ImageToTensor() |>
     MakeColoredImage() |>
@@ -103,7 +121,9 @@ function preprocess_split(
     perm = randperm(length(files))
     files = files[perm]
     labels = labels[perm]
-    augment = make_preprocess_pipeline(image_size)
+    augment = split == :train ?
+        make_train_preprocess_pipeline(image_size) :
+        make_val_preprocess_pipeline(256, image_size)
 
     mkpath(out_path)
 

@@ -28,7 +28,7 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "resnet_PMMP_init-u-value-dev"
+experiment_name = "PMMP-u-sweep"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
@@ -46,7 +46,7 @@ variables = Symbol[
 # Values for the varying arguments
 batch = Tuple[]
 
-alphas = [0f0, 1f-12, 1f-14]
+alphas = [1f-8, 3f-8, 1f-7, 3f-7, 1f-6]
 vanilla_baseline = [
     (
         RL1_procedure, 0f0, 0f0, 0f0, 0f0
@@ -71,7 +71,7 @@ PMMP_runs = [
     (
         PMMP_procedure, 1f-14, 0f0, 1f0, u_value
     )
-    for u_value in [0.5f0, 1.0f0]
+    for u_value in Float32[0.1, 0.2, 0.5, 1.0, 2.0, 5.0]
 ]
 
 # append!(batch, vanilla_baseline)
@@ -90,10 +90,10 @@ args.test_set_size = 50000
 args.train_batch_size = 128  # must be divisible by chunk_size in imagenet_preprocessed_path
 args.val_batch_size = 128    # same constraint
 
-args.min_epochs = 8 # 90 # 85
-args.max_epochs = 8 # 90 # 85
-args.finetuning_min_epochs = 2
-args.finetuning_max_epochs = 2
+args.min_epochs = 9 # 90 # 85
+args.max_epochs = 9 # 90 # 85
+args.finetuning_min_epochs = 1
+args.finetuning_max_epochs = 1
 # args.min_epochs = 90 # 85
 # args.max_epochs = 90 # 85
 # args.finetuning_min_epochs = 0
@@ -112,7 +112,7 @@ args.schedule = epoch -> epoch <= warmup_epochs ?
 args.smoothing_window = args.max_epochs + 1
 args.prune_window = args.max_epochs # prune only once
 args.shrinking_from_deviation_of = 1e-2
-args.multiply_mask_after_each_batch = false # should be true??
+args.multiply_mask_after_each_batch = false
 
 args.noise = 0f0
 args.gauss_loss = false

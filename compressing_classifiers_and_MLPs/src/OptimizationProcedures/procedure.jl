@@ -82,5 +82,10 @@ function procedure(
         println("\nProcedure finished.\n")
     end
 
+    # Ensure pruned weights are exactly zero in the saved model
+    if haskey(tstate.states, :mask)
+        recursively_multiply!(tstate.parameters.p, tstate.states.mask)
+    end
+
     return tstate, logs, loss_fun, checkpoint #, loss_fun_after_training
 end
