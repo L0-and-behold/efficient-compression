@@ -28,55 +28,53 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "PMMP-u-sweep"
+experiment_name = "compression-sweep-v2"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
 single_run_routine = single_run_routine_classifier
 
 # Arguments that vary throughout the experiment
+# Epochs vary: vanilla 15+0, compression runs 15+1
 variables = Symbol[
-:optimization_procedure, 
-:α, 
-:β, 
+:optimization_procedure,
+:α,
+:β,
 :initial_p_value,
 :initial_u_value,
+:min_epochs,
+:max_epochs,
+:finetuning_min_epochs,
+:finetuning_max_epochs,
 ]
 
 # Values for the varying arguments
 batch = Tuple[]
 
-alphas = [1f-8, 3f-8, 1f-7, 3f-7, 1f-6]
+compression_alphas = Float32[1f-6, 1f-7, 1f-8]
+
 vanilla_baseline = [
-    (
-        RL1_procedure, 0f0, 0f0, 0f0, 0f0
-    )
+    (RL1_procedure, 0f0, 0f0, 0f0, 0f0, 15, 15, 0, 0)
 ]
 
 RL1_runs = [
-    (
-        RL1_procedure, alpha, 0f0, 0f0, 0f0
-    )
-    for alpha in alphas
+    (RL1_procedure, alpha, 0f0, 0f0, 0f0, 15, 15, 1, 1)
+    for alpha in compression_alphas
 ]
 
 DRR_runs = [
-    (
-        DRR_procedure, alpha, 5f0, 0f0, 0f0
-    )
-    for alpha in alphas
+    (DRR_procedure, alpha, 5f0, 0f0, 0f0, 15, 15, 1, 1)
+    for alpha in compression_alphas
 ]
 
 PMMP_runs = [
-    (
-        PMMP_procedure, 1f-14, 0f0, 1f0, u_value
-    )
-    for u_value in Float32[0.1, 0.2, 0.5, 1.0, 2.0, 5.0]
+    (PMMP_procedure, alpha, 0f0, 1f0, 5f0, 15, 15, 1, 1)
+    for alpha in Float32[1f-17, 1f-9]
 ]
 
-# append!(batch, vanilla_baseline)
-# append!(batch, RL1_runs)
-# append!(batch, DRR_runs)
+append!(batch, vanilla_baseline)
+append!(batch, RL1_runs)
+append!(batch, DRR_runs)
 append!(batch, PMMP_runs)
 
 # Fixed arguments for all runs
@@ -90,14 +88,7 @@ args.test_set_size = 50000
 args.train_batch_size = 128  # must be divisible by chunk_size in imagenet_preprocessed_path
 args.val_batch_size = 128    # same constraint
 
-args.min_epochs = 9 # 90 # 85
-args.max_epochs = 9 # 90 # 85
-args.finetuning_min_epochs = 1
-args.finetuning_max_epochs = 1
-# args.min_epochs = 90 # 85
-# args.max_epochs = 90 # 85
-# args.finetuning_min_epochs = 0
-# args.finetuning_max_epochs = 0
+# min/max_epochs and finetuning epochs are set per-run via variables above
 args.lr = 0.05f0
 args.ρ = 0.0001f0  # use this parameter to controll weight decay
 args.optimizer = lr -> Optimisers.OptimiserChain(
@@ -109,8 +100,8 @@ args.schedule = epoch -> epoch <= warmup_epochs ?
     args.lr * Float32(epoch) / Float32(warmup_epochs) :
     step_schedule(epoch - warmup_epochs)
 
-args.smoothing_window = args.max_epochs + 1
-args.prune_window = args.max_epochs # prune only once
+args.smoothing_window = args.max_epochs + 1  # set to args.max_epochs + 1 if epochs not controlled via variables
+args.prune_window = args.max_epochs  # prune only once; set to args.max_epochs if epochs not controlled via variables
 args.shrinking_from_deviation_of = 1e-2
 args.multiply_mask_after_each_batch = false
 
