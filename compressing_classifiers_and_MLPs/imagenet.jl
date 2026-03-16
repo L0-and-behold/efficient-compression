@@ -99,8 +99,8 @@ args.finetuning_max_epochs = 1
 # args.finetuning_min_epochs = 0
 # args.finetuning_max_epochs = 0
 args.lr = 0.05f0
+args.ρ = 0.0001f0  # use this parameter to controll weight decay
 args.optimizer = lr -> Optimisers.OptimiserChain(
-    Optimisers.WeightDecay(0.0001f0),
     Optimisers.Momentum(lr, 0.9f0)
 )
 warmup_epochs = 5
