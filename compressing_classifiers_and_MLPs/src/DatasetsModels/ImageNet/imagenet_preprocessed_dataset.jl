@@ -24,41 +24,17 @@ Throws an assertion error if the layout or dimensions are invalid.
 end
 
 """
-    make_train_preprocess_pipeline(image_size::Int)
+    make_preprocess_pipeline(image_size::Int)
 
-Create the deterministic preprocessing pipeline for offline ImageNet
-train split preprocessing.
+Create the deterministic preprocessing pipeline used for offline
+ImageNet preprocessing.
 
-Resizes the shorter side to `image_size` (preserving aspect ratio), then
-center-crops to `image_size × image_size`. This avoids the distortion
-caused by `ScaleFixed`, which squishes non-square images.
-
-Random augmentations (random crop, horizontal flip) are applied later
-at runtime by `DeviceDataLoader`.
+Resizes images to `(image_size, image_size)` using ScaleFixed (squishes
+non-square images). Random augmentations (random crop, horizontal flip)
+are applied later at runtime by `DeviceDataLoader`.
 """
-function make_train_preprocess_pipeline(image_size::Int)
-    CenterResizeCrop((image_size, image_size)) |>
-    ImageToTensor() |>
-    MakeColoredImage() |>
-    ToEltype(Float32) |>
-    Normalize(IMAGENET_MEAN, IMAGENET_STD)
-end
-
-"""
-    make_val_preprocess_pipeline(resize_size::Int, crop_size::Int)
-
-Create the deterministic preprocessing pipeline for offline ImageNet
-val split preprocessing.
-
-Equivalent to the standard PyTorch val pipeline:
-`Resize(resize_size)` (shorter side) → `CenterCrop(crop_size)`.
-
-Typical usage: `resize_size=256`, `crop_size=224`.
-"""
-function make_val_preprocess_pipeline(resize_size::Int, crop_size::Int)
-    ScaleKeepAspect((resize_size, resize_size)) |>
-    CenterCrop((crop_size, crop_size)) |>
-    PinOrigin() |>
+function make_preprocess_pipeline(image_size::Int)
+    ScaleFixed((image_size, image_size)) |>
     ImageToTensor() |>
     MakeColoredImage() |>
     ToEltype(Float32) |>
@@ -121,9 +97,7 @@ function preprocess_split(
     perm = randperm(length(files))
     files = files[perm]
     labels = labels[perm]
-    augment = split == :train ?
-        make_train_preprocess_pipeline(image_size) :
-        make_val_preprocess_pipeline(256, image_size)
+    augment = make_preprocess_pipeline(image_size)
 
     mkpath(out_path)
 
