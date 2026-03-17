@@ -113,6 +113,7 @@ args.finetuning_converge_val_loss= false
 args.shrinking = false
 args.NORM = false
 
+args.tamade_calibration_batches = 200  # use 200 train batches for TAMADE binary search instead of full train set (~10k batches)
 args.skip_precompilation = true
 args.debug = false
 

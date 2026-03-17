@@ -79,8 +79,9 @@ module TrainingArguments
         debug::Bool = false
         use_checkpoints = false
         checkpoint_dir = ""
-        checkpoint_frequency = 10 
+        checkpoint_frequency = 10
         max_runtime_seconds = 3600 * 23.5
+        tamade_calibration_batches::Union{Nothing, Int} = nothing
     end
 
 end # module TrainingArguments

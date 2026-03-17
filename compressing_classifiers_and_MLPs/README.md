@@ -165,6 +165,7 @@ The other training settings are controlled by the `args=TrainArgs()` object. In 
 | `finetuning_converge_val_loss` | Like `converge_val_loss` explained above but during finetuning phase. |
 | `logs`| -a placeholder for a variable which the procedures write to-|
 | `multiply_mask_after_each_batch` | If `true`, applies pruning masks after every training batch; otherwise, only at designated pruning stages. |
+| `tamade_calibration_batches` | Number of training batches used for TAMADE binary search during pruning. Default `nothing` uses the full training set (correct for small datasets). For large datasets like ImageNet, set to e.g. `200` to avoid TAMADE taking a long time by processing millions of forward passes. |
 | `initial_p_value`| Initial value of the `p` parameter for PMMP optimization.|
 | `initial_u_value`| Initial value of the `u` parameter for PMMP optimization.|
 | `u_value_multiply_factor`| Scaling factor applied to `u` during PMMP optimization.|
