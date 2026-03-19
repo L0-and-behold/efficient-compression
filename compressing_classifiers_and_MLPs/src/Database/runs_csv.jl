@@ -81,7 +81,7 @@ them to empty strings for CSV writing.
 """
 function append_run_to_csv!(path_to_db::String, experiment_name::String, single_run_df)
     df_csv = CSV.read(joinpath(expanduser(path_to_db), experiment_name, "runs.csv"), DataFrame)
-    df_csv = vcat(df_csv, single_run_df)
+    df_csv = vcat(df_csv, single_run_df; cols=:union)
     CSV.write(joinpath(expanduser(path_to_db), experiment_name, "runs.csv"), df_csv)
 end
 

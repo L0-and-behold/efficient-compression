@@ -54,21 +54,21 @@ batch = Tuple[]
 compression_alphas = Float32[1f-6, 1f-7, 1f-8]
 
 vanilla_baseline = [
-    (RL1_procedure, 0f0, 0f0, 0f0, 0f0, 15, 15, 0, 0)
+    (RL1_procedure, 0f0, 0f0, 0f0, 0f0, 9, 9, 0, 0)
 ]
 
 RL1_runs = [
-    (RL1_procedure, alpha, 0f0, 0f0, 0f0, 15, 15, 1, 1)
+    (RL1_procedure, alpha, 0f0, 0f0, 0f0, 9, 9, 1, 1)
     for alpha in compression_alphas
 ]
 
 DRR_runs = [
-    (DRR_procedure, alpha, 5f0, 0f0, 0f0, 15, 15, 1, 1)
+    (DRR_procedure, alpha, 5f0, 0f0, 0f0, 9, 9, 1, 1)
     for alpha in compression_alphas
 ]
 
 PMMP_runs = [
-    (PMMP_procedure, alpha, 0f0, 1f0, 5f0, 15, 15, 1, 1)
+    (PMMP_procedure, alpha, 0f0, 1f0, 5f0, 9, 9, 1, 1)
     for alpha in Float32[1f-17, 1f-9]
 ]
 
@@ -113,7 +113,7 @@ args.finetuning_converge_val_loss= false
 args.shrinking = false
 args.NORM = false
 
-args.tamade_calibration_batches = 200  # use 200 train batches for TAMADE binary search instead of full train set (~10k batches)
+args.tamade_calibration_batches = 200  # use 200 train batches for TAMADE instead of full train set
 args.skip_precompilation = true
 args.debug = false
 
