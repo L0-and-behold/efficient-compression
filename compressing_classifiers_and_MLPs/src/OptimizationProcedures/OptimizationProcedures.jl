@@ -38,6 +38,7 @@ module OptimizationProcedures
    # include("LayerWiseFunctions/")
    include("HelperFunctions/lux_training.jl")
    include("HelperFunctions/general_masked_model.jl")
+   export testmode_states
    include("HelperFunctions/tamade.jl")
    include("HelperFunctions/assert_arg_correctness.jl")
    include("HelperFunctions/named_tuple_operations.jl")

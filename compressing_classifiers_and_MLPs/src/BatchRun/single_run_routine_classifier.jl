@@ -160,11 +160,12 @@ function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, 
     end
 
     function loss_on_dataset(dataset)::Number
-        vjp = AutoZygote()
         total_loss = zero(args.dtype)
+        testmode_st = testmode_states(tstate)
+        inner_ps = haskey(tstate.parameters, :p) ? tstate.parameters.p : tstate.parameters
+        inner_st = haskey(testmode_st, :st) ? testmode_st.st : testmode_st
         for batch in dataset
-            _, loss, _, _ = compute_gradients(vjp, loss_fctn, batch, tstate)
-            total_loss += loss
+            total_loss += loss_fctn(tstate.model, inner_ps, inner_st, batch)[1]
         end
         return total_loss / args.dtype(length(dataset))
     end

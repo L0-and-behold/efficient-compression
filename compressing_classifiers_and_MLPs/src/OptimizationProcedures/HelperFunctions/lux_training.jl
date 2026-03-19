@@ -117,8 +117,6 @@ function lux_training!(
             "epoch_execution_time"  => args.dtype[],
             "total_time" => args.dtype(0),
             "sigmas" => args.dtype[],
-            "final_train_accuracy" => args.dtype(0),
-            "final_validation_accuracy" => args.dtype(0),
             "validation_accuracy" => args.dtype[],
             "test_accuracy" => Tuple{Int, Number}[],
             "l0_mask" => args.dtype[],
@@ -128,7 +126,7 @@ function lux_training!(
         )
     else
         @assert isa(args.logs, Dict{String, Any})
-        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("final_train_accuracy" => args.dtype(0)), ("final_validation_accuracy" => args.dtype(0)), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
+        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
             if !haskey(args.logs, key)
                 args.logs[key] = value
             end
@@ -356,8 +354,6 @@ function lux_training!(
     total_time_end = time()
     args.logs["total_time"] += total_time_end - total_time_start
 
-    args.logs["final_train_accuracy"] = accuracy(tstate, train_set)
-    args.logs["final_validation_accuracy"] = accuracy(tstate, validation_set)
     if !convergence_triggered
         push!(args.logs["converged_at"], max_epochs)
     end

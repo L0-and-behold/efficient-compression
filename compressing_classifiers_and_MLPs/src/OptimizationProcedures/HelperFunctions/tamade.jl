@@ -60,8 +60,9 @@ end
 
 function compute_loss_over_batches(tstate, params, data, dtype, loss_fctn)
     total_loss = zero(dtype)
+    st = testmode_states(tstate)
     for batch in data
-        total_loss += loss_fctn(tstate.model, params, tstate.states, batch)[1]
+        total_loss += loss_fctn(tstate.model, params, st, batch)[1]
     end
     total_loss = total_loss / dtype(length(data))
     return total_loss

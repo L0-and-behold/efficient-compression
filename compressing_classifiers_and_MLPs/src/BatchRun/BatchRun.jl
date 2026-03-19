@@ -5,15 +5,16 @@ module BatchRun
     import Lux: DeviceIterator, AutoZygote
     import Lux.Training: compute_gradients
 
-    using ..OptimizationProcedures: is_saturated, 
-        scale_alpha_rho!, 
-        generate_tstate, 
-        accuracy, 
-        logitcrossentropy, 
-        scale_alpha_rho!, 
-        generate_tstate, 
-        setup_data_teacher_and_student, 
-        plot_data_teacher_and_student, 
+    using ..OptimizationProcedures: is_saturated,
+        scale_alpha_rho!,
+        generate_tstate,
+        accuracy,
+        testmode_states,
+        logitcrossentropy,
+        scale_alpha_rho!,
+        generate_tstate,
+        setup_data_teacher_and_student,
+        plot_data_teacher_and_student,
         plot_weights
     using ..Database: create_experiment, 
         initialize_runs_csv, 
