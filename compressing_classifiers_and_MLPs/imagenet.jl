@@ -28,14 +28,13 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "compression-sweep-v2"
+experiment_name = "pmmp-alpha-sweep"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
 single_run_routine = single_run_routine_classifier
 
 # Arguments that vary throughout the experiment
-# Epochs vary: vanilla 15+0, compression runs 15+1
 variables = Symbol[
 :optimization_procedure,
 :α,
@@ -48,34 +47,25 @@ variables = Symbol[
 :finetuning_max_epochs,
 ]
 
-# Values for the varying arguments
-batch = Tuple[]
+# PMMP alpha sweep with u=5.0 fixed — 8+1 epochs
+# Alpha range spans several orders of magnitude around 1e-17 (best from compression-sweep-v2)
+pmmp_alphas = Float32[1f-16, 1f-14, 1f-12, 1f-10, 1f-8]
+batch = [(PMMP_procedure, alpha, 0f0, 1f0, 5f0, 1, 1, 1, 1) for alpha in pmmp_alphas]
 
-compression_alphas = Float32[1f-6, 1f-7, 1f-8]
+# --- bn-fix-validation batch (commented out) ---
+# batch = [
+#     (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 2, 2, 0, 0),  # vanilla baseline
+#     (DRR_procedure,  1f-8,  5f0, 0f0, 0f0, 2, 2, 1, 1),  # DRR best from sweep
+#     (PMMP_procedure, 1f-17, 0f0, 1f0, 5f0, 2, 2, 1, 1),  # PMMP best from sweep
+# ]
 
-vanilla_baseline = [
-    (RL1_procedure, 0f0, 0f0, 0f0, 0f0, 9, 9, 0, 0)
-]
-
-RL1_runs = [
-    (RL1_procedure, alpha, 0f0, 0f0, 0f0, 9, 9, 1, 1)
-    for alpha in compression_alphas
-]
-
-DRR_runs = [
-    (DRR_procedure, alpha, 5f0, 0f0, 0f0, 9, 9, 1, 1)
-    for alpha in compression_alphas
-]
-
-PMMP_runs = [
-    (PMMP_procedure, alpha, 0f0, 1f0, 5f0, 9, 9, 1, 1)
-    for alpha in Float32[1f-17, 1f-9]
-]
-
-append!(batch, vanilla_baseline)
-append!(batch, RL1_runs)
-append!(batch, DRR_runs)
-append!(batch, PMMP_runs)
+# --- compression-sweep-v2 batch (commented out) ---
+# compression_alphas = Float32[1f-6, 1f-7, 1f-8]
+# vanilla_baseline = [(RL1_procedure, 0f0, 0f0, 0f0, 0f0, 9, 9, 0, 0)]
+# RL1_runs  = [(RL1_procedure,  alpha, 0f0, 0f0, 0f0, 9, 9, 1, 1) for alpha in compression_alphas]
+# DRR_runs  = [(DRR_procedure,  alpha, 5f0, 0f0, 0f0, 9, 9, 1, 1) for alpha in compression_alphas]
+# PMMP_runs = [(PMMP_procedure, alpha, 0f0, 1f0, 5f0, 9, 9, 1, 1) for alpha in Float32[1f-17, 1f-9]]
+# append!(batch, vanilla_baseline); append!(batch, RL1_runs); append!(batch, DRR_runs); append!(batch, PMMP_runs)
 
 # Fixed arguments for all runs
 
