@@ -28,7 +28,7 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "pmmp-alpha-sweep"
+experiment_name = "full-scale-v1"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
@@ -47,10 +47,33 @@ variables = Symbol[
 :finetuning_max_epochs,
 ]
 
-# PMMP alpha sweep with u=5.0 fixed — 8+1 epochs
-# Alpha range spans several orders of magnitude around 1e-17 (best from compression-sweep-v2)
-pmmp_alphas = Float32[1f-16, 1f-14, 1f-12, 1f-10, 1f-8]
-batch = [(PMMP_procedure, alpha, 0f0, 1f0, 5f0, 1, 1, 1, 1) for alpha in pmmp_alphas]
+# Full-scale experiment: 1 vanilla + 3×RL1 + 3×DRR + 3×PMMP = 10 runs
+# Vanilla: 90+0; compression runs: 85+1
+# RL1/DRR alphas: conservative → best-known → aggressive (from compression-sweep-v2 + alpha sweeps)
+# PMMP: vary u and alpha; alpha insensitive in short runs but worth testing at full scale
+batch = [
+    # Vanilla baseline
+    (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
+
+    # RL1: conservative → best → aggressive
+    (RL1_procedure,  1f-9,  0f0, 0f0, 0f0, 85, 85, 1, 1),
+    (RL1_procedure,  1f-7,  0f0, 0f0, 0f0, 85, 85, 1, 1),
+    (RL1_procedure,  1f-6,  0f0, 0f0, 0f0, 85, 85, 1, 1),
+
+    # DRR: conservative → best → aggressive
+    (DRR_procedure,  1f-9,  5f0, 0f0, 0f0, 85, 85, 1, 1),
+    (DRR_procedure,  3f-8,  5f0, 0f0, 0f0, 85, 85, 1, 1),
+    (DRR_procedure,  1f-7,  5f0, 0f0, 0f0, 85, 85, 1, 1),
+
+    # PMMP: u=5 α=1e-12 (optimal u, medium alpha), u=5 α=1e-8 (optimal u, larger alpha), u=1 α=1e-12 (weaker u)
+    (PMMP_procedure, 1f-12, 0f0, 1f0, 5f0, 85, 85, 1, 1),
+    (PMMP_procedure, 1f-8,  0f0, 1f0, 5f0, 85, 85, 1, 1),
+    (PMMP_procedure, 1f-12, 0f0, 1f0, 1f0, 85, 85, 1, 1),
+]
+
+# --- pmmp-alpha-sweep batch (commented out) ---
+# pmmp_alphas = Float32[1f-16, 1f-14, 1f-12, 1f-10, 1f-8]
+# batch = [(PMMP_procedure, alpha, 0f0, 1f0, 5f0, 1, 1, 1, 1) for alpha in pmmp_alphas]
 
 # --- bn-fix-validation batch (commented out) ---
 # batch = [
@@ -90,8 +113,8 @@ args.schedule = epoch -> epoch <= warmup_epochs ?
     args.lr * Float32(epoch) / Float32(warmup_epochs) :
     step_schedule(epoch - warmup_epochs)
 
-args.smoothing_window = args.max_epochs + 1  # set to args.max_epochs + 1 if epochs not controlled via variables
-args.prune_window = args.max_epochs  # prune only once; set to args.max_epochs if epochs not controlled via variables
+args.smoothing_window = 1000  # disable convergence detection — run exactly min/max_epochs
+args.prune_window = 1000      # disable mid-training pruning (shrinking=false anyway)
 args.shrinking_from_deviation_of = 1e-2
 args.multiply_mask_after_each_batch = false
 
