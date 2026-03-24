@@ -76,6 +76,7 @@ module TrainingArguments
         seed::Int = 42
         schedule = nothing
         skip_precompilation::Bool = false
+        save_pre_pruning_model::Bool = false
         debug::Bool = false
         use_checkpoints = false
         checkpoint_dir = ""

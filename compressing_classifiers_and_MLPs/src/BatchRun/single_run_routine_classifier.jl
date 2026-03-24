@@ -92,6 +92,10 @@ function single_run_routine_classifier(
 
     # save plots and .csv files
     artifact_folder = get_artifact_folder(path_to_db, experiment_name, run_id)
+    if haskey(logs, "pre_pruning_tstate")
+        save_train_state(logs["pre_pruning_tstate"], model, Random.GLOBAL_RNG, joinpath(artifact_folder, "pre_pruning_train_state.bson"))
+        delete!(logs, "pre_pruning_tstate")
+    end
     save_CSV_classifier(artifact_folder, logs)
 
     do_and_save_plots(artifact_folder, logs, args)

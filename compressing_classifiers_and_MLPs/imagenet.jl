@@ -28,7 +28,7 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "full-scale-v1"
+experiment_name = "aug-ft-sweep-v1"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
@@ -47,40 +47,33 @@ variables = Symbol[
 :finetuning_max_epochs,
 ]
 
-# Full-scale experiment: 1 vanilla + 3×RL1 + 3×DRR + 3×PMMP = 10 runs
-# Vanilla: 90+0; compression runs: 85+1
-# RL1/DRR alphas: conservative → best-known → aggressive (from compression-sweep-v2 + alpha sweeps)
-# PMMP: vary u and alpha; alpha insensitive in short runs but worth testing at full scale
+# aug-ft-sweep-v1: validate RandomResizedCrop augmentation + FT LR fix + higher alphas
+# 1 vanilla + 3×RL1 + 3×DRR + 3×PMMP = 10 runs; 7+5 epochs
+# Alphas: full-scale-v1 "aggressive" becomes the new floor; explore 3 orders of magnitude above
 batch = [
-    # Vanilla baseline
-    (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
+    # Vanilla baseline: 7+0 (no FT)
+    (RL1_procedure,  0f0,  0f0, 0f0, 0f0, 7, 7, 0, 0),
 
-    # RL1: conservative → best → aggressive
-    (RL1_procedure,  1f-9,  0f0, 0f0, 0f0, 85, 85, 1, 1),
-    (RL1_procedure,  1f-7,  0f0, 0f0, 0f0, 85, 85, 1, 1),
-    (RL1_procedure,  1f-6,  0f0, 0f0, 0f0, 85, 85, 1, 1),
+    # RL1: 1e-6 (was v1 aggressive) → 1e-5 → 1e-4
+    (RL1_procedure,  1f-6, 0f0, 0f0, 0f0, 7, 7, 5, 5),
+    (RL1_procedure,  1f-5, 0f0, 0f0, 0f0, 7, 7, 5, 5),
+    (RL1_procedure,  1f-4, 0f0, 0f0, 0f0, 7, 7, 5, 5),
 
-    # DRR: conservative → best → aggressive
-    (DRR_procedure,  1f-9,  5f0, 0f0, 0f0, 85, 85, 1, 1),
-    (DRR_procedure,  3f-8,  5f0, 0f0, 0f0, 85, 85, 1, 1),
-    (DRR_procedure,  1f-7,  5f0, 0f0, 0f0, 85, 85, 1, 1),
+    # DRR: 1e-7 (was v1 aggressive) → 1e-6 → 1e-5
+    (DRR_procedure,  1f-7, 5f0, 0f0, 0f0, 7, 7, 5, 5),
+    (DRR_procedure,  1f-6, 5f0, 0f0, 0f0, 7, 7, 5, 5),
+    (DRR_procedure,  1f-5, 5f0, 0f0, 0f0, 7, 7, 5, 5),
 
-    # PMMP: u=5 α=1e-12 (optimal u, medium alpha), u=5 α=1e-8 (optimal u, larger alpha), u=1 α=1e-12 (weaker u)
-    (PMMP_procedure, 1f-12, 0f0, 1f0, 5f0, 85, 85, 1, 1),
-    (PMMP_procedure, 1f-8,  0f0, 1f0, 5f0, 85, 85, 1, 1),
-    (PMMP_procedure, 1f-12, 0f0, 1f0, 1f0, 85, 85, 1, 1),
+    # PMMP u=5: 1e-8 (was v1 aggressive) → 1e-6 → 1e-4
+    (PMMP_procedure, 1f-8, 0f0, 1f0, 5f0, 7, 7, 5, 5),
+    (PMMP_procedure, 1f-6, 0f0, 1f0, 5f0, 7, 7, 5, 5),
+    (PMMP_procedure, 1f-4, 0f0, 1f0, 5f0, 7, 7, 5, 5),
 ]
 
-# --- pmmp-alpha-sweep batch (commented out) ---
-# pmmp_alphas = Float32[1f-16, 1f-14, 1f-12, 1f-10, 1f-8]
-# batch = [(PMMP_procedure, alpha, 0f0, 1f0, 5f0, 1, 1, 1, 1) for alpha in pmmp_alphas]
-
-# --- bn-fix-validation batch (commented out) ---
-# batch = [
-#     (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 2, 2, 0, 0),  # vanilla baseline
-#     (DRR_procedure,  1f-8,  5f0, 0f0, 0f0, 2, 2, 1, 1),  # DRR best from sweep
-#     (PMMP_procedure, 1f-17, 0f0, 1f0, 5f0, 2, 2, 1, 1),  # PMMP best from sweep
-# ]
+# --- full-scale-v1 batch (commented out) ---
+# Vanilla: 90+0; compression: 85+1; alphas conservative→best→aggressive from sweep
+# (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
+# (RL1_procedure,  1f-9,  0f0, 0f0, 0f0, 85, 85, 1, 1), ...
 
 # --- compression-sweep-v2 batch (commented out) ---
 # compression_alphas = Float32[1f-6, 1f-7, 1f-8]
@@ -108,7 +101,7 @@ args.optimizer = lr -> Optimisers.OptimiserChain(
     Optimisers.Momentum(lr, 0.9f0)
 )
 warmup_epochs = 5
-step_schedule = Step(args.lr, 0.1f0, 25)
+step_schedule = Step(args.lr, 0.1f0, 30)
 args.schedule = epoch -> epoch <= warmup_epochs ?
     args.lr * Float32(epoch) / Float32(warmup_epochs) :
     step_schedule(epoch - warmup_epochs)
@@ -126,7 +119,8 @@ args.finetuning_converge_val_loss= false
 args.shrinking = false
 args.NORM = false
 
-args.tamade_calibration_batches = 200  # use 200 train batches for TAMADE instead of full train set
+args.tamade_calibration_batches = 200  # use 200 batches for TAMADE
+args.save_pre_pruning_model = true     # save tstate before TAMADE so 85-ep runs are recoverable
 args.skip_precompilation = true
 args.debug = false
 

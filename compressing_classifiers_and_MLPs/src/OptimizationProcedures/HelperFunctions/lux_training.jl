@@ -190,7 +190,7 @@ function lux_training!(
         end
 
         if !isnothing(args.schedule) # update learning rate if schedule is specified
-            new_lr = args.schedule(epoch)
+            new_lr = args.schedule(start_epoch + epoch)
             if new_lr != last_lr
                 tstate = Optimisers.adjust!(tstate, new_lr)
             end
