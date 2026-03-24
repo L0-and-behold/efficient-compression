@@ -25,6 +25,7 @@ module ImageNet
     using Random, Distributed, Printf
     using OneHotArrays
     using CUDA
+    using NNlib
     using DataAugmentation
     using FileIO, ImageIO, Images
     using JLD2

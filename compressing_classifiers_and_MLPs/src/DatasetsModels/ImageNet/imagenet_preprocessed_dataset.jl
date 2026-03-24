@@ -17,8 +17,8 @@ Throws an assertion error if the layout or dimensions are invalid.
 """
 @inline function assert_hwcn(x; name::AbstractString="tensor")
     @assert ndims(x) == 4 "$name must be 4D (H,W,C,N), got ndims=$(ndims(x))"
-    @assert size(x, 1) > 200 "$name should have height H=224 or 256, got H=$(size(x,1))"
-    @assert size(x, 2) > 200 "$name should have width W=224 or 256, got W=$(size(x,2))"
+    @assert size(x, 1) ≥ 32 "$name height too small: H=$(size(x,1))"
+    @assert size(x, 2) ≥ 32 "$name width too small: W=$(size(x,2))"
     @assert size(x, 3) == CHANNELS "$name must have C=$CHANNELS as 3rd dimension, got size(x,3)=$(size(x,3))"
     return nothing
 end
@@ -229,23 +229,66 @@ function collate_chunks(batches::Vector{ChunkedBatch})
 end
 
 """
-    random_crop!(out, x, crop_size)
+    random_resized_crop!(out, x)
 
-Apply a random spatial crop to a HWCN tensor.
+In-place random resized crop of HWCN tensor `x` into pre-allocated `out`.
 
-This operation is performed at runtime and can run on CPU or GPU,
-depending on the device of `x`.
+Follows the PyTorch `RandomResizedCrop` algorithm: samples a random crop
+area (8%–100% of image area) and log-uniform aspect ratio (0.75–1.33),
+crops that region, then bilinear-resizes into `out`.
+
+Falls back to a center crop of the full shorter side if no valid
+parameters are found after 10 attempts.
+
+Note: `NNlib.upsample_bilinear` allocates one intermediate tensor for
+the resize result, which is then copied into `out` in-place.
 """
-function random_crop!(out, x, crop_size)
+function random_resized_crop!(out, x)
     assert_hwcn(x)
+    output_size = size(out, 1)
+    H, W = size(x, 1), size(x, 2)
+    area = Float32(H * W)
 
-    H, W, _, _ = size(x)
-    @assert H ≥ crop_size && W ≥ crop_size
+    crop_h, crop_w = H, W
+    found = false
+    for _ in 1:10
+        target_area = area * (0.08f0 + rand(Float32) * 0.92f0)
+        log_ratio   = log(0.75f0) + rand(Float32) * (log(1.3333334f0) - log(0.75f0))
+        w = round(Int, sqrt(target_area * exp(log_ratio)))
+        h = round(Int, sqrt(target_area / exp(log_ratio)))
+        if 1 ≤ w ≤ W && 1 ≤ h ≤ H
+            crop_h, crop_w = h, w
+            found = true
+            break
+        end
+    end
 
-    h0 = rand(0:(H - crop_size))
-    w0 = rand(0:(W - crop_size))
+    if !found
+        s  = min(H, W)
+        h0 = (H - s) ÷ 2
+        w0 = (W - s) ÷ 2
+        out .= NNlib.upsample_bilinear(x[h0+1:h0+s, w0+1:w0+s, :, :]; size=(output_size, output_size))
+        return out
+    end
 
-    out .= @view x[h0+1:h0+crop_size, w0+1:w0+crop_size, :, :]
+    h0 = rand(0:(H - crop_h))
+    w0 = rand(0:(W - crop_w))
+    out .= NNlib.upsample_bilinear(x[h0+1:h0+crop_h, w0+1:w0+crop_w, :, :]; size=(output_size, output_size))
+    return out
+end
+
+"""
+    center_crop(x, output_size)
+
+Take the central `output_size × output_size` region of a HWCN tensor.
+Used for deterministic validation augmentation.
+"""
+function center_crop(x, output_size::Int)
+    H, W = size(x, 1), size(x, 2)
+    @assert H ≥ output_size && W ≥ output_size
+    h0 = (H - output_size) ÷ 2
+    w0 = (W - output_size) ÷ 2
+    return x[h0+1:h0+output_size, w0+1:w0+output_size, :, :]
 end
 
 """
@@ -261,7 +304,8 @@ Iterator implementation for `DeviceDataLoader`.
 Applies:
 - device transfer
 - one-hot encoding of labels
-- optional random cropping
+- training: random resized crop (scale 0.08–1.0, ratio 0.75–1.33) + 50% hflip
+- validation: deterministic center crop
 """
 function Base.iterate(dl::DeviceDataLoader, state...)
     res = iterate(dl.loader, state...)
@@ -270,26 +314,20 @@ function Base.iterate(dl::DeviceDataLoader, state...)
     ((x, y), st) = res
 
     x = dl.dev(x)
-    y = dl.dev(to_onehot(y)) # onehot encode labels after loading at runtime
-
     assert_hwcn(x)
+    y = dl.dev(to_onehot(y))
 
-    # random cropping
     if dl.crop_size !== nothing
-        cropped = similar(
-            x,
-            dl.crop_size,
-            dl.crop_size,
-            size(x,3),
-            size(x,4),
-        )
-        random_crop!(cropped, x, dl.crop_size)
-        x = cropped
-    end
-
-    # horizontal flip
-    if dl.augment && rand() < 0.5
-        x = reverse(x, dims=2)
+        if dl.augment
+            cropped = similar(x, dl.crop_size, dl.crop_size, size(x, 3), size(x, 4))
+            random_resized_crop!(cropped, x)
+            x = cropped
+            if rand() < 0.5
+                x = reverse(x, dims=2)
+            end
+        else
+            x = center_crop(x, dl.crop_size)
+        end
     end
 
     return (x, y), st
@@ -308,8 +346,8 @@ Base.eltype(::Type{DeviceDataLoader}) = Tuple
         train_batchsize,
         val_batchsize;
         chunk_size=16,
-        train_image_size=256,
-        val_image_size=224,
+        train_image_size=480,
+        val_image_size=256,
         crop_size=224,
         dev=gpu_device(),
         workers=4,
@@ -318,15 +356,21 @@ Base.eltype(::Type{DeviceDataLoader}) = Tuple
 
 Construct ImageNet dataloaders from offline preprocessed chunks.
 
-Random cropping is applied at runtime for the training loader.
+Training: random resized crop (scale 0.08–1.0, ratio 0.75–1.33) +
+random horizontal flip applied at runtime via `DeviceDataLoader`.
+
+Validation: deterministic center crop to `crop_size` at runtime.
+
+Train chunks should be preprocessed at `train_image_size=480` and
+val chunks at `val_image_size=256` using `ScaleFixed`.
 """
 function construct_chunked_dataloaders(
     root::String,
     train_batchsize::Int,
     val_batchsize::Int;
     chunk_size::Int = 16,
-    train_image_size::Int = 256,
-    val_image_size::Int = 224,
+    train_image_size::Int = 480,
+    val_image_size::Int = 256,
     crop_size::Union{Int, Nothing} = 224,
     dev = gpu_device(),
     workers::Int = 4,
@@ -371,7 +415,7 @@ function construct_chunked_dataloaders(
     )
 
     train_loader = DeviceDataLoader(train_loader, crop_size, dev, true)
-    val_loader   = DeviceDataLoader(val_loader, nothing, dev, false)
+    val_loader   = DeviceDataLoader(val_loader, crop_size, dev, false)
 
     # assert that the dataloader work as expected during initialization here
     x, y = first(train_loader)

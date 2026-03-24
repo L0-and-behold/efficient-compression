@@ -39,8 +39,8 @@ using CompressingClassifiersMLPs.DatasetsModels.ImageNet:
 const TRAIN_IMAGES = 1_281_167
 const VAL_IMAGES   = 50_000
 
-const TRAIN_IMAGE_SIZE = 256
-const VAL_IMAGE_SIZE   = 224
+const TRAIN_IMAGE_SIZE = 480
+const VAL_IMAGE_SIZE   = 256
 const CHUNK_SIZE       = 16
 
 const EXPECTED_SYNSETS = 1000
