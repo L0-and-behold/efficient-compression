@@ -8,6 +8,7 @@ compressing_classifiers_and_MLPs/core.*
 compressing_classifiers_and_MLPs/instantiateScript.jl
 compressing_classifiers_and_MLPs/experiments
 compressing_classifiers_and_MLPs/src/DatasetsModels/imagenet
+compressing_classifiers_and_MLPs/gpu_logs/results
 compressing_transformers/experiment_scripts
 compressing_transformers/src/Datasets/error.md
 core.raven*
