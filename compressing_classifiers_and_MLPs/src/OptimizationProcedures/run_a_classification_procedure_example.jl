@@ -28,9 +28,9 @@ train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev
 
 ## IMAGENET
 include("../DatasetsModels/imagenet/imagenet_path.jl")
-args.train_batch_size = 256
-args.val_batch_size = 256
-args.test_batch_size = 256
+args.train_batch_size = 64
+args.val_batch_size = args.train_batch_size
+args.test_batch_size = args.train_batch_size
 image_size = 224
 train_set, validation_set, test_set = imagenet_data(imagenet_path, args.train_batch_size, args.val_batch_size, image_size; dev=gpu_device())
 args.train_set_size = length(train_set) * args.train_batch_size
@@ -66,11 +66,12 @@ initial_parameter_count = Lux.parameterlength(model)
 
 tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
 Base.summarysize(tstate) / 1024^2 # 292.7252197265625
+CUDA.used_memory() / 1024^2
 
 # run one of the following procedures.
 # One should not run them one after another without re-initializing the networks (by re-running the functions above)
 @run tstate, logs, loss_fun = FPP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
-@time tstate, logs, loss_fun = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
+@run tstate, logs, loss_fun = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 @time tstate, logs, loss_fun = DRR_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
 @run tstate, logs, loss_fun = PMMP_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args);
 
@@ -95,6 +96,10 @@ q = PlotlyJS.plot(
 display(q);
 
 ## check
+
+vjp = AutoEnzyme()
+
+println("hey")
 
 # trainloss_converged_at = logs["converged_at"][1]
 # turningPointsAfterConvergence = logs["turning_points_val_loss"][logs["turning_points_val_loss"].>trainloss_converged_at]
@@ -136,6 +141,9 @@ display(q);
 # println("Available: ", available / 1024^3, " GB")
 # println("Percentage used: ", 100 * used / total, "%")
 
+# GC.gc()
+# CUDA.reclaim()
+CUDA.device_reset!()
 
 # total_mem = Sys.total_memory()
 # free_mem = Sys.free_memory()

@@ -143,6 +143,8 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     last_lr = copy(args.lr)
     for epoch in 1:max_epochs
         
+        # println("used CUDA memory: ", CUDA.used_memory() / 1024^2)
+
         if typeof(args.schedule) <: ParameterSchedulers.AbstractSchedule # update learning rate if schedule is specified
             new_lr = args.schedule(epoch)
             if new_lr != last_lr
