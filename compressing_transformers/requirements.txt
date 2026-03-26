@@ -5,3 +5,5 @@ pandas
 matplotlib
 scipy
 tqdm
+apache-beam
+apache-beam[gcp]
