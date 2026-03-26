@@ -78,7 +78,7 @@ def main() -> None:
         See readme.md or src/Datasets/Wiki40BDatasets.py for instructions on downloading the dataset.
     """
 
-    dataset_local_path = os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
+    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset.pt') # os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
     sequence_length = 2048
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, sequence_length)
 

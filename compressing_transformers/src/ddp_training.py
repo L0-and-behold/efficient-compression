@@ -14,8 +14,7 @@ from src.CheckpointHandler import CheckpointHandler
 from src.Metrics.loss_over_dataset import loss_over_dataset
 from src.Metrics.ModelByteSize import ModelByteSize
 from src.Metrics.online_code_length import online_code_length_from_dict
-from src.DistributedOptimizationProcedures.VanillaProcedure import vanilla_procedure
-from src.DistributedOptimizationProcedures.DrrProcedure import drr_procedure
+
 
 """Functions and specification for training a model using distributed data parallelism.
 
@@ -44,7 +43,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     print(f"Rank {rank}: Using device: {distributed_trainer.device}")
     
     # Load Wikipedia dataset
-    dataset_local_path = os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
+    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Datasets/processed_wiki_dataset.pt') # os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"])
     train_dataset, val_dataset, test_dataset = datasets.train, datasets.validation, datasets.test
     
@@ -55,12 +54,13 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     dataloader_train, dataloader_val, dataloader_test = dataloaders
     
     # Load model and optimizer
-    model, ddp_model, optimizer = distributed_trainer.model_optimizer()
-    model_state_dict, optimizer_state_dict, logs = checkpointer.load_checkpoint()
+    model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer()
+    model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
     
-    if model_state_dict:
+    if model_state_dict and optimizer_state_dict and scheduler_state_dict:
         ddp_model.module.load_state_dict(model_state_dict)
         optimizer.load_state_dict(optimizer_state_dict)
+        scheduler.load_state_dict(scheduler_state_dict)
     
     if rank == 0:
         distributed_trainer.print_model_info(model)
@@ -71,13 +71,13 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     
     t1 = time.time()
     optimization_procedure = args["training_method"]
-    ddp_model, optimizer, logs, args = optimization_procedure(
-        ddp_model, optimizer, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args
+    ddp_model, optimizer, scheduler, logs, args = optimization_procedure(
+        ddp_model, optimizer, scheduler, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args
     )
     runtime = time.time() - t1
     
     # Save results
-    save_results(distributed_trainer, logs, ddp_model, optimizer, args, other_settings, dataloaders, runtime)
+    save_results(distributed_trainer, logs, ddp_model, optimizer, scheduler, args, other_settings, dataloaders, runtime)
     
     if cleanup:
         distributed_trainer.cleanup()
@@ -118,7 +118,7 @@ def create_dataloader(dataset: ByteWikipediaDataset, world_size: int, rank: int,
     dataloader = DataLoader(dataset, batch_size=bs, shuffle=False)
     return dataloader
 
-def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict, ddp_model: DDP, optimizer, args: dict, other_settings: dict, dataloaders: list, runtime: float):
+def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict, ddp_model: DDP, optimizer, scheduler, args: dict, other_settings: dict, dataloaders: list, runtime: float):
     """Save training results, model weights, and metrics to disk.
     
     Only primary process (rank 0) performs the actual saving.
@@ -128,6 +128,7 @@ def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict,
         logs: Dictionary containing training logs and metrics history.
         ddp_model: The trained DistributedDataParallel model.
         optimizer: The optimizer used for training.
+        scheduler: The scheduler used for training.
         args: Dictionary of training configuration parameters.
         other_settings: Dictionary with additional settings for metrics and evaluation.
         dataloaders: List of dataloaders for training, validation, and testing.
@@ -147,6 +148,7 @@ def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict,
     
     torch.save(model.state_dict(), os.path.join(run.path, "model.pth"))
     torch.save(optimizer.state_dict(), os.path.join(run.path, "optimizer.pth"))
+    torch.save(scheduler.state_dict(), os.path.join(run.path, "scheduler.pth"))
     
     run_df.log_meta()
     run_df.log_args(args)
