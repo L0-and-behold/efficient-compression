@@ -89,6 +89,54 @@ class TransformerConfig:
             num_layers = 4
             seq_length = 2048
             batch_size = 2
+        elif model == "t416_49.8":
+            embedding_dim = 64 * 23
+            num_heads = embedding_dim // 64
+            num_layers = 16
+            seq_length = 1024
+            batch_size = 4
+        elif model == "t1006_49.3":
+            embedding_dim = 64 * 32
+            num_heads = embedding_dim // 64
+            num_layers = 20
+            seq_length = 512
+            batch_size = 2
+        elif model == "t1006_44.8":
+            embedding_dim = 64 * 32
+            num_heads = embedding_dim // 64
+            num_layers = 20
+            seq_length = 512
+            batch_size = 1
+        elif model == "t552_42.4":
+            embedding_dim = 64 * 25
+            num_heads = embedding_dim // 64
+            num_layers = 18
+            seq_length = 1024
+            batch_size = 2
+        elif model == "t428_39.5":
+            embedding_dim = 64 * 22
+            num_heads = embedding_dim // 64
+            num_layers = 18
+            seq_length = 512
+            batch_size = 8
+        elif model == "t294_38.8":
+            embedding_dim = 64 * 20
+            num_heads = embedding_dim // 64
+            num_layers = 15
+            seq_length = 1024
+            batch_size = 4
+        elif model == "t125_37.8":
+            embedding_dim = 64 * 14
+            num_heads = embedding_dim // 64
+            num_layers = 13
+            seq_length = 1024
+            batch_size = 8
+        elif model == "gpt2-medium":
+            embedding_dim = 64 * 16
+            num_heads = embedding_dim // 64
+            num_layers = 24
+            seq_length = 1024
+            batch_size = 4
         else:
             raise ValueError(f"Invalid model size. Please choose a valid model from TransformerConfig (see TransformerConfig.py). Requested config: {model}.")
             
