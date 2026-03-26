@@ -5,6 +5,9 @@ import pandas as pd
 import time
 import torch
 import itertools
+import math
+
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 from src.Transformer.TransformerDecoder import MultiLayerTransformerDecoder
 from src.Transformer.TransformerConfig import TransformerConfig
@@ -205,14 +208,14 @@ class Run:
         model.load_state_dict(torch.load(model_path, map_location=device))
         return model
 
-    def load_optimizer(self, model):
+    def load_optimizer(self, model, warmup_steps=2000, weight_decay=0.01):
         """Load an optimizer from the run folder.
         
         Args:
             model: The model whose parameters should be optimized.
             
         Returns:
-            torch.optim.Adam: The loaded optimizer.
+            torch.optim.AdamW: The loaded optimizer.
             
         Raises:
             ValueError: If run info hasn't been loaded.
@@ -227,9 +230,28 @@ class Run:
             lr = 1e-4
 
         if self.pmmp:
-            optimizer = torch.optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr)
+            # optimizer = torch.optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr)
+            optimizer = torch.optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr, betas=(0.9, 0.95), weight_decay=weight_decay)
         else:
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+            # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+            optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95), weight_decay=weight_decay)
+
+        ### define the scheduler
+        warmup = LinearLR(optimizer, 
+                  start_factor=1e-8, 
+                  end_factor=1.0, 
+                  total_iters=warmup_steps)
+        cosine = CosineAnnealingLR(optimizer, 
+                                T_max=9999999,   # large number — effectively infinite
+                                eta_min=0.1*lr)   # 10% of peak lr
+        scheduler = SequentialLR(optimizer, 
+                                schedulers=[warmup, cosine], 
+                                milestones=[warmup_steps])
+
         optimizer_path = os.path.join(self.path, "optimizer.pth")
         optimizer.load_state_dict(torch.load(optimizer_path))
-        return optimizer
+
+        scheduler_path = os.path.join(self.path, "scheduler.pth")
+        scheduler.load_state_dict(torch.load(scheduler_path))
+
+        return optimizer, scheduler

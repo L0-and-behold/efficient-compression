@@ -3,6 +3,7 @@ import copy
 import torch
 import torch.nn as nn
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -17,7 +18,7 @@ class ProcedureTrainer:
     fine-tuning, and checkpoint management.
     """
 
-    def __init__(self, ddp_model: DDP, optimizer: Optimizer, device: torch.device, args: Dict[str, Any], world_size: int, rank: int):
+    def __init__(self, ddp_model: DDP, optimizer: Optimizer, scheduler: LRScheduler, device: torch.device, args: Dict[str, Any], world_size: int, rank: int):
         """Initialize the procedure trainer with model, optimizer and distributed training configuration.
         
         Args:
@@ -30,6 +31,7 @@ class ProcedureTrainer:
         """
         self.ddp_model = ddp_model
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.device = device
         self.args = args
         self.world_size = world_size
@@ -87,8 +89,12 @@ class ProcedureTrainer:
         # Modify gradients if applicable
         if not prelude_finetuning:
             self.modify_grads()
+
+        # clip gradients for staibility during backprop
+        torch.nn.utils.clip_grad_norm_(self.ddp_model.parameters(), 1.0)
             
         self.optimizer.step()
+        self.scheduler.step()
         self.mask(self.ddp_model)
         
         if not prelude_finetuning:
@@ -260,6 +266,7 @@ def get_optimization_procedure(
     trainer_class, # such as VanillaTrainer or DrrTrainer
     ddp_model: DDP,
     optimizer: Optimizer,
+    scheduler: LRScheduler,
     logs: Dict[str, Any],
     distributed_trainer: DistributedTransformerTrainer,
     dataloader_train: DataLoader,
@@ -274,6 +281,7 @@ def get_optimization_procedure(
         trainer_class: Class to instantiate for training (e.g., VanillaTrainer, DrrTrainer)
         ddp_model: Distributed model for training
         optimizer: Optimizer for parameter updates
+        scheduler: LRScheduler for parameter updates
         logs: Dictionary for tracking metrics
         distributed_trainer: Trainer managing distributed operations
         dataloader_train: Data provider for training
@@ -282,7 +290,7 @@ def get_optimization_procedure(
         args: Configuration parameters
         
     Returns:
-        tuple: (trained_model, optimizer, logs, updated_args)
+        tuple: (trained_model, optimizer, scheduler, logs, updated_args)
     """
     assert isinstance(args["epochs"], int), "epochs must be an integer"
     assert isinstance(args["stop_epoch_at_batch"], (bool, int)), "stop_epoch_at_batch must be a boolean or integer"
@@ -290,7 +298,7 @@ def get_optimization_procedure(
     assert isinstance(args["stop_epoch_at_batch_fine_tuning"], (bool, int)), "stop_epoch_at_batch must be a boolean or integer"
     
     world_size, rank = distributed_trainer.world_size, distributed_trainer.rank
-    trainer = trainer_class(ddp_model, optimizer, distributed_trainer.device, args, world_size, rank)
+    trainer = trainer_class(ddp_model, optimizer, scheduler, distributed_trainer.device, args, world_size, rank)
     
     # 1. Prelude training loop (training without regularization before main training loop)
     epochs = args["epochs_prelude"]
@@ -341,4 +349,4 @@ def get_optimization_procedure(
             raise("Exiting fine-tuning loop since max runtime reached or early stopping triggered. Checkpointing not implemented for fine-tuning.")
     
     # since the fine tuning epochs and regular epochs are not differentiated in the logs, we opt to use the last checkpoint before fine-tuning
-    return ddp_model, optimizer, logs, args
+    return ddp_model, optimizer, scheduler, logs, args

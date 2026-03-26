@@ -24,12 +24,13 @@ class CheckpointHandler:
         self.checkpoint_every = checkpoint_every
         self.max_runtime = max_runtime
 
-    def save_checkpoint(self, ddp_model, optimizer, logs):
-        """Save model state, optimizer state, and training logs to checkpoint file.
+    def save_checkpoint(self, ddp_model, optimizer, scheduler, logs):
+        """Save model state, optimizer state, scheduler state, and training logs to checkpoint file.
         
         Args:
             ddp_model: DistributedDataParallel model to checkpoint.
             optimizer: Optimizer whose state will be saved.
+            scheduler: Scheduler whose state will be saved.
             logs: Dictionary containing training metrics and history.
         """
         checkpoint = {
@@ -37,6 +38,7 @@ class CheckpointHandler:
             'chunk': self.chunk,
             'model_state_dict': ddp_model.module.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
             'logs': logs
         }
         with open(self.checkpoint_path, 'wb') as f:
@@ -46,7 +48,7 @@ class CheckpointHandler:
         """Load checkpoint if available or initialize fresh training state.
         
         Returns:
-            tuple: (model_state_dict, optimizer_state_dict, logs) if checkpoint exists,
+            tuple: (model_state_dict, optimizer_state_dict, scheduler_state_dict, logs) if checkpoint exists,
             or (None, None, initialized_logs) if no checkpoint found.
         """
         if os.path.exists(self.checkpoint_path):
@@ -55,10 +57,10 @@ class CheckpointHandler:
             self.epoch = checkpoint['epoch']
             self.chunk = checkpoint['chunk']
             print(f"Loaded checkpoint from epoch {self.epoch}, chunk {self.chunk}")
-            return checkpoint['model_state_dict'], checkpoint['optimizer_state_dict'], checkpoint['logs']
+            return checkpoint['model_state_dict'], checkpoint['optimizer_state_dict'], checkpoint['scheduler_state_dict'], checkpoint['logs']
         else:
             print("No checkpoint found, starting from the beginning")
-            return None, None, initialize_logs()
+            return None, None, None, initialize_logs()
 
     def update(self, epoch, chunk):
         """Update internal epoch and chunk counters.

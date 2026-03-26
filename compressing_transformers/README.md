@@ -138,7 +138,7 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 
 | Parameter | Description |
 |-----------|-------------|
-| `learning_rate` | Initial learning rate for Adam optimizer |
+| `learning_rate` | Initial learning rate for AdamW optimizer |
 | `seed` | Random seed for reproducibility |
 | `tolerated_relative_loss_increase` | Threshold parameter for Threshold Adaptive Mask Determination (TAMADE) |
 | `steps_per_chunk` | Number of gradient update steps to perform on each provided minibatch/chunk |
