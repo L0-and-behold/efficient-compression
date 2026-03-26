@@ -114,11 +114,11 @@ class MultiLayerTransformerDecoder(nn.Module):
         """Initialize model weights with fixed random seed for reproducibility.""" 
         # Ensure deterministic initialization       
         current_seed = torch.initial_seed()
-        torch.manual_seed(current_seed) # moved this here to prevent all weight matrices to have the same weights
+        torch.manual_seed(current_seed)
         
         def _init_weights(module):
             if isinstance(module, (nn.Linear, nn.Embedding)):
-                module.weight.data.normal_(mean=0.0, std=0.02) # could also use 0.02 / sqrt(self.d_model)
+                module.weight.data.normal_(mean=0.0, std=0.02) # some implementations also use 0.02 / sqrt(self.d_model)
                 if isinstance(module, nn.Linear) and module.bias is not None:
                     module.bias.data.zero_()
             elif isinstance(module, nn.LayerNorm):

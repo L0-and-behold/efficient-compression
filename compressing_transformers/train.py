@@ -1,4 +1,8 @@
-import os
+
+
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import time
 import random
 import numpy as np
@@ -6,6 +10,7 @@ import torch
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
+
 from src.CheckpointHandler import CheckpointHandler
 from src.Datasets.Wiki40BDataset import ByteWikipediaDataset
 from src.Datasets.Wiki40BDataset import WikipediaDatasets
@@ -53,18 +58,27 @@ args["alpha"] = 1e-4                          # Regularization strength for ℓ�
 args["pmmp"] = True                           # Whether to use  PMMP method
 args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
 args["beta"] = 10.0                           # Sharpness parameter β for DRR method
-args["transformer_config"] = "big-transformer" # Size of transformer model (options: transformer200k, transformer800k, transformer4.1m)
 args["training_method"] = rl1_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
 
+args["transformer_config"] = "transformer200k" # Transformer model
+transformer_config_params = TransformerConfig(args["transformer_config"])()
+batch_size = transformer_config_params["batch_size"]
+context_window = transformer_config_params["seq_length"]
+
+num_iterations = 2
+num_nodes = 2
+num_gpus_per_node = 4
+
 # Dataset size and training schedule parameters
-args["train_only_on_leading_tokens"] = int(32*32*2*4*2048) # Limit training to first N tokens (False or int)
+args["train_only_on_leading_tokens"] = int(num_iterations*batch_size*num_nodes*num_gpus_per_node*context_window) # Limit training to first N tokens (False or int), here specified in terms of other parameters
 args["epochs_prelude"] = 1                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
 args["stop_epoch_at_batch_prelude"] = False   # Whether to stop prelude epoch early at batch n (False or int)
 args["stop_epoch_at_batch"] = False           # Whether to stop main training epoch early at batch n (False or int)
 args["stop_epoch_at_batch_fine_tuning"] = False # Whether to stop fine-tuning epoch early at batch n (False or int)
-args["batch_size"] = 4                        # Batch size per GPU
+args["batch_size"] = batch_size               # Batch size per GPU, taken from TransformerConfig
+
 args["do_pruning"] = True                     # Whether to perform model pruning
 args["first_pruning_after"] = 1               # Epoch after which to start pruning
 args["prune_every"] = 1                       # Prune model every n epochs
@@ -76,9 +90,9 @@ args["use_model_from_run"] = None             # Run ID to load model from (None 
 args["elapsed_epochs"] = 1                    # Total epochs to be recorded (must match expected total if continuing training)
 
 # Learning and logging parameters
-args["learning_rate"] = 1e-5                  # Initial learning rate for optimizer
+args["learning_rate"] = 3e-4                  # Initial learning rate for optimizer
 args["seed"] = 858                            # Random seed for reproducibility
-args["tolerated_relative_loss_increase"] = 0.1 # Maximum tolerated loss increase during TAMADE
+args["tolerated_relative_loss_increase"] = 0.0 # 0.1 # Maximum tolerated loss increase during TAMADE
 args["steps_per_chunk"] = 1                   # Number of optimization steps per data chunk
 args["log_every"] = 1                         # Log metrics every n optimization steps
 args["checkpoint_time"] = 80000               # Save checkpoint every n seconds
@@ -164,7 +178,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     print(f"Rank {rank}: Using device: {distributed_trainer.device}")
     
     # Load Wikipedia dataset with the configured sequence length
-    dataset_local_path = os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
+    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset.pt') # os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"])
     train_dataset, val_dataset, test_dataset = datasets.train, datasets.validation, datasets.test
     
@@ -177,13 +191,14 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     dataloader_train, dataloader_val, dataloader_test = dataloaders
     
     # Initialize model and optimizer or load from checkpoint
-    model, ddp_model, optimizer = distributed_trainer.model_optimizer()
-    model_state_dict, optimizer_state_dict, logs = checkpointer.load_checkpoint()
+    model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer()
+    model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
     
     if model_state_dict:
         # Restore from checkpoint if available
         ddp_model.module.load_state_dict(model_state_dict)
         optimizer.load_state_dict(optimizer_state_dict)
+        scheduler.load_state_dict(scheduler_state_dict)
     
     # Print model information (only from rank 0 process)
     if rank == 0:
@@ -197,8 +212,8 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     
     # Execute the selected training procedure
     optimization_procedure = args["training_method"]
-    new_ddp_model, optimizer, logs, args = optimization_procedure(
-        ddp_model, optimizer, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args
+    new_ddp_model, optimizer, scheduler, logs, args = optimization_procedure(
+        ddp_model, optimizer, scheduler, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args
     )
     
     # Ensure model state is correctly transferred after training
@@ -206,7 +221,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     runtime = time.time() - t1
     
     # Calculate metrics and save all results
-    save_results(distributed_trainer, logs, ddp_model, optimizer, args, other_settings, dataloaders, runtime)
+    save_results(distributed_trainer, logs, ddp_model, optimizer, scheduler, args, other_settings, dataloaders, runtime)
     
     # Clean up distributed processes if requested
     if cleanup:
@@ -249,12 +264,12 @@ def create_dataloader(dataset: ByteWikipediaDataset, world_size: int, rank: int,
     return dataloader
 
 
-def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict, ddp_model: DDP, optimizer, args: dict, other_settings: dict, dataloaders: list, runtime: float):
+def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict, ddp_model: DDP, optimizer, scheduler, args: dict, other_settings: dict, dataloaders: list, runtime: float):
     """Save training results, model weights, and metrics to disk.
     
     This function handles the saving of:
     1. Log data as CSV files
-    2. Model and optimizer states
+    2. Model and optimizer and scheduler states
     3. Metadata and arguments
     4. Calculated metrics
     
@@ -265,6 +280,7 @@ def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict,
         logs: Dictionary containing training logs and metrics history.
         ddp_model: The trained DistributedDataParallel model.
         optimizer: The optimizer used for training.
+        scheduler: The scheduler used for training.
         args: Dictionary of training configuration parameters.
         other_settings: Dictionary with additional settings for metrics and evaluation.
         dataloaders: List of dataloaders for training, validation, and testing.
@@ -287,9 +303,10 @@ def save_results(distributed_trainer: DistributedTransformerTrainer, logs: dict,
     distributed_trainer.save_csv(logs["runtime_per_250_batches"], logs["runtime_per_250_batches"], "runtime_per_250_batches")
     distributed_trainer.save_csv(logs["l0_norm_X"], logs["l0_norm"], "l0_norm")
     
-    # Save model and optimizer states
+    # Save model and optimizer and scheduler states
     torch.save(model.state_dict(), os.path.join(run.path, "model.pth"))
     torch.save(optimizer.state_dict(), os.path.join(run.path, "optimizer.pth"))
+    torch.save(scheduler.state_dict(), os.path.join(run.path, "scheduler.pth"))
     
     # Log metadata and configuration parameters
     run_df.log_meta()
