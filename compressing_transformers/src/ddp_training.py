@@ -43,7 +43,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     print(f"Rank {rank}: Using device: {distributed_trainer.device}")
     
     # Load Wikipedia dataset
-    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Datasets/processed_wiki_dataset.pt') # os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
+    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Datasets/processed_wiki_dataset_' + str(args["seq_length"]) + '.pt')
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"])
     train_dataset, val_dataset, test_dataset = datasets.train, datasets.validation, datasets.test
     

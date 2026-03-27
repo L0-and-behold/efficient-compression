@@ -196,8 +196,8 @@ class WikipediaDatasets:
 if __name__ == "__main__":
     import os
     SEQ_LENGTH = 2048
-    SAVE_DIR = os.path.dirname(os.path.abspath(__file__)) # os.path.join(os.getcwd(), 'processed_wiki_dataset.pt') # os.getcwd()
-    SAVE_PATH = os.path.join(SAVE_DIR, 'processed_wiki_dataset.pt')
+    SAVE_DIR = os.path.dirname(os.path.abspath(__file__))
+    SAVE_PATH = os.path.join(SAVE_DIR, 'processed_wiki_dataset_' + str(SEQ_LENGTH) + '.pt')
     
     if not os.path.exists(SAVE_PATH):
         datasets = WikipediaDatasets.create_and_save_dataset(SEQ_LENGTH, SAVE_PATH)

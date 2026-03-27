@@ -208,7 +208,7 @@ class Run:
         model.load_state_dict(torch.load(model_path, map_location=device))
         return model
 
-    def load_optimizer(self, model, warmup_steps=2000, weight_decay=0.01):
+    def load_optimizer(self, model, warmup_steps=2000, weight_decay=0.0):
         """Load an optimizer from the run folder.
         
         Args:

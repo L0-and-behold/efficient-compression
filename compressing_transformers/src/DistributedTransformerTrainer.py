@@ -94,7 +94,7 @@ class DistributedTransformerTrainer:
         if self.verbose:
             print(f"Rank {self.rank}: Local rank {local_rank}, Device count: {torch.cuda.device_count()}")
             
-    def model_optimizer(self, warmup_steps=2000, weight_decay=0.01):
+    def model_optimizer(self, warmup_steps=2000, weight_decay=0.0):
         """Create or load model and optimizer, with support for pretrained models.
         
         Returns:

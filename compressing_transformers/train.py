@@ -1,7 +1,10 @@
 
 
 import os, sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+_file_location = os.path.dirname(__file__)
+sys.path.append(_file_location)
+sys.path.append(os.path.abspath(os.path.join(_file_location, '..')))
 
 import time
 import random
@@ -55,7 +58,7 @@ args = {}
 
 # Model architecture and pruning parameters
 args["alpha"] = 1e-4                          # Regularization strength for ℓ₀-Regularization
-args["pmmp"] = True                           # Whether to use  PMMP method
+args["pmmp"] = False                           # Whether to use  PMMP method
 args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
 args["beta"] = 10.0                           # Sharpness parameter β for DRR method
 args["training_method"] = rl1_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
@@ -178,7 +181,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     print(f"Rank {rank}: Using device: {distributed_trainer.device}")
     
     # Load Wikipedia dataset with the configured sequence length
-    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset.pt') # os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
+    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset_' + str(args["seq_length"]) + '.pt')
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"])
     train_dataset, val_dataset, test_dataset = datasets.train, datasets.validation, datasets.test
     
