@@ -197,7 +197,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer()
     model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
     
-    if model_state_dict:
+    if model_state_dict and optimizer_state_dict and scheduler_state_dict:
         # Restore from checkpoint if available
         ddp_model.module.load_state_dict(model_state_dict)
         optimizer.load_state_dict(optimizer_state_dict)

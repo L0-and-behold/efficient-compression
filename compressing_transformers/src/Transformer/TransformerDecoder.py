@@ -101,14 +101,17 @@ class MultiLayerTransformerDecoder(nn.Module):
         ])
         self.linear = nn.Linear(d_model, alphabet_size)
         self.softmax = nn.LogSoftmax(dim=-1)
-        self.initialize_weights()
         self.final_norm = nn.LayerNorm(d_model)
         self.num_layers = num_layers
+        self.pmmp = pmmp
 
+        self.initialize_weights()
+        
         if pmmp:
             self.dev = dev
             self.initial_p_value = initial_p_value
             self.create_pmmp_params()
+
     
     def initialize_weights(self):
         """Initialize model weights with fixed random seed for reproducibility.""" 
