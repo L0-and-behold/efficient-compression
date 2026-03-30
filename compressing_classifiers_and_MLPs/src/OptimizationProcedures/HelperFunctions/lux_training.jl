@@ -145,8 +145,15 @@ function lux_training!(
     if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 1
         println("Resuming from epoch $(checkpoint.content.epoch)")
         start_epoch_offset = checkpoint.content.epoch - 1
+        start_epoch = 0  # phase 1 LR schedule always indexed from 0; args.logs would give wrong offset
+
+        if !isnothing(args.schedule)
+            resumed_lr = args.schedule(start_epoch_offset + 1, args)
+            tstate = Optimisers.adjust!(tstate, resumed_lr)
+        end
+        
         prev_val_loss = checkpoint.content.prev_val_loss
-        total_time_start = checkpoint.metadata.start_time
+        total_time_start = time()
         prev_prev_val_loss = checkpoint.content.prev_prev_val_loss
         best_tstate = deepcopy(checkpoint.content.best_tstate)
     else
@@ -167,30 +174,9 @@ function lux_training!(
     for epoch in (start_epoch_offset+1):max_epochs
         flush(stdout); flush(stderr)
 
-        # Check for timeout before starting epoch
-        if checkpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
-            println("Saving checkpoint")
-            update_checkpoint_state!(
-                checkpoint;
-                args=args,
-                tstate=tstate,
-                epoch=epoch - 1,
-                prev_val_loss=prev_val_loss,
-                prev_prev_val_loss=prev_prev_val_loss,
-                best_tstate=best_tstate,
-                loss_fun=loss_fun,
-                convergence_triggered=convergence_triggered,
-                status=:available
-            )
-            maybe_save_checkpoint(checkpoint)
-        end
-        if checkpoint.do_checkpointing && checkpoint_enabled && should_stop_for_timeout(checkpoint.metadata)
-            println("Maximum runtime approaching. Saving checkpoint and exiting...")
-            error("MaxRuntimeReached")
-        end
 
         if !isnothing(args.schedule) # update learning rate if schedule is specified
-            new_lr = args.schedule(start_epoch + epoch)
+            new_lr = args.schedule(start_epoch + epoch, args)
             if new_lr != last_lr
                 tstate = Optimisers.adjust!(tstate, new_lr)
             end
@@ -201,11 +187,6 @@ function lux_training!(
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
         for (i, batch) in enumerate(train_set)
-            batch_time = time()
-            if args.debug 
-                println("▶ Epoch $epoch – batch $i  update-step finished after $(time() - batch_time) s")
-            end
-            update_time = time()
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
             multiply_time = time()
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
@@ -213,6 +194,7 @@ function lux_training!(
             end
             epoch_loss += loss
             if args.debug && i > 5
+                println("▶ Epoch $epoch exited early after 5 batches since args.debug = true")
                 break
             end
         end
@@ -268,13 +250,43 @@ function lux_training!(
         if haskey(tstate.parameters, :sigma)
             push!(args.logs["sigmas"], sum(tstate.parameters.sigma))
         end
-        if loss_fun.loss_f == logitcrossentropy
+        if loss_fun.loss_f == logitcrossentropy || loss_fun.loss_f == logitcrossentropy_ls
             t = time()
             val_accuracy = accuracy(tstate, validation_set, debug=args.debug)
             push!(args.logs["validation_accuracy"], val_accuracy)
             println("▶ Validation accuracy: $(val_accuracy * 100) %")
         end
-        
+
+        # Periodic checkpoint save
+        if checkpoint.do_checkpointing && checkpoint_enabled && epoch % args.checkpoint_frequency == 0
+            update_checkpoint_state!(
+                checkpoint;
+                args=args, tstate=tstate, epoch=epoch,
+                prev_val_loss=prev_val_loss, prev_prev_val_loss=prev_prev_val_loss,
+                best_tstate=best_tstate, loss_fun=loss_fun,
+                convergence_triggered=convergence_triggered
+            )
+            maybe_save_checkpoint(checkpoint)
+            println("  Checkpoint saved at epoch $epoch")
+        end
+
+        # Periodic compression ratio report
+        if !isnothing(args.cr_report_window) && epoch % args.cr_report_window == 0
+            cr_data = isnothing(args.tamade_calibration_batches) ?
+                validation_set :
+                Iterators.take(validation_set, args.tamade_calibration_batches)
+            cr_tstate, _, _, _ = find_right_pruning_threshold(
+                tstate, loss_fun, cr_data,
+                args.tolerated_relative_loss_increase, args.binary_search_resolution;
+                dtype=args.dtype, prune_input=false
+            )
+            l0_norm  = Int(round(recursive_sum(cr_tstate.states.mask, args.dtype(0))))
+            l0_total = Lux.parameterlength(cr_tstate.model)
+            cr_pct   = round((1 - l0_norm / max(l0_total, 1)) * 100; digits=1)
+            cr_acc   = accuracy(cr_tstate, cr_data, debug=args.debug)
+            println("  CR report @ ep $epoch: compression=$(cr_pct)%, L0=$(l0_norm)/$(l0_total), post-prune val acc=$(round(cr_acc*100; digits=2))%")
+        end
+
         flush(stdout); flush(stderr)
 
         # Pruning and Convergence check is done at most every prune_window epochs
@@ -302,7 +314,7 @@ function lux_training!(
             end
             if epoch >= max(min_epochs, obs_window + 3)
                 
-                if loss_fun.loss_f == logitcrossentropy && test_set !== nothing
+                if loss_fun.loss_f in (logitcrossentropy, logitcrossentropy_ls) && test_set !== nothing
                     push!(args.logs["test_accuracy"], (epoch, accuracy(tstate, test_set)))
                 end
                 
@@ -378,15 +390,15 @@ function lux_training!(
             checkpoint;
             args=args,
             tstate=return_tstate,
-            epoch=checkpoint.content.epoch, # last completed epoch
+            epoch=checkpoint.content.epoch,
             prev_val_loss=prev_val_loss,
             prev_prev_val_loss=prev_prev_val_loss,
             best_tstate=best_tstate,
             loss_fun=loss_fun,
-            convergence_triggered=convergence_triggered,
-            status=:available
+            convergence_triggered=convergence_triggered
         )
         maybe_save_checkpoint(checkpoint)
+        mark_checkpoint_finished!(checkpoint)
     end
 
     @assert return_tstate != nothing
@@ -404,8 +416,7 @@ function update_checkpoint_state!(
     prev_prev_val_loss,
     best_tstate,
     loss_fun,
-    convergence_triggered,
-    status::Symbol
+    convergence_triggered
 )
 
     if best_tstate === nothing
@@ -413,7 +424,6 @@ function update_checkpoint_state!(
         best_tstate = tstate
     end
 
-    checkpoint.metadata.status = status
     checkpoint.metadata.last_updated = time()
 
     checkpoint.content.args = args
