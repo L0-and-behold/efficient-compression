@@ -30,6 +30,7 @@ module ImageNet
     using FileIO, ImageIO, Images
     using JLD2
     using ProgressMeter
+    using Statistics: mean
 
     using Lux: DistributedUtils, gpu_device, cpu_device
     using Base.Iterators: partition
@@ -37,6 +38,7 @@ module ImageNet
 
     import Lux.DistributedUtils.DistributedDataContainer
 
+    using ...Config: load_imagenet_config
 
     # Online (JPEG-based) ImageNet dataset
     include("imagenet_dataset.jl")

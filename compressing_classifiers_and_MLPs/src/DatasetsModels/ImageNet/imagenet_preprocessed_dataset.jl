@@ -263,6 +263,8 @@ function random_resized_crop!(out, x)
         end
     end
 
+    # TODO: check if NNlib has an in place operation `upsample_bilinear!` which would allow to directly write to out and saves some memory
+
     if !found
         s  = min(H, W)
         h0 = (H - s) ÷ 2
@@ -292,6 +294,39 @@ function center_crop(x, output_size::Int)
 end
 
 """
+    color_jitter!(x; brightness=0.4f0, contrast=0.4f0, saturation=0.4f0)
+
+Apply in-place color jitter to a batch of images.
+
+Randomly perturbs brightness, contrast, and saturation of an image
+tensor `x` with shape `(H, W, C, N)` (HWCN layout). Jitter parameters
+are sampled independently per image in the batch.
+
+Designed to run efficiently on CPU or GPU tensors using broadcast
+operations.
+
+Returns the modified tensor `x`.
+"""
+function color_jitter!(x; brightness=0.4f0, contrast=0.4f0, saturation=0.4f0)
+    H, W, C, N = size(x)
+    @assert C == 3 "color_jitter! expects 3-channel images"
+
+    b = 1f0 .+ (2f0 .* rand(Float32, 1, 1, 1, N) .- 1f0) .* brightness
+    c = 1f0 .+ (2f0 .* rand(Float32, 1, 1, 1, N) .- 1f0) .* contrast
+    s = 1f0 .+ (2f0 .* rand(Float32, 1, 1, 1, N) .- 1f0) .* saturation
+
+    x .*= b
+
+    μ = mean(x; dims=(1,2))
+    x .= (x .- μ) .* c .+ μ
+
+    g = mean(x; dims=3)
+    x .= (x .- g) .* s .+ g
+
+    return x
+end
+
+"""
 Convert integer labels to one-hot encoding over ImageNet classes.
 """
 @inline function to_onehot(labels::Vector{Int})
@@ -313,22 +348,26 @@ function Base.iterate(dl::DeviceDataLoader, state...)
 
     ((x, y), st) = res
 
-    x = dl.dev(x)
     assert_hwcn(x)
-    y = dl.dev(to_onehot(y))
 
     if dl.crop_size !== nothing
         if dl.augment
             cropped = similar(x, dl.crop_size, dl.crop_size, size(x, 3), size(x, 4))
             random_resized_crop!(cropped, x)
             x = cropped
+
             if rand() < 0.5
                 x = reverse(x, dims=2)
             end
+
+            color_jitter!(x)
         else
             x = center_crop(x, dl.crop_size)
         end
     end
+
+    x = dl.dev(x)
+    y = dl.dev(to_onehot(y))
 
     return (x, y), st
 end
