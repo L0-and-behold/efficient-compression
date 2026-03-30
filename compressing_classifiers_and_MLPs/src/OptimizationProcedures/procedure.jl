@@ -81,10 +81,14 @@ function procedure(
     tamade_data = isnothing(args.tamade_calibration_batches) ? validation_set : Iterators.take(validation_set, args.tamade_calibration_batches)
     tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, tamade_data, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=true)
 
-    # Report sparsity after pruning
-    if args.verbose && haskey(tstate.states, :mask)
-        l0_after = recursive_sum(tstate.states.mask, args.dtype(0))
-        println("  Post-pruning L0 norm: $(Int(round(l0_after)))")
+    # Report sparsity and accuracy after pruning
+    if args.verbose
+        if haskey(tstate.states, :mask)
+            l0_after = recursive_sum(tstate.states.mask, args.dtype(0))
+            println("  Post-pruning L0 norm: $(Int(round(l0_after)))")
+        end
+        post_prune_acc = accuracy(tstate, validation_set)
+        println("  Post-pruning val accuracy: $(round(post_prune_acc * 100; digits=2))%")
     end
 
     if args.verbose

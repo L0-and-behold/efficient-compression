@@ -28,7 +28,7 @@ args = TrainArgs{Float32}()
 path_to_db, imagenet_path, imagenet_preprocessed_path = load_imagenet_config()
 
 # set experiment name
-experiment_name = "aug-ft-sweep-v1"
+experiment_name = "full-scale-v2"
 
 # Function defining a single run of training, metric calculation, and result saving
 #    either .._classifier or .._teacherstudent
@@ -47,31 +47,32 @@ variables = Symbol[
 :finetuning_max_epochs,
 ]
 
-# aug-ft-sweep-v1: validate RandomResizedCrop augmentation + FT LR fix + higher alphas
-# 1 vanilla + 3×RL1 + 3×DRR + 3×PMMP = 10 runs; 7+5 epochs
-# Alphas: full-scale-v1 "aggressive" becomes the new floor; explore 3 orders of magnitude above
+# full-scale-v2: FT LR fix + RandomResizedCrop + post-TAMADE acc report + 5 FT epochs
+# 1 vanilla + 3×RL1 + 3×DRR + 3×PMMP = 10 runs; 90+0 / 85+5
 batch = [
-    # Vanilla baseline: 7+0 (no FT)
-    (RL1_procedure,  0f0,  0f0, 0f0, 0f0, 7, 7, 0, 0),
+    # Vanilla baseline: 90+0 (no FT)
+    (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
 
-    # RL1: 1e-6 (was v1 aggressive) → 1e-5 → 1e-4
-    (RL1_procedure,  1f-6, 0f0, 0f0, 0f0, 7, 7, 5, 5),
-    (RL1_procedure,  1f-5, 0f0, 0f0, 0f0, 7, 7, 5, 5),
-    (RL1_procedure,  1f-4, 0f0, 0f0, 0f0, 7, 7, 5, 5),
+    (RL1_procedure,  1f-7,  0f0, 0f0, 0f0, 85, 85, 5, 5),
+    (RL1_procedure,  1f-6,  0f0, 0f0, 0f0, 85, 85, 5, 5),
+    (RL1_procedure,  3f-6,  0f0, 0f0, 0f0, 85, 85, 5, 5),
 
-    # DRR: 1e-7 (was v1 aggressive) → 1e-6 → 1e-5
-    (DRR_procedure,  1f-7, 5f0, 0f0, 0f0, 7, 7, 5, 5),
-    (DRR_procedure,  1f-6, 5f0, 0f0, 0f0, 7, 7, 5, 5),
-    (DRR_procedure,  1f-5, 5f0, 0f0, 0f0, 7, 7, 5, 5),
+    (DRR_procedure,  1f-8,  5f0, 0f0, 0f0, 85, 85, 5, 5),
+    (DRR_procedure,  1f-7,  5f0, 0f0, 0f0, 85, 85, 5, 5),
+    (DRR_procedure,  1f-6,  5f0, 0f0, 0f0, 85, 85, 5, 5),
 
-    # PMMP u=5: 1e-8 (was v1 aggressive) → 1e-6 → 1e-4
-    (PMMP_procedure, 1f-8, 0f0, 1f0, 5f0, 7, 7, 5, 5),
-    (PMMP_procedure, 1f-6, 0f0, 1f0, 5f0, 7, 7, 5, 5),
-    (PMMP_procedure, 1f-4, 0f0, 1f0, 5f0, 7, 7, 5, 5),
+    (PMMP_procedure, 1f-6,  0f0, 1f0, 1f0, 85, 85, 5, 5),
+    (PMMP_procedure, 1f-5,  0f0, 1f0, 5f0, 85, 85, 5, 5),
+    (PMMP_procedure, 1f-5,  0f0, 1f0, 1f0, 85, 85, 5, 5),
 ]
 
+# --- aug-ft-sweep-v1 batch (commented out) ---
+# 7+5 ep; validates RandomResizedCrop + FT LR fix; higher alphas than v1
+# (RL1_procedure,  0f0,  0f0, 0f0, 0f0, 7, 7, 0, 0),
+# (RL1_procedure,  1f-6, 0f0, 0f0, 0f0, 7, 7, 5, 5), ...
+
 # --- full-scale-v1 batch (commented out) ---
-# Vanilla: 90+0; compression: 85+1; alphas conservative→best→aggressive from sweep
+# 90+0 / 85+1; had FT LR bug (restarted warmup during FT)
 # (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
 # (RL1_procedure,  1f-9,  0f0, 0f0, 0f0, 85, 85, 1, 1), ...
 
