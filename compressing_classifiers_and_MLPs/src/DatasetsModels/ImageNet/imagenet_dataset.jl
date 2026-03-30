@@ -285,15 +285,17 @@ configured to use a specific ImageNet dataloader constructor (online, chunked, o
 A function `(batch_size::Int) -> (train_set, val_set, test_set)` where `test_set` is always `nothing`
 """
 function imagenet_data_function(
-    root::String,
-    dataloader_constructor::Function;
+    ;
+    dataloader_constructor::Function = construct_chunked_dataloaders,
     crop_size::Int=224,
     dev=gpu_device()
     )::Function
 
+    _, _, imagenet_preprocessed_path = load_imagenet_config()
+
     function imagenet_dataset(batch_size::Int)
 
-        train_set, val_set = dataloader_constructor(root, batch_size, batch_size; crop_size=crop_size, dev=dev)
+        train_set, val_set = dataloader_constructor(imagenet_preprocessed_path, batch_size, batch_size; crop_size=crop_size, dev=dev)
         test_set = nothing
 
         return train_set, val_set, test_set

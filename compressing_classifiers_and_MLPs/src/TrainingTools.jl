@@ -3,6 +3,8 @@ module TrainingTools
     using BSON, Random
     import Lux
 
+    export save_train_state, load_train_state
+
     """
         save_train_state(train_state::Lux.Training.TrainState, model, rng, filename)
 
