@@ -45,7 +45,7 @@ module BatchRun
     export single_run_routine_teacherstudent
 
     include("command_line_arguments.jl")
-    export get_sub_batch
+    export get_sub_batch, parse_resume_checkpoint
 
     include("do_batch_run.jl")
     export do_batch_run

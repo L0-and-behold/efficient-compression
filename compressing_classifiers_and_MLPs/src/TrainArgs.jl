@@ -81,8 +81,10 @@ module TrainingArguments
         use_checkpoints = false
         checkpoint_dir = ""
         checkpoint_frequency = 10
-        max_runtime_seconds = 3600 * 23.5
+        resume_checkpoint_id::Union{Nothing, String} = nothing
         tamade_calibration_batches::Union{Nothing, Int} = nothing
+        cr_report_window::Union{Nothing, Int} = nothing
+        label_smoothing::Bool = false
     end
 
 end # module TrainingArguments

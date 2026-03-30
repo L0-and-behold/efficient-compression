@@ -141,6 +141,7 @@ Supports parallelization through command-line sub-batch specification.
 
 # If provided via command line arguments, run only a subset of the batch
 experiment_name, batch = get_sub_batch(experiment_name, batch)
+args.resume_checkpoint_id = parse_resume_checkpoint()
 
 do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)
 

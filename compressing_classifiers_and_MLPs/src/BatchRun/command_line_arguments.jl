@@ -42,7 +42,7 @@ Parses command line arguments related to sub-batch distribution.
 # Returns
 - `Dict{String, Any}`: A dictionary with parsed values for `num_sub_batches` and `sub_batch`.
 """
-function parse_batch_distribution_args()
+function _parse_all_cli_args()
     s = ArgParseSettings()
     @add_arg_table s begin
         "--num_sub_batches"
@@ -53,6 +53,24 @@ function parse_batch_distribution_args()
             help = "Current sub-batch to run (1-indexed)"
             arg_type = Int
             default = 1
+        "--resume_checkpoint"
+            help = "Checkpoint ID to resume from (e.g. brave-tiger)"
+            arg_type = String
+            default = nothing
     end
     return parse_args(s)
+end
+
+function parse_batch_distribution_args()
+    return _parse_all_cli_args()
+end
+
+"""
+    parse_resume_checkpoint()::Union{Nothing, String}
+
+Parses the `--resume_checkpoint` command line argument.
+Returns the checkpoint ID string (e.g. "brave-tiger") or `nothing` if not provided.
+"""
+function parse_resume_checkpoint()::Union{Nothing, String}
+    return _parse_all_cli_args()["resume_checkpoint"]
 end

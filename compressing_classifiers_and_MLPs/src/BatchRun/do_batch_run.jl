@@ -42,72 +42,30 @@ function do_batch_run(
 )
     @assert length(variable_names) == length(batch_of_values[1])
     
-    # init checkpoint
+    # Init checkpoint — ID printed immediately so it appears in logs even if run crashes early
     checkpoint = CheckpointManager(
         args.use_checkpoints,
-        CheckpointMetadata(
-            path=joinpath(path_to_db, experiment_name, "checkpoints"),
-            max_runtime_seconds=args.max_runtime_seconds
-        ),
+        CheckpointMetadata(path=joinpath(path_to_db, experiment_name, "checkpoints")),
         CheckpointContent(args=args)
     )
+    println("Checkpoint ID: $(checkpoint.metadata.checkpoint_id)")
 
-    # if using checkpoints, load checkpoint and continue training
-    checkpoint, checkpoint_found_and_loaded = maybe_load_checkpoint(checkpoint, args)
-    if checkpoint_found_and_loaded
-        println("Found available checkpoint: $(checkpoint.metadata.checkpoint_id)")
-        println("Resuming interrupted run...")
-        try
-            single_run_routine(path_to_db, experiment_name, args, variable_names, checkpoint)
-            println("✓ Resumed run completed successfully")
-        catch e
-            if occursin("MaxRuntimeReached", string(e))
-                println("Run paused due to timeout. Will resume on next execution.")
-            else
-                rethrow(e)
-            end
+    # Explicit resume: only when --resume_checkpoint id was passed
+    if !isnothing(args.resume_checkpoint_id)
+        if !args.use_checkpoints
+            @warn "resume_checkpoint_id provided but use_checkpoints=false — enabling checkpointing."
+            args.use_checkpoints = true
+            checkpoint = CheckpointManager(true, checkpoint.metadata, checkpoint.content)
         end
-        println("Continuing with batchrun")
+        println("Resuming from checkpoint: $(args.resume_checkpoint_id)")
+        metadata, content = load_checkpoint_by_id(checkpoint.metadata.path, args.resume_checkpoint_id, args)
+        checkpoint.metadata = metadata
+        checkpoint.content = content
+        single_run_routine(path_to_db, experiment_name, args, variable_names, checkpoint)
+        println("✓ Resumed run completed successfully. Continuing with batchrun.")
+    else
+        println("No checkpoint — starting fresh run")
     end
-    
-    
-    # # Setup checkpoint and potentially continue training for available checkpoint
-    # if args.use_checkpoints
-    #     checkpoint_dir = joinpath(path_to_db, experiment_name, "checkpoints")
-    #     metadata = CheckpointMetadata(path=checkpoint_dir, max_runtime_seconds=args.max_runtime_seconds)
-    #     content = CheckpointContent(args, "")
-
-    #     # try to load an available checkpoint
-    #     filepath = find_available_checkpoint(checkpoint_dir)
-    #     if filepath !== nothing
-    #         metadata, content = load_checkpoint(filepath)
-    #         println("Found available checkpoint. Coninue training for checkpoint $(metadata.checkpoint_id)")
-    #     end
-    
-    #     # Check for available checkpoints to resume
-    #     available_checkpoint = find_available_checkpoint(checkpoint_dir)
-    #     if !isnothing(available_checkpoint)
-    #         println("Found available checkpoint: $available_checkpoint")
-    #         println("Resuming interrupted run...")
-            
-    #         metadata, content = load_checkpoint(available_checkpoint)
-
-    #         # Resume the run
-    #         try
-    #             single_run_routine(path_to_db, experiment_name, args, variable_names, checkpoint)
-    #             println("✓ Resumed run completed successfully")
-    #         catch e
-    #             if occursin("MaxRuntimeReached", string(e))
-    #                 println("Run paused due to timeout. Will resume on next execution.")
-    #             else
-    #                 rethrow(e)
-    #             end
-    #         end
-    #         println("Continuing with batchrun")
-    #     else
-    #         println("No checkpoints found. Continuing with batchrun.")
-    #     end
-    # end
 
     # Normal batch execution
 
