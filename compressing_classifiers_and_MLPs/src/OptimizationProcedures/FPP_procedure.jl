@@ -33,7 +33,7 @@ end
         - `validation_set`: The validation set.
         - `test_set`: The test set.
         - `tstate`: An object of type `Lux.Training.TrainState`, containing all model, optimizer and parameter information.
-        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy or MSELoss)
+        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy, logitcrossentropy_ls, or MSELoss)
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function FPP_procedure(

@@ -50,7 +50,8 @@ args.schedule = Step(
 # args.val_batch_size = size(validation_set[1][2])[2]
 # args.test_batch_size = size(test_set[1][2])[2]
 args.α = 1f-4
-model_seed = 42; loss_fctn = logitcrossentropy;
+model_seed = 42
+loss_fctn = args.label_smoothing ? logitcrossentropy_ls : logitcrossentropy 
 args.gradient_repetition_factor = 5
 
 ## Initialize one of the following models

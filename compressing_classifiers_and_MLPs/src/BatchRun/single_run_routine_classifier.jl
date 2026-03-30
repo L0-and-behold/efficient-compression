@@ -44,7 +44,8 @@ function single_run_routine_classifier(
     train_set, validation_set, test_set = args.dataset(args.train_batch_size)
     model = args.architecture()
 
-    model_seed = args.seed + 42; loss_fctn = logitcrossentropy;
+    model_seed = args.seed + 42
+    loss_fctn = args.label_smoothing ? logitcrossentropy_ls : logitcrossentropy
     
     start_time = now()
 
@@ -157,22 +158,32 @@ Calculate and log the final accuracy and loss values for all datasets.
 - `DataFrame`: Updated DataFrame with final accuracies and losses added
 """
 function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, test_set, loss_fctn, args)
-    run_df[end, :final_accuracy_trainset] = accuracy(tstate, train_set)
+
+    if args.debug
+        println("Skipping final calculation of accuracies and losses since args.debug = true.")
+        return run_df
+    end
+
+    run_df[end, :final_accuracy_trainset] = accuracy(tstate, Iterators.take(train_set, 100))
     run_df[end, :final_accuracy_valset] = accuracy(tstate, validation_set)
     if test_set !== nothing
         run_df[end, :final_accuracy_testset] = accuracy(tstate, test_set)
     end
 
-    function loss_on_dataset(dataset)::Number
+    function loss_on_dataset(dataset)
         total_loss = zero(args.dtype)
+        n = 0
         testmode_st = testmode_states(tstate)
+
         for batch in dataset
             total_loss += loss_fctn(tstate.model, tstate.parameters, testmode_st, batch)[1]
+            n += 1
         end
-        return total_loss / args.dtype(length(dataset))
+        return total_loss / args.dtype(n)
     end
 
-    run_df[end, :final_loss_trainset] = loss_on_dataset(train_set)
+
+    run_df[end, :final_loss_trainset] = loss_on_dataset(Iterators.take(train_set, 100))
     run_df[end, :final_loss_valset] = loss_on_dataset(validation_set)
     if test_set !== nothing
         run_df[end, :final_loss_testset] = loss_on_dataset(test_set)

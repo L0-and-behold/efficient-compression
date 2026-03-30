@@ -183,7 +183,7 @@ function scale_alpha_rho!(args, train_set, loss_fctn)
     args.α /= num_batches
     args.L1_alpha /= num_batches
     args.ρ /= num_batches
-    if loss_fctn == Lux.MSELoss() || loss_fctn == logitcrossentropy # those aggregate data with mean
+    if loss_fctn == Lux.MSELoss() || loss_fctn == logitcrossentropy || loss_fctn == logitcrossentropy_ls # those aggregate data with mean
         args.α /= num_elements_in_batch
         args.L1_alpha /= num_elements_in_batch
         args.ρ /= num_elements_in_batch

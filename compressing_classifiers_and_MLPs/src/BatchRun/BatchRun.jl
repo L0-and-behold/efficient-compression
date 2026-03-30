@@ -11,6 +11,7 @@ module BatchRun
         accuracy,
         testmode_states,
         logitcrossentropy,
+        logitcrossentropy_ls,
         scale_alpha_rho!,
         generate_tstate,
         setup_data_teacher_and_student,

@@ -9,6 +9,8 @@ using Accessors
 abstract type LossFunction end
 
 const logitcrossentropy = Lux.CrossEntropyLoss(; logits=Val(true))
+const logitcrossentropy_ls = Lux.CrossEntropyLoss(; logits=Val(true), label_smoothing=0.1f0)
+
 # Test:
 # y = [1  0  0  0  1
 #      0  1  0  1  0
