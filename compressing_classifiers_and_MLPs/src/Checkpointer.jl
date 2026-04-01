@@ -14,10 +14,14 @@ export CheckpointMetadata, CheckpointContent, CheckpointManager,
 
 const _ADJECTIVES = ["brave","calm","dark","eager","fierce","gentle","happy","icy",
                      "jolly","keen","lively","merry","noble","proud","quiet","rapid",
-                     "swift","tame","wild","bold"]
+                     "swift","tame","wild","bold","amber","crisp","dusty","fleet",
+                     "grand","hollow","iron","jade","lunar","misty","olive","plush",
+                     "ruddy","stark","thorny","umber","vivid","wry","zesty","ashen"]
 const _ANIMALS    = ["bear","crane","deer","eagle","fox","goat","hawk","ibis",
                      "jaguar","koala","lynx","moose","otter","panda","quail","raven",
-                     "seal","tiger","viper","wolf"]
+                     "seal","tiger","viper","wolf","bison","condor","dingo","finch",
+                     "gecko","heron","impala","jackal","kestrel","lemur","marmot",
+                     "narwhal","osprey","python","quokka","rhino","shrike","tapir","urial"]
 
 generate_checkpoint_id() = "$(rand(_ADJECTIVES))-$(rand(_ANIMALS))"
 
@@ -53,15 +57,20 @@ end
 
 function save_checkpoint(metadata::CheckpointMetadata, content::CheckpointContent)
     for field in fieldnames(CheckpointContent)
-        if getfield(content, field) == nothing
+        if getfield(content, field) == nothing && field != :args  # args fields checked separately
             @warn "CheckpointContent field `$(field)` is `nothing`."
         end
     end
     mkpath(metadata.path)
     path = joinpath(metadata.path, metadata.checkpoint_id * ".jld2")
+    # Strip closures/lambdas that JLD2 cannot serialize by name.
+    # Both are restored from the caller's args on resume.
+    content_to_save = deepcopy(content)
+    content_to_save.args.dataset   = nothing
+    content_to_save.args.optimizer = nothing
     jldopen(path, "w") do f
         f["metadata"] = metadata
-        f["content"]  = content
+        f["content"]  = content_to_save
     end
 end
 

@@ -263,8 +263,6 @@ function random_resized_crop!(out, x)
         end
     end
 
-    # TODO: check if NNlib has an in place operation `upsample_bilinear!` which would allow to directly write to out and saves some memory
-
     if !found
         s  = min(H, W)
         h0 = (H - s) ÷ 2
@@ -330,7 +328,7 @@ end
 Convert integer labels to one-hot encoding over ImageNet classes.
 """
 @inline function to_onehot(labels::Vector{Int})
-    return OneHotArrays.onehotbatch(labels, 0:999)
+    return Float32.(OneHotArrays.onehotbatch(labels, 0:999))
 end
 
 """

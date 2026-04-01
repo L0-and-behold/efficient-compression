@@ -21,7 +21,10 @@ function single_run_routine_classifier(
     )
 
     if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
-        args = checkpoint.content.args
+        loaded_args = checkpoint.content.args
+        loaded_args.dataset   = args.dataset    # restore: stripped from checkpoint (JLD2 cannot serialize closures)
+        loaded_args.optimizer = args.optimizer  # restore: same reason
+        args = loaded_args
     end
 
     assertions_classifier(args)
@@ -103,8 +106,7 @@ function single_run_routine_classifier(
     save_train_state(tstate, model, Random.GLOBAL_RNG, joinpath(artifact_folder, "train_state.bson"))
 
     # save checkpoint
-    checkpoint.metadata.status = :finished
-    maybe_save_checkpoint(checkpoint)
+    mark_checkpoint_finished!(checkpoint)
 
     println("Training and saving of results finished for $run_id.")
 
@@ -164,7 +166,7 @@ function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, 
         return run_df
     end
 
-    run_df[end, :final_accuracy_trainset] = accuracy(tstate, Iterators.take(train_set, 100))
+    run_df[end, :final_accuracy_trainset] = accuracy(tstate, Iterators.take(train_set, 500))
     run_df[end, :final_accuracy_valset] = accuracy(tstate, validation_set)
     if test_set !== nothing
         run_df[end, :final_accuracy_testset] = accuracy(tstate, test_set)
@@ -183,7 +185,7 @@ function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, 
     end
 
 
-    run_df[end, :final_loss_trainset] = loss_on_dataset(Iterators.take(train_set, 100))
+    run_df[end, :final_loss_trainset] = loss_on_dataset(Iterators.take(train_set, 500))
     run_df[end, :final_loss_valset] = loss_on_dataset(validation_set)
     if test_set !== nothing
         run_df[end, :final_loss_testset] = loss_on_dataset(test_set)

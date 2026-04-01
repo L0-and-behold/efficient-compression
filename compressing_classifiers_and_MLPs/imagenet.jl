@@ -31,7 +31,7 @@ path_to_db, imagenet_path, _ = load_imagenet_config()
 experiment_name = "checkpoint-cr-test"#"full-scale-v2"
 
 # TODO
-# [ ] debug mode (191172)
+# [ ] debug mode (191269)
 # [ ] 3+1 epochs
 # [ ] commit checkpoint cr
 # [ ] implement LR, rho, cosine schedule, number epochs
@@ -122,7 +122,7 @@ args.NORM = false
 args.tamade_calibration_batches = 200  # use 200 batches for TAMADE
 args.save_pre_pruning_model = true     # save tstate before TAMADE so 85-ep runs are recoverable
 args.skip_precompilation = true
-args.debug = true 
+args.debug = true
 args.use_checkpoints = true            # TEST
 args.checkpoint_frequency = 1          # TEST: checkpoint every epoch
 args.cr_report_window = 1              # TEST: CR report every epoch
@@ -131,12 +131,11 @@ args.label_smoothing = true
 
 args.ρ = 0.8f-4  # use this parameter to controll weight decay
 args.lr = 0.1f0
-args.optimizer = lr -> Optimisers.OptimiserChain(
-    Optimisers.Momentum(lr, 0.9f0)
-)
+args.optimizer = lr -> Optimisers.OptimiserChain(Optimisers.Momentum(lr, 0.9f0))
 # Cosine LR with 5-epoch linear warmup.
 # For FT (epoch > args.max_epochs): holds at eta_min so FT gets a stable small LR.
 # ParameterSchedulers.CosAnneal exists but args.max_epochs varies per-run, so we inline.
+# TODO: should eta_min be 1f-3? since the step schedule has 3 steps (even though the last one is only one epoch)? Need to research this
 function imagenet_schedule(epoch, args)
     lr      = args.lr
     eta_min = lr * 1f-2       # floor = 1% of peak (0.001 at lr=0.1)
