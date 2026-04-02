@@ -22,78 +22,30 @@ flush(stdout); flush(stderr)
 #####
 # Experiment setup
 #####
+
+# TODO: sanity check that lr during FT is actually eta_min
+
 args = TrainArgs{Float32}()
 
 # Load configuration
 path_to_db, imagenet_path, _ = load_imagenet_config()
 
 # set experiment name
-experiment_name = "checkpoint-cr-test"#"full-scale-v2"
+experiment_name = "vanilla-lr-rho-sweep"
 
-# TODO
-# [ ] debug mode (191269)
-# [ ] 3+1 epochs
-# [ ] commit checkpoint cr
-# [ ] implement LR, rho, cosine schedule, number epochs
-# [ ] implement color jitter
-# [ ] test debug mode
-# [ ] test 3+1
-# [ ] maybe little sweep over lr and rho for vanilla otherwise
-# [ ] start full-scale-v3 for vanilla and wait
-
-# Function defining a single run of training, metric calculation, and result saving
-#    either .._classifier or .._teacherstudent
 single_run_routine = single_run_routine_classifier
 
-# Arguments that vary throughout the experiment
-variables = Symbol[
-:optimization_procedure,
-:α,
-:β,
-:initial_p_value,
-:initial_u_value,
-:min_epochs,
-:max_epochs,
-:finetuning_min_epochs,
-:finetuning_max_epochs,
-]
+# Vary lr and rho; all other args fixed to vanilla (RL1, α=0, no FT)
+variables = [:lr, :ρ]
 
-# full-scale-v2: FT LR fix + RandomResizedCrop + post-TAMADE acc report + 5 FT epochs
-# 1 vanilla + 3×RL1 + 3×DRR + 3×PMMP = 10 runs; 90+0 / 85+5
 batch = [
-    # Vanilla baseline: 90+0 (no FT)
-    # (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
-
-    # (RL1_procedure,  1f-7,  0f0, 0f0, 0f0, 85, 85, 5, 5),
-    # (RL1_procedure,  1f-6,  0f0, 0f0, 0f0, 85, 85, 5, 5),
-    # (RL1_procedure,  3f-6,  0f0, 0f0, 0f0, 85, 85, 5, 5),
-
-    (DRR_procedure,  1f-8,  5f0, 0f0, 0f0, 3, 3, 1, 1),   # TEST: 3+1 epochs
-    # (DRR_procedure,  1f-7,  5f0, 0f0, 0f0, 85, 85, 5, 5),
-    # (DRR_procedure,  1f-6,  5f0, 0f0, 0f0, 85, 85, 5, 5),
-
-    # (PMMP_procedure, 1f-6,  0f0, 1f0, 1f0, 85, 85, 5, 5),
-    # (PMMP_procedure, 1f-5,  0f0, 1f0, 5f0, 85, 85, 5, 5),
-    # (PMMP_procedure, 1f-5,  0f0, 1f0, 1f0, 85, 85, 5, 5),
+    (0.05f0, 8f-6),
+    (0.05f0, 2f-5),
+    (0.09f0, 8f-6),
+    (0.09f0, 2f-5),
+    (0.1f0,  8f-6),
+    (0.1f0,  2f-5),
 ]
-
-# --- aug-ft-sweep-v1 batch (commented out) ---
-# 7+5 ep; validates RandomResizedCrop + FT LR fix; higher alphas than v1
-# (RL1_procedure,  0f0,  0f0, 0f0, 0f0, 7, 7, 0, 0),
-# (RL1_procedure,  1f-6, 0f0, 0f0, 0f0, 7, 7, 5, 5), ...
-
-# --- full-scale-v1 batch (commented out) ---
-# 90+0 / 85+1; had FT LR bug (restarted warmup during FT)
-# (RL1_procedure,  0f0,   0f0, 0f0, 0f0, 90, 90, 0, 0),
-# (RL1_procedure,  1f-9,  0f0, 0f0, 0f0, 85, 85, 1, 1), ...
-
-# --- compression-sweep-v2 batch (commented out) ---
-# compression_alphas = Float32[1f-6, 1f-7, 1f-8]
-# vanilla_baseline = [(RL1_procedure, 0f0, 0f0, 0f0, 0f0, 9, 9, 0, 0)]
-# RL1_runs  = [(RL1_procedure,  alpha, 0f0, 0f0, 0f0, 9, 9, 1, 1) for alpha in compression_alphas]
-# DRR_runs  = [(DRR_procedure,  alpha, 5f0, 0f0, 0f0, 9, 9, 1, 1) for alpha in compression_alphas]
-# PMMP_runs = [(PMMP_procedure, alpha, 0f0, 1f0, 5f0, 9, 9, 1, 1) for alpha in Float32[1f-17, 1f-9]]
-# append!(batch, vanilla_baseline); append!(batch, RL1_runs); append!(batch, DRR_runs); append!(batch, PMMP_runs)
 
 # Fixed arguments for all runs
 
@@ -119,23 +71,29 @@ args.finetuning_converge_val_loss= false
 args.shrinking = false
 args.NORM = false
 
-args.tamade_calibration_batches = 200  # use 200 batches for TAMADE
-args.save_pre_pruning_model = true     # save tstate before TAMADE so 85-ep runs are recoverable
+args.optimization_procedure    = RL1_procedure
+args.α                         = 0f0
+args.β                         = 0f0
+args.initial_p_value           = 0f0
+args.initial_u_value           = 0f0
+args.min_epochs                = 90
+args.max_epochs                = 90
+args.finetuning_min_epochs     = 0
+args.finetuning_max_epochs     = 0
+
+args.tamade_calibration_batches = 200
+args.save_pre_pruning_model = true
 args.skip_precompilation = true
-args.debug = true
-args.use_checkpoints = true            # TEST
-args.checkpoint_frequency = 1          # TEST: checkpoint every epoch
-args.cr_report_window = 1              # TEST: CR report every epoch
+args.debug = false
+args.use_checkpoints = true
+args.checkpoint_frequency = 10
+args.cr_report_window = 10
 
 args.label_smoothing = true
 
-args.ρ = 0.8f-4  # use this parameter to controll weight decay
-args.lr = 0.1f0
 args.optimizer = lr -> Optimisers.OptimiserChain(Optimisers.Momentum(lr, 0.9f0))
-# Cosine LR with 5-epoch linear warmup.
-# For FT (epoch > args.max_epochs): holds at eta_min so FT gets a stable small LR.
-# ParameterSchedulers.CosAnneal exists but args.max_epochs varies per-run, so we inline.
-# TODO: should eta_min be 1f-3? since the step schedule has 3 steps (even though the last one is only one epoch)? Need to research this
+# Cosine LR with 5-epoch linear warmup. eta_min = 1% of peak = matches step-LR endpoint.
+# For FT (epoch > args.max_epochs): holds at eta_min.
 function imagenet_schedule(epoch, args)
     lr      = args.lr
     eta_min = lr * 1f-2       # floor = 1% of peak (0.001 at lr=0.1)
