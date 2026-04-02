@@ -1,5 +1,3 @@
-
-
 import os, sys
 
 _file_location = os.path.dirname(__file__)
@@ -63,24 +61,39 @@ args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
 args["beta"] = 10.0                           # Sharpness parameter β for DRR method
 args["training_method"] = rl1_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
 
-args["transformer_config"] = "transformer200k" # Transformer model
-transformer_config_params = TransformerConfig(args["transformer_config"])()
-batch_size = transformer_config_params["batch_size"]
-context_window = transformer_config_params["seq_length"]
-
-num_iterations = 2
+args["iterations"] = 2
 num_nodes = 2
 num_gpus_per_node = 4
 
+args["transformer_config"] = "transformer200k" # Transformer model
+transformer_config_params = TransformerConfig(args["transformer_config"])()
+batch_size = transformer_config_params["batch_size_per_gpu"]*num_gpus_per_node*num_nodes
+context_window = transformer_config_params["seq_length"]
+
+
 # Dataset size and training schedule parameters
-args["train_only_on_leading_tokens"] = int(num_iterations*batch_size*num_nodes*num_gpus_per_node*context_window) # Limit training to first N tokens (False or int), here specified in terms of other parameters
-args["epochs_prelude"] = 1                    # Number of epochs for prelude phase (unregularized)
+args["train_only_on_leading_tokens"] = int(args["iterations"]*batch_size*context_window) # Limit training to first N tokens (False or int), here specified in terms of other parameters
+args["epochs_prelude"] = 0                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
 args["stop_epoch_at_batch_prelude"] = False   # Whether to stop prelude epoch early at batch n (False or int)
 args["stop_epoch_at_batch"] = False           # Whether to stop main training epoch early at batch n (False or int)
-args["stop_epoch_at_batch_fine_tuning"] = False # Whether to stop fine-tuning epoch early at batch n (False or int)
+args["stop_epoch_at_batch_fine_tuning"] = int(0.15*args["iterations"]) # Whether to stop fine-tuning epoch early at batch n (False or int)
 args["batch_size"] = batch_size               # Batch size per GPU, taken from TransformerConfig
+
+if args["stop_epoch_at_batch_prelude"]:
+    prelude_iterations_per_epoch = args["stop_epoch_at_batch_prelude"]
+else:
+    prelude_iterations_per_epoch = args["iterations"]
+if args["stop_epoch_at_batch"]:
+    main_iterations_per_epoch = args["stop_epoch_at_batch"]
+else:
+    main_iterations_per_epoch = args["iterations"]
+if args["stop_epoch_at_batch_fine_tuning"]:
+    finetuning_iterations_per_epoch = args["stop_epoch_at_batch_fine_tuning"]
+else:
+    finetuning_iterations_per_epoch = args["iterations"]
+args["total_number_of_iterations"] = prelude_iterations_per_epoch * args["epochs_prelude"] + main_iterations_per_epoch * args["epochs"] + finetuning_iterations_per_epoch * args["epochs_fine_tuning"]
 
 args["do_pruning"] = True                     # Whether to perform model pruning
 args["first_pruning_after"] = 1               # Epoch after which to start pruning

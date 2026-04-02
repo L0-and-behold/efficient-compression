@@ -208,7 +208,7 @@ class Run:
         model.load_state_dict(torch.load(model_path, map_location=device))
         return model
 
-    def load_optimizer(self, model, warmup_steps=2000, weight_decay=0.0):
+    def load_optimizer(self, model, warmup_steps=1000, weight_decay=0.0, total_iterations=9999999, eta_min_percentage=0.1):
         """Load an optimizer from the run folder.
         
         Args:
@@ -242,8 +242,8 @@ class Run:
                   end_factor=1.0, 
                   total_iters=warmup_steps)
         cosine = CosineAnnealingLR(optimizer, 
-                                T_max=9999999,   # large number — effectively infinite
-                                eta_min=0.1*lr)   # 10% of peak lr
+                                T_max=total_iterations,
+                                eta_min=eta_min_percentage*lr)
         scheduler = SequentialLR(optimizer, 
                                 schedulers=[warmup, cosine], 
                                 milestones=[warmup_steps])

@@ -94,7 +94,7 @@ class DistributedTransformerTrainer:
         if self.verbose:
             print(f"Rank {self.rank}: Local rank {local_rank}, Device count: {torch.cuda.device_count()}")
             
-    def model_optimizer(self, warmup_steps=2000, weight_decay=0.0):
+    def model_optimizer(self, warmup_steps=1000, weight_decay=0.0, eta_min_percentage=0.1):
         """Create or load model and optimizer, with support for pretrained models.
         
         Returns:
@@ -116,7 +116,7 @@ class DistributedTransformerTrainer:
             prerun_run = Run(prerun_exp, pmmp=self.args["pmmp"]).load_run(self.args["use_model_from_run"])
             model = prerun_run.load_model(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
-            optimizer, scheduler = prerun_run.load_optimizer(model)
+            optimizer, scheduler = prerun_run.load_optimizer(model, total_iterations = self.args["total_number_of_iterations"])
             
             if self.args["epochs"] + prerun_run.info["elapsed_epochs"].values[0] != self.args["elapsed_epochs"]:
                 raise ValueError(f"elapsed epochs in run {prerun_run.id} do not match the expected elapsed epochs. Expected: {self.args['elapsed_epochs']}, got: {prerun_run.info['elapsed_epochs'].values[0]}+{self.args['epochs']}")
@@ -139,12 +139,11 @@ class DistributedTransformerTrainer:
                     end_factor=1.0, 
                     total_iters=warmup_steps)
             cosine = CosineAnnealingLR(optimizer, 
-                                    T_max=9999999,   # large number — effectively infinite
-                                    eta_min=0.1*self.learning_rate)   # 10% of peak lr
+                                    T_max=self.args["total_number_of_iterations"],
+                                    eta_min=eta_min_percentage*self.learning_rate) 
             scheduler = SequentialLR(optimizer, 
                                     schedulers=[warmup, cosine], 
                                     milestones=[warmup_steps])
-            scheduler.step() # do one step to set the initial LR of the optimizer to a low value.
                 
             if self.args["elapsed_epochs"] != self.args["epochs"]:
                 raise ValueError(f"Elapsed epochs does not equal epochs. Elapsed: {self.args['elapsed_epochs']}, epochs: {self.args['epochs']}")
