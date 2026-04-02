@@ -211,7 +211,7 @@ class MultiLayerTransformerDecoder(nn.Module):
         self.p = [copy.deepcopy(param.data.detach()).to(self.dev) for param in self.parameters()]
         self.u = [copy.deepcopy(param.data.detach()).to(self.dev) for param in self.parameters()]
         self.fill_params(self.p, self.initial_p_value)
-        self.fill_params(self.u, 4.0) # changed from 0
+        self.fill_params(self.u, 3.0)
         for (a, w, p, u) in zip(self.parameters(), self.parameters_w(),self.parameters_p(), self.parameters_u()):
             if a.requires_grad:
                 w.requires_grad = True

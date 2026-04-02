@@ -48,95 +48,151 @@ class TransformerConfig:
             num_heads = 4
             num_layers = 4
             seq_length = 2048
-            batch_size = 32
-            # 1e6 iterations, which corresponds to 2618 epochs
+            batch_size_per_gpu = 1
         elif model == "transformer800k":
             embedding_dim = 128
             num_heads = 4
             num_layers = 4
             seq_length = 2048
-            batch_size = 32
-            # 1e6 iterations, which corresponds to 2618 epochs
+            batch_size_per_gpu = 1
         elif model == "transformer3.2m":
             embedding_dim = 256
             num_heads = 8
             num_layers = 4
             seq_length = 2048
-            batch_size = 32
-            # 1e6 iterations, which corresponds to 2618 epochs
+            batch_size_per_gpu = 1
         elif model == "transformer4.1m":
             embedding_dim = 256
             num_heads = 8
             num_layers = 5
             seq_length = 2048
-            batch_size = 32
+            batch_size_per_gpu = 1
         elif model == "big-transformer":
             embedding_dim = 1024
             num_heads = 16
             num_layers = 24
             seq_length = 2048
-            batch_size = 32
+            batch_size_per_gpu = 32
         elif model == "char-transformer": # similar to Al-Rfou et al. (2018)
             embedding_dim = 512
             num_heads = 8
             num_layers = 64
             seq_length = 2048
-            batch_size = 32
-            # 1e6 iterations, which corresponds to #todo epochs
+            batch_size_per_gpu = 32
         elif model == "development": # for development purposes
             embedding_dim = 64
             num_heads = 4
             num_layers = 4
             seq_length = 2048
-            batch_size = 2
+            batch_size_per_gpu = 2
         elif model == "t416_49.8":
             embedding_dim = 64 * 23
             num_heads = embedding_dim // 64
             num_layers = 16
             seq_length = 1024
-            batch_size = 4
+            batch_size_per_gpu = 4
         elif model == "t1006_49.3":
             embedding_dim = 64 * 32
             num_heads = embedding_dim // 64
             num_layers = 20
             seq_length = 512
-            batch_size = 2
+            batch_size_per_gpu = 2
         elif model == "t1006_44.8":
             embedding_dim = 64 * 32
             num_heads = embedding_dim // 64
             num_layers = 20
             seq_length = 512
-            batch_size = 1
+            batch_size_per_gpu = 1
         elif model == "t552_42.4":
             embedding_dim = 64 * 25
             num_heads = embedding_dim // 64
             num_layers = 18
             seq_length = 1024
-            batch_size = 2
+            batch_size_per_gpu = 2
         elif model == "t428_39.5":
             embedding_dim = 64 * 22
             num_heads = embedding_dim // 64
             num_layers = 18
             seq_length = 512
-            batch_size = 8
+            batch_size_per_gpu = 8
+        elif model == "t432_37":
+            embedding_dim = 64 * 26
+            num_heads = embedding_dim // 64
+            num_layers = 13
+            seq_length = 512
+            batch_size_per_gpu = 12
+        elif model == "t432_37_8":
+            embedding_dim = 64 * 26
+            num_heads = embedding_dim // 64
+            num_layers = 13
+            seq_length = 512
+            batch_size_per_gpu = 8
+        elif model == "t486_39":
+            embedding_dim = 64 * 30
+            num_heads = embedding_dim // 64
+            num_layers = 11
+            seq_length = 1024
+            batch_size_per_gpu = 4
+        elif model == "t10_67":
+            embedding_dim = 64 * 14
+            num_heads = embedding_dim // 64
+            num_layers = 7
+            seq_length = 1024
+            batch_size_per_gpu = 4
+        elif model == "t2_9_t432_37":
+            embedding_dim = 64 * 6
+            num_heads = embedding_dim // 64
+            num_layers = 5
+            seq_length = 512
+            batch_size_per_gpu = 12
+        elif model == "t10_67_t432_37":
+            embedding_dim = 64 * 14
+            num_heads = embedding_dim // 64
+            num_layers = 7
+            seq_length = 512
+            batch_size_per_gpu = 12
+        elif model == "t2_9":
+            embedding_dim = 64 * 6
+            num_heads = embedding_dim // 64
+            num_layers = 5
+            seq_length = 1024
+            batch_size_per_gpu = 4
         elif model == "t294_38.8":
             embedding_dim = 64 * 20
             num_heads = embedding_dim // 64
             num_layers = 15
             seq_length = 1024
-            batch_size = 4
+            batch_size_per_gpu = 4
         elif model == "t125_37.8":
             embedding_dim = 64 * 14
             num_heads = embedding_dim // 64
             num_layers = 13
             seq_length = 1024
-            batch_size = 8
+            batch_size_per_gpu = 8
         elif model == "gpt2-medium":
             embedding_dim = 64 * 16
             num_heads = embedding_dim // 64
             num_layers = 24
             seq_length = 1024
-            batch_size = 4
+            batch_size_per_gpu = 4
+        elif model == "t307_38p":
+            embedding_dim = 64 * 25
+            num_heads = embedding_dim // 64
+            num_layers = 10
+            seq_length = 512
+            batch_size_per_gpu = 8
+        elif model == "t337_42p":
+            embedding_dim = 64 * 25
+            num_heads = embedding_dim // 64
+            num_layers = 10
+            seq_length = 512
+            batch_size_per_gpu = 8
+        elif model == "t400_50p":
+            embedding_dim = 64 * 25
+            num_heads = embedding_dim // 64
+            num_layers = 13
+            seq_length = 512
+            batch_size_per_gpu = 8
         else:
             raise ValueError(f"Invalid model size. Please choose a valid model from TransformerConfig (see TransformerConfig.py). Requested config: {model}.")
             
@@ -144,7 +200,7 @@ class TransformerConfig:
         ff_dim = 4 * embedding_dim
         
         dict = {
-            "batch_size": batch_size,
+            "batch_size_per_gpu": batch_size_per_gpu,
             "seq_length": seq_length,
             "embedding_dim": embedding_dim,
             "num_heads": num_heads,
