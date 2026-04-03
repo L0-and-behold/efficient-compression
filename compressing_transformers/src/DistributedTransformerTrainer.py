@@ -74,11 +74,17 @@ class DistributedTransformerTrainer:
         torch.backends.cudnn.benchmark = False
         
     def _database_setup(self):
-        """Initialize database connections and create run tracking objects."""        
-        self.database = Database(self.path_to_database)
-        self.experiment = Experiment(self.database, self.experiment_name)
-        self.run = Run(self.experiment).create_run()
-        self.run_df = RunsCSV(self.run, self.args)
+        """Initialize database connections and create run tracking objects."""
+        if self.rank == 0:
+            self.database = Database(self.path_to_database)
+            self.experiment = Experiment(self.database, self.experiment_name)
+            self.run = Run(self.experiment).create_run()
+            self.run_df = RunsCSV(self.run, self.args)
+        else:
+            self.database = None
+            self.experiment = None
+            self.run = None
+            self.run_df = None
         
     def _world_setup(self):
         """Configure distributed process environment and initialize process group."""        
