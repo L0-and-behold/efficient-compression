@@ -309,9 +309,9 @@ function color_jitter!(x; brightness=0.4f0, contrast=0.4f0, saturation=0.4f0)
     H, W, C, N = size(x)
     @assert C == 3 "color_jitter! expects 3-channel images"
 
-    b = 1f0 .+ (2f0 .* rand(Float32, 1, 1, 1, N) .- 1f0) .* brightness
-    c = 1f0 .+ (2f0 .* rand(Float32, 1, 1, 1, N) .- 1f0) .* contrast
-    s = 1f0 .+ (2f0 .* rand(Float32, 1, 1, 1, N) .- 1f0) .* saturation
+    b = 1f0 .+ (2f0 .* rand!(similar(x, 1, 1, 1, N)) .- 1f0) .* brightness
+    c = 1f0 .+ (2f0 .* rand!(similar(x, 1, 1, 1, N)) .- 1f0) .* contrast
+    s = 1f0 .+ (2f0 .* rand!(similar(x, 1, 1, 1, N)) .- 1f0) .* saturation
 
     x .*= b
 
@@ -348,6 +348,8 @@ function Base.iterate(dl::DeviceDataLoader, state...)
 
     assert_hwcn(x)
 
+    x = dl.dev(x)  # transfer first; augmentations run on GPU
+
     if dl.crop_size !== nothing
         if dl.augment
             cropped = similar(x, dl.crop_size, dl.crop_size, size(x, 3), size(x, 4))
@@ -364,7 +366,6 @@ function Base.iterate(dl::DeviceDataLoader, state...)
         end
     end
 
-    x = dl.dev(x)
     y = dl.dev(to_onehot(y))
 
     return (x, y), st
