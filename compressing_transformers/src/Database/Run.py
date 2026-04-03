@@ -208,7 +208,7 @@ class Run:
         model.load_state_dict(torch.load(model_path, map_location=device))
         return model
 
-    def load_optimizer(self, model, warmup_steps=1000, weight_decay=0.0, total_iterations=9999999, eta_min_percentage=0.1):
+    def load_optimizer(self, model, warmup_steps=1000, weight_decay=0.0, total_iterations=9999999, eta_min_percentage=0.1, betas=(0.9,0.95)):
         """Load an optimizer from the run folder.
         
         Args:
@@ -231,10 +231,10 @@ class Run:
 
         if self.pmmp:
             # optimizer = torch.optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr)
-            optimizer = torch.optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr, betas=(0.9, 0.95), weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr, betas=betas, weight_decay=weight_decay)
         else:
             # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-            optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95), weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
 
         ### define the scheduler
         warmup = LinearLR(optimizer, 

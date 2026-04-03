@@ -122,7 +122,7 @@ class DistributedTransformerTrainer:
             prerun_run = Run(prerun_exp, pmmp=self.args["pmmp"]).load_run(self.args["use_model_from_run"])
             model = prerun_run.load_model(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
-            optimizer, scheduler = prerun_run.load_optimizer(model, total_iterations = self.args["total_number_of_iterations"])
+            optimizer, scheduler = prerun_run.load_optimizer(model, total_iterations = self.args["total_number_of_iterations"], betas = self.args["betas"])
             
             if self.args["epochs"] + prerun_run.info["elapsed_epochs"].values[0] != self.args["elapsed_epochs"]:
                 raise ValueError(f"elapsed epochs in run {prerun_run.id} do not match the expected elapsed epochs. Expected: {self.args['elapsed_epochs']}, got: {prerun_run.info['elapsed_epochs'].values[0]}+{self.args['epochs']}")
@@ -134,10 +134,10 @@ class DistributedTransformerTrainer:
             
             if self.args["pmmp"]:
                 # optimizer = optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=self.learning_rate)
-                optimizer = optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=self.learning_rate, betas=(0.9, 0.95), weight_decay=weight_decay)
+                optimizer = optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=self.learning_rate, betas=self.args["betas"], weight_decay=weight_decay)
             else:
                 # optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
-                optimizer = optim.AdamW(model.parameters(), lr=self.learning_rate, betas=(0.9, 0.95), weight_decay=weight_decay)
+                optimizer = optim.AdamW(model.parameters(), lr=self.learning_rate, betas=self.args["betas"], weight_decay=weight_decay)
             
             ### define the scheduler
             warmup = LinearLR(optimizer, 
