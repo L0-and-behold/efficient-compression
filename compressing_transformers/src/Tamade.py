@@ -90,7 +90,7 @@ class Tamade:
         )
         dist.barrier()
         
-        pruned_model = MultiLayerTransformerDecoder(distributed_trainer.embedding_dimension, distributed_trainer.num_heads, distributed_trainer.ff_dim, distributed_trainer.num_layers, pmmp=distributed_trainer.args["pmmp"], dev=distributed_trainer.device).to(distributed_trainer.device)
+        pruned_model = MultiLayerTransformerDecoder(distributed_trainer.embedding_dimension, distributed_trainer.num_heads, distributed_trainer.ff_dim, distributed_trainer.num_layers, pmmp=False, dev=distributed_trainer.device).to(distributed_trainer.device)
         pruned_model = DDP(pruned_model, device_ids=[distributed_trainer.local_rank], find_unused_parameters=False)
         
         def _f_to_search_on(x):
