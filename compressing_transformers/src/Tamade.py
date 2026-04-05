@@ -123,6 +123,8 @@ class Tamade:
         
         pruned_model.module.load_state_dict(ddp_model.module.state_dict())
         self.utils.global_magnitude_pruning(pruned_model, epsilon)
+
+        # TODO: check if we need all models to perform TAMADE
         print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
         
         return pruned_model, epsilon, steps

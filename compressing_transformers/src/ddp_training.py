@@ -55,7 +55,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     
     # Load model and optimizer
     model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer(warmup_steps=args["warmup_steps"], weight_decay=args["weight_decay"])
-    model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
+    model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint(rank=rank)
     
     if model_state_dict and optimizer_state_dict and scheduler_state_dict:
         ddp_model.module.load_state_dict(model_state_dict)
@@ -194,7 +194,8 @@ def calculate_some_metrics(distributed_trainer, ddp_model, dataloaders, args, ot
     model = ddp_model.module
     
     if other_settings["calculate_train_loss"]:
-        print("Calculating train loss")
+        if rank == 0:
+            print("Calculating train loss")
         train_loss = loss_over_dataset(ddp_model, dataloader_train, args, distributed_trainer, debug=other_settings["debug"])
         print("Train loss: ", train_loss)
     else:

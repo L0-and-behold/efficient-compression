@@ -44,7 +44,7 @@ class CheckpointHandler:
         with open(self.checkpoint_path, 'wb') as f:
             pickle.dump(checkpoint, f)
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, rank=0):
         """Load checkpoint if available or initialize fresh training state.
         
         Returns:
@@ -59,7 +59,8 @@ class CheckpointHandler:
             print(f"Loaded checkpoint from epoch {self.epoch}, chunk {self.chunk}")
             return checkpoint['model_state_dict'], checkpoint['optimizer_state_dict'], checkpoint['scheduler_state_dict'], checkpoint['logs']
         else:
-            print("No checkpoint found, starting from the beginning")
+            if rank==0:
+                print("No checkpoint found, starting from the beginning")
             return None, None, None, initialize_logs()
 
     def update(self, epoch, chunk):

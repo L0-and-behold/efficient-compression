@@ -132,8 +132,9 @@ class ProcedureTrainer:
         """
         if not args["do_pruning"]:
             return ddp_model, args
-            
-        print("Starting threshold adaptive mask determination (TAMADE)")
+        
+        if self.rank == 0:
+            print("Starting threshold adaptive mask determination (TAMADE)")
         t = time.time()
         bsp = Tamade(
             self.device, self.world_size, self.rank, args["batch_size"],
@@ -247,7 +248,8 @@ class ProcedureTrainer:
         """
         break_here = False
         if break_at_batch and i >= break_at_batch:
-            print(f"Stop epoch {checkpointer.epoch+1} early after chunk {i}.")
+            if rank == 0:
+                print(f"Stop epoch {checkpointer.epoch+1} early after chunk {i}.")
             break_here = True
             
         if checkpointer.should_checkpoint():

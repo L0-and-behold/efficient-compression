@@ -160,7 +160,7 @@ class DistributedTransformerTrainer:
     
     def print_model_info(self, model):
         """Print model architecture details and parameter count."""        
-        print(f"Training using {self.world_size} GPUs.")
+        # print(f"Training using {self.world_size} GPUs.") # already stated in train.py
         print(f"Transformer decoder with {self.num_layers} layers, {self.embedding_dimension} embedding dimensions, {self.num_heads} heads, and {self.ff_dim} feedforward dimensions.")
         print(f"Number of parameters: {model.count_parameters()}")
         

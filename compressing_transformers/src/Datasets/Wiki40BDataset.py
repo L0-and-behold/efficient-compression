@@ -131,7 +131,7 @@ class WikipediaDatasets:
         return datasets
         
     @classmethod
-    def load_dataset(cls, load_path, required_seq_length):
+    def load_dataset(cls, load_path, required_seq_length, rank=0):
         """Load datasets from disk or create them if not available.
         
         Attempts to load datasets from the specified path. If the file doesn't exist
@@ -148,16 +148,19 @@ class WikipediaDatasets:
             print(f"Dataset not found at {load_path} Creating a new dataset file...")
             return cls.create_and_save_dataset(required_seq_length, load_path)
             
-        print(f"Loading dataset from {load_path}")
+        if rank == 0:
+            print(f"Loading dataset from {load_path}")
         datasets = torch.load(load_path)
         
         if datasets.sequence_length != required_seq_length:
-            print(f"Warning: Loaded dataset has sequence length {datasets.sequence_length}, "
+            if rank == 0:
+                print(f"Warning: Loaded dataset has sequence length {datasets.sequence_length}, "
                   f"but {required_seq_length} was requested.")
-            print("Creating a new dataset with the correct sequence length...")
+                print("Creating a new dataset with the correct sequence length...")
             datasets = cls.create_and_save_dataset(required_seq_length, load_path)
         else:
-            print("Dataset loaded successfully.")
+            if rank == 0:
+                print("Dataset loaded successfully.")
             
         return datasets
         

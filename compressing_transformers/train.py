@@ -171,7 +171,9 @@ def main(args: dict, other_settings: dict, path_to_database: str, experiment_nam
         assert args["train_only_on_leading_tokens"] % args["seq_length"] == 0, f"'train_only_on_leading_tokens' must be a multiple of the sequence length {args['seq_length']}"
         assert args["train_only_on_leading_tokens"] % args["batch_size"] == 0, f"'train_only_on_leading_tokens' must be a multiple of the batch size {args['batch_size']}"
     
-    print(f"Starting online learning with {distributed_trainer.world_size} GPUs.")
+    rank = distributed_trainer.rank
+    if rank == 0:
+        print(f"Starting online learning with {distributed_trainer.world_size} GPUs.")
     
     # Start the training process
     train_and_save_results(distributed_trainer, checkpointer, args, other_settings)
@@ -200,7 +202,9 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     
     # Load Wikipedia dataset with the configured sequence length
     dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset_' + str(args["seq_length"]) + '.pt')
-    datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"])
+
+    datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"], rank = rank)
+
     train_dataset, val_dataset, test_dataset = datasets.train, datasets.validation, datasets.test
     
     # If specified, use only a subset of the training data
@@ -213,7 +217,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     
     # Initialize model and optimizer or load from checkpoint
     model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer(warmup_steps=args["warmup_steps"], weight_decay=args["weight_decay"])
-    model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
+    model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint(rank=rank)
     
     if model_state_dict and optimizer_state_dict and scheduler_state_dict:
         # Restore from checkpoint if available
@@ -382,7 +386,8 @@ def calculate_some_metrics(distributed_trainer: DistributedTransformerTrainer, d
     
     # Calculate training loss if requested
     if other_settings["calculate_train_loss"]:
-        print("Calculating train loss")
+        if rank == 0:
+            print("Calculating train loss")
         train_loss = loss_over_dataset(ddp_model, dataloader_train, args, distributed_trainer, debug=other_settings["debug"])
         print("Train loss: ", train_loss)
     else:
