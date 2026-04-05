@@ -100,7 +100,7 @@ class DistributedTransformerTrainer:
         if self.verbose:
             print(f"Rank {self.rank}: Local rank {local_rank}, Device count: {torch.cuda.device_count()}")
             
-    def model_optimizer(self, warmup_steps=1000, weight_decay=0.0, eta_min_percentage=0.1):
+    def model_optimizer(self, warmup_steps=2000, weight_decay=0.0, eta_min_percentage=0.1):
         """Create or load model and optimizer, with support for pretrained models.
         
         Returns:
@@ -132,13 +132,9 @@ class DistributedTransformerTrainer:
             model = MultiLayerTransformerDecoder(self.embedding_dimension, self.num_heads, self.ff_dim, self.num_layers, pmmp=self.args["pmmp"], initial_p_value=self.args["initial_p_value"], dev=self.device).to(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
             
-            if self.args["pmmp"]:
-                # optimizer = optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=self.learning_rate)
-                optimizer = optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=self.learning_rate, betas=self.args["betas"], weight_decay=weight_decay)
-            else:
-                # optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
-                optimizer = optim.AdamW(model.parameters(), lr=self.learning_rate, betas=self.args["betas"], weight_decay=weight_decay)
-            
+            grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)
+            optimizer = optim.AdamW(grouped_parameters, lr=self.learning_rate, betas=self.args["betas"]) # you can check the groups via `optimizer.param_groups`
+
             ### define the scheduler
             warmup = LinearLR(optimizer, 
                     start_factor=1e-8, 

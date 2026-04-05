@@ -246,3 +246,48 @@ class MultiLayerTransformerDecoder(nn.Module):
         """
         for param in self.u:
             yield param
+
+    def get_optimizer_grouped_parameters(self, weight_decay):
+        """
+        Split parameters into groups for selective weight decay
+        """
+        no_decay = ["bias", "norm.weight"]
+        
+        # Wir nutzen Generatoren/Listen-Comprehensions, die nur Referenzen speichern
+        params_with_decay = []
+        params_without_decay = []
+
+        if self.pmmp:
+            for ((name, param), w, p, u) in zip(self.named_parameters(), self.parameters_w(),self.parameters_p(), self.parameters_u()):
+                if not param.requires_grad:
+                    continue
+                
+                if any(nd in name.lower() for nd in no_decay):
+                    params_without_decay.append(param)
+                    params_without_decay.append(w)
+                else:
+                    params_with_decay.append(param)
+                    params_with_decay.append(w)
+
+                # params_without_decay.append(w) # alternative implementation but essentially equivalent up to a factor 2 of weight_decay and w becomes less synchronised with param. Instead we divide by factor of 2 below to obtain better synchronisation and more direct penalization of w
+
+                params_without_decay.append(p)
+                params_without_decay.append(u)
+
+            return [
+                {"params": params_with_decay, "weight_decay": weight_decay/2}, # we divide by a factor of 2 for reasons mentioned in the comment above
+                {"params": params_without_decay, "weight_decay": 0.0},
+            ]
+        else:
+            for (name, param) in self.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if any(nd in name for nd in no_decay):
+                    params_without_decay.append(param)
+                else:
+                    params_with_decay.append(param)
+
+            return [
+                {"params": params_with_decay, "weight_decay": weight_decay},
+                {"params": params_without_decay, "weight_decay": 0.0},
+            ]

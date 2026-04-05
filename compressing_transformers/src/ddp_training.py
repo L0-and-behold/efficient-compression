@@ -54,7 +54,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     dataloader_train, dataloader_val, dataloader_test = dataloaders
     
     # Load model and optimizer
-    model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer()
+    model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer(warmup_steps=args["warmup_steps"], weight_decay=args["weight_decay"])
     model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
     
     if model_state_dict and optimizer_state_dict and scheduler_state_dict:

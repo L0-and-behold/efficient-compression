@@ -56,14 +56,17 @@ args = {}
 
 # Model architecture and pruning parameters
 args["alpha"] = 1e-4                          # Regularization strength for ℓ₀-Regularization
-args["pmmp"] = False                           # Whether to use  PMMP method
+args["pmmp"] = True                           # Whether to use  PMMP method
 args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
 args["beta"] = 10.0                           # Sharpness parameter β for DRR method
-args["training_method"] = rl1_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
+args["training_method"] = pmmp_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
 
 args["iterations"] = 2
 num_nodes = 2
 num_gpus_per_node = 4
+
+args["warmup_steps"] = 2000
+args["weight_decay"] = 0.01
 
 args["transformer_config"] = "transformer200k" # Transformer model
 transformer_config_params = TransformerConfig(args["transformer_config"])()
@@ -209,7 +212,7 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     dataloader_train, dataloader_val, dataloader_test = dataloaders
     
     # Initialize model and optimizer or load from checkpoint
-    model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer()
+    model, ddp_model, optimizer, scheduler = distributed_trainer.model_optimizer(warmup_steps=args["warmup_steps"], weight_decay=args["weight_decay"])
     model_state_dict, optimizer_state_dict, scheduler_state_dict, logs = checkpointer.load_checkpoint()
     
     if model_state_dict and optimizer_state_dict and scheduler_state_dict:

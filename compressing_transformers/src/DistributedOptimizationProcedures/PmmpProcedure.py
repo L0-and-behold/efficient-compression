@@ -56,8 +56,7 @@ class PmmpTrainer(ProcedureTrainer):
             w.grad = - diff * p + u * 2 * wp1p
             p.grad = - diff * w + u * w**2 * (1 - 2 * p) + self.alpha
             u.grad = - (awp**2 + w * wp1p) 
-            # this division by self.model_param_number is only recommended if u is a tensor 
-            # with a single entry and not if it is a tensor of the shape of p
+            # a division by self.model_param_number is only recommended if u is a tensor with a single entry and not if it is a tensor of the shape of p
 
     def project_params(self):
         """Apply PMMP parameter projections after gradient updates.

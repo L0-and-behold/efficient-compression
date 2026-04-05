@@ -229,12 +229,8 @@ class Run:
             print("Learning rate not found in run info. Using default learning rate of 1e-4.")
             lr = 1e-4
 
-        if self.pmmp:
-            # optimizer = torch.optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr)
-            optimizer = torch.optim.AdamW(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr, betas=betas, weight_decay=weight_decay)
-        else:
-            # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-            optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
+        grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(grouped_parameters, lr=lr, betas=betas)
 
         ### define the scheduler
         warmup = LinearLR(optimizer, 
