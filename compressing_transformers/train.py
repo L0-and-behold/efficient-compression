@@ -98,7 +98,7 @@ else:
     finetuning_iterations_per_epoch = args["iterations"]
 args["total_number_of_iterations"] = prelude_iterations_per_epoch * args["epochs_prelude"] + main_iterations_per_epoch * args["epochs"] + finetuning_iterations_per_epoch * args["epochs_fine_tuning"]
 
-args["betas"] = (0.9, 0.95)                         # The beta parameters for the AdamW optimizer (typical choices include (0.9,0.95) or (0.9,0.999))
+args["AdamW_betas"] = (0.9, 0.95)                         # The beta parameters for the AdamW optimizer (typical choices include (0.9,0.95) or (0.9,0.999))
 
 args["do_pruning"] = True                     # Whether to perform model pruning
 args["first_pruning_after"] = 1               # Epoch after which to start pruning

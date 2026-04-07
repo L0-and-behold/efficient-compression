@@ -122,7 +122,7 @@ class DistributedTransformerTrainer:
             prerun_run = Run(prerun_exp, pmmp=self.args["pmmp"]).load_run(self.args["use_model_from_run"])
             model = prerun_run.load_model(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
-            optimizer, scheduler = prerun_run.load_optimizer(model, total_iterations = self.args["total_number_of_iterations"], betas = self.args["betas"])
+            optimizer, scheduler = prerun_run.load_optimizer(model, total_iterations = self.args["total_number_of_iterations"], betas = self.args["AdamW_betas"])
             
             if self.args["epochs"] + prerun_run.info["elapsed_epochs"].values[0] != self.args["elapsed_epochs"]:
                 raise ValueError(f"elapsed epochs in run {prerun_run.id} do not match the expected elapsed epochs. Expected: {self.args['elapsed_epochs']}, got: {prerun_run.info['elapsed_epochs'].values[0]}+{self.args['epochs']}")
@@ -133,7 +133,7 @@ class DistributedTransformerTrainer:
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
             
             grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)
-            optimizer = optim.AdamW(grouped_parameters, lr=self.learning_rate, betas=self.args["betas"]) # you can check the groups via `optimizer.param_groups`
+            optimizer = optim.AdamW(grouped_parameters, lr=self.learning_rate, betas=self.args["AdamW_betas"]) # you can check the groups via `optimizer.param_groups`
 
             ### define the scheduler
             warmup = LinearLR(optimizer, 
