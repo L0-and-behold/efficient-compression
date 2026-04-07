@@ -68,19 +68,6 @@ class Tamade:
         self.utils = PruningUtils()
         self.evaluation_dataloader = "Not yet loaded"
 
-    def synchronize_threshold(self, local_threshold):
-        device = torch.cuda.current_device()
-        t = torch.tensor([local_threshold], dtype=torch.float32, device=device)
-        
-        # 2. Sum all tensors on all GPUs (in-place)
-        # dist.reduce_op.SUM is standard method for this
-        dist.all_reduce(t, op=dist.ReduceOp.SUM)
-        
-        # Divide by number of GPUs (world size) to obtain the average
-        world_size = dist.get_world_size()
-        global_threshold = t.item() / world_size
-        
-        return global_threshold
 
     def __call__(self, ddp_model: DDP, distributed_trainer: DistributedTransformerTrainer):  
         """Execute pruning procedure on provided model.
@@ -135,16 +122,12 @@ class Tamade:
             rank=self.rank
         )
         
-        # TODO: check if we need all models to perform TAMADE
         print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
 
-        synced_epsilon = self.synchronize_threshold(epsilon)
-        print("Synced epsilon is: ", synced_epsilon)
-
         pruned_model.module.load_state_dict(ddp_model.module.state_dict())
-        self.utils.global_magnitude_pruning(pruned_model, synced_epsilon)
+        self.utils.global_magnitude_pruning(pruned_model, epsilon)
         
-        return pruned_model, synced_epsilon, steps
+        return pruned_model, epsilon, steps
         
     def load_evaluation_dataloader(self):
         """Prepare dataloader with subset of validation data for evaluation.
