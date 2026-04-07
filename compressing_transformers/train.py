@@ -62,43 +62,23 @@ args["beta"] = 10.0                           # Sharpness parameter β for DRR m
 args["training_method"] = pmmp_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
 
 args["iterations"] = 2
-num_nodes = 2
-num_gpus_per_node = 4
+num_nodes = 2 # make sure this number coincides with the number of nodes specified in the script used to start the batch job which executes this file
+num_gpus_per_node = 4 # make sure this number coincides with the number of GPUs per node specified in the script used to start the batch job which executes this file
 
 args["warmup_steps"] = 2000
 args["weight_decay"] = 0.01
 
 args["transformer_config"] = "transformer200k" # Transformer model
-transformer_config_params = TransformerConfig(args["transformer_config"])()
-batch_size = transformer_config_params["batch_size_per_gpu"]*num_gpus_per_node*num_nodes
-context_window = transformer_config_params["seq_length"]
 
-
-# Dataset size and training schedule parameters
-args["train_only_on_leading_tokens"] = int(args["iterations"]*batch_size*context_window) # Limit training to first N tokens (False or int), here specified in terms of other parameters
+# Training schedule parameters
 args["epochs_prelude"] = 0                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
 args["stop_epoch_at_batch_prelude"] = False   # Whether to stop prelude epoch early at batch n (False or int)
 args["stop_epoch_at_batch"] = False           # Whether to stop main training epoch early at batch n (False or int)
 args["stop_epoch_at_batch_fine_tuning"] = int(0.15*args["iterations"]) # Whether to stop fine-tuning epoch early at batch n (False or int)
-args["batch_size"] = batch_size               # Batch size per GPU, taken from TransformerConfig
 
-if args["stop_epoch_at_batch_prelude"]:
-    prelude_iterations_per_epoch = args["stop_epoch_at_batch_prelude"]
-else:
-    prelude_iterations_per_epoch = args["iterations"]
-if args["stop_epoch_at_batch"]:
-    main_iterations_per_epoch = args["stop_epoch_at_batch"]
-else:
-    main_iterations_per_epoch = args["iterations"]
-if args["stop_epoch_at_batch_fine_tuning"]:
-    finetuning_iterations_per_epoch = args["stop_epoch_at_batch_fine_tuning"]
-else:
-    finetuning_iterations_per_epoch = args["iterations"]
-args["total_number_of_iterations"] = prelude_iterations_per_epoch * args["epochs_prelude"] + main_iterations_per_epoch * args["epochs"] + finetuning_iterations_per_epoch * args["epochs_fine_tuning"]
-
-args["AdamW_betas"] = (0.9, 0.95)                         # The beta parameters for the AdamW optimizer (typical choices include (0.9,0.95) or (0.9,0.999))
+args["AdamW_betas"] = (0.9, 0.95)                         # The beta parameters for the AdamW optimizer (typical choices include (0.9, 0.95) or (0.9, 0.999))
 
 args["do_pruning"] = True                     # Whether to perform model pruning
 args["first_pruning_after"] = 1               # Epoch after which to start pruning
@@ -152,11 +132,27 @@ def main(args: dict, other_settings: dict, path_to_database: str, experiment_nam
     
     # Set random seeds for reproducibility
     set_seed(args["seed"])
-    
+
     # Load transformer configuration based on the selected model size
     transformer_config = TransformerConfig(args["transformer_config"])()
     transformer_config["learning_rate"] = args["learning_rate"]  # Override default learning rate
-    args["seq_length"] = transformer_config["seq_length"]  # Store sequence length for dataset preparation
+    args["seq_length"] = transformer_config["seq_length"]  # Store sequence length (=context window) for dataset preparation
+    args["batch_size"]  = transformer_config["batch_size_per_gpu"]*num_gpus_per_node*num_nodes
+    args["train_only_on_leading_tokens"] = int(args["iterations"]*args["batch_size"]*args["seq_length"]) # Limit training to first N tokens (False or int), here specified in terms of iterations, batch_size and seq_length (context window)
+
+    if args["stop_epoch_at_batch_prelude"]:
+        prelude_iterations_per_epoch = args["stop_epoch_at_batch_prelude"]
+    else:
+        prelude_iterations_per_epoch = args["iterations"]
+    if args["stop_epoch_at_batch"]:
+        main_iterations_per_epoch = args["stop_epoch_at_batch"]
+    else:
+        main_iterations_per_epoch = args["iterations"]
+    if args["stop_epoch_at_batch_fine_tuning"]:
+        finetuning_iterations_per_epoch = args["stop_epoch_at_batch_fine_tuning"]
+    else:
+        finetuning_iterations_per_epoch = args["iterations"]
+    args["total_number_of_iterations"] = prelude_iterations_per_epoch * args["epochs_prelude"] + main_iterations_per_epoch * args["epochs"] + finetuning_iterations_per_epoch * args["epochs_fine_tuning"]
     
     # Initialize the distributed trainer and checkpoint handler
     distributed_trainer = DistributedTransformerTrainer(args, path_to_database, experiment_name, transformer_config, seed=args["seed"])
