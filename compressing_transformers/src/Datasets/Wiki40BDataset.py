@@ -8,13 +8,15 @@ the load_dataset method is being called.
 """
 import torch
 from torch.utils.data import Dataset
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # suppresses INFO, WARNING, ERROR by tensorflow, which clutter the .err file due to conflicts with pytorch.
 import tensorflow_datasets as tfds
 import tensorflow as tf
 import numpy as np
-import os
 from tqdm import tqdm
 import copy
-
+import warnings
+warnings.filterwarnings("ignore", message=".*weights_only.*")
 
 class ByteWikipediaDataset(Dataset):
     """PyTorch Dataset for byte-level Wikipedia data.
