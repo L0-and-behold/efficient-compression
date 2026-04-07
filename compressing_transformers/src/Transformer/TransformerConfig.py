@@ -32,6 +32,9 @@ class TransformerConfig:
         
         Supports several predefined model sizes matching Delètang et al. (2023)
         configurations and a development configuration.
+
+        The notation tX_Y denotes a transformer with X parameters and roughly Y GB of VRAM usage per GPU.
+        If there is a 'p' behind Y, then Y denotes peak VRAM usage requirements for PMMP (which has more parameters than the other methods).
         
         Args:
             model: String identifier for the model configuration

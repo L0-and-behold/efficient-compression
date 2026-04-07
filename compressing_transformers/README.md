@@ -101,7 +101,7 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 
 | Parameter | Description |
 |-----------|-------------|
-| `transformer_config` | Model size selection: "transformer200k", "transformer800k", or "transformer4.1m" (see TransformerConfig.py) |
+| `transformer_config` | Model size selection: Viable model names are listed in TransformerConfig.py. For example, "transformer200k" or "t307_38p". The notation tX_Y denotes a transformer with X parameters and roughly Y GB of peak VRAM usage per GPU. If there is a 'p' behind Y, then Y denotes peak VRAM usage requirements for PMMP (which has more parameters than the other methods). |
 | `training_method` | Regularization procedure selection: `rl1_procedure`, `pmmp_procedure`, `drr_procedure`, or `vanilla_procedure` function|
 
 ### Training Process Parameters
