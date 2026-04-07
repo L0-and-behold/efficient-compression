@@ -75,8 +75,8 @@ args["weight_decay"] = 0.01                   # Weight decay applies L2 regulari
 ### Optimizer Parameters - END
 
 ### Training Process Parameters - BEGIN
-args["iterations_per_epoch"] = 2              # the number of iterations or batches which are processed per epoch. 
-# Note that if one wants to make sure that the number of tokens used per epoch is proportional to the number of parameters of the model, e.g. N times the number of parameters, then one can set args["iterations_per_epoch"] = int(N * num_params / batch_size / context_window_length)
+args["iterations_per_epoch"] = 2              # the number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model).
+# Note that if one wants to make sure that the number of tokens used per epoch is proportional to the number of parameters of the model, e.g. N times the number of parameters, then one can set args["iterations_per_epoch"] = int(N * num_params / batch_size / seq_length). Again make sure this number is not bigger than the number of tokens in your dataset.)
 args["epochs_prelude"] = 0                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
