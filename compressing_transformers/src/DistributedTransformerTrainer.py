@@ -129,7 +129,7 @@ class DistributedTransformerTrainer:
         else:
             if self.rank == 0:
                 print("Initializing model from scratch.")
-            model = MultiLayerTransformerDecoder(self.embedding_dimension, self.num_heads, self.ff_dim, self.num_layers, pmmp=self.args["pmmp"], initial_p_value=self.args["initial_p_value"], dev=self.device).to(self.device)
+            model = MultiLayerTransformerDecoder(self.embedding_dimension, self.num_heads, self.ff_dim, self.num_layers, pmmp=self.args["pmmp"], initial_p_value=self.args["initial_p_value"], initial_u_value=self.args["initial_u_value"], dev=self.device).to(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
             
             grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)

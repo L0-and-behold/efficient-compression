@@ -77,7 +77,7 @@ class MultiLayerTransformerDecoder(nn.Module):
     
     def __init__(self, d_model, num_heads, ff_hidden_layer, 
                  num_layers, alphabet_size = 256, pmmp = False, 
-                 initial_p_value = 0.5, dev = 'cuda'):
+                 initial_p_value = 0.5, initial_u_value=3.0, dev = 'cuda'):
         """Initialize transformer decoder with model configuration.
         
         Args:
@@ -88,6 +88,7 @@ class MultiLayerTransformerDecoder(nn.Module):
             alphabet_size: Size of the token vocabulary
             pmmp: Whether to use PMMP  parameters
             initial_p_value: Initial probability value for PMMP
+            initial_u_value: Initial constraint enforcement strength value for PMMP
             dev: Device to use for PMMP parameters ('cuda' or 'cpu')
         """        
         super(MultiLayerTransformerDecoder, self).__init__()
@@ -110,6 +111,7 @@ class MultiLayerTransformerDecoder(nn.Module):
         if pmmp:
             self.dev = dev
             self.initial_p_value = initial_p_value
+            self.initial_u_value = initial_u_value
             self.create_pmmp_params()
 
     
@@ -211,7 +213,7 @@ class MultiLayerTransformerDecoder(nn.Module):
         self.p = [copy.deepcopy(param.data.detach()).to(self.dev) for param in self.parameters()]
         self.u = [copy.deepcopy(param.data.detach()).to(self.dev) for param in self.parameters()]
         self.fill_params(self.p, self.initial_p_value)
-        self.fill_params(self.u, 3.0)
+        self.fill_params(self.u, self.initial_u_value)
         for (a, w, p, u) in zip(self.parameters(), self.parameters_w(),self.parameters_p(), self.parameters_u()):
             if a.requires_grad:
                 w.requires_grad = True

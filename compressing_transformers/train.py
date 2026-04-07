@@ -54,52 +54,62 @@ path_to_database = os.path.join(os.getcwd(), "experiment-results")
 experiment_name = "example-experiment"
 args = {}
 
+### Regularization Parameters - BEGIN
 # Model architecture and pruning parameters
 args["alpha"] = 1e-4                          # Regularization strength for ℓ₀-Regularization
-args["pmmp"] = True                           # Whether to use  PMMP method
 args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
+args["initial_u_value"] = 3.0                 # Initial u value for PMMP method
 args["beta"] = 10.0                           # Sharpness parameter β for DRR method
+### Regularization Parameters - END
+
+### Model Configuration - BEGIN
 args["training_method"] = pmmp_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
-
-args["iterations"] = 2
-num_nodes = 2 # make sure this number coincides with the number of nodes specified in the script used to start the batch job which executes this file
-num_gpus_per_node = 4 # make sure this number coincides with the number of GPUs per node specified in the script used to start the batch job which executes this file
-
-args["warmup_steps"] = 2000
-args["weight_decay"] = 0.01
-
 args["transformer_config"] = "transformer200k" # Transformer model
+### Model Configuration - END
 
-# Training schedule parameters
+### Optimizer Parameters - BEGIN
+args["learning_rate"] = 3e-4                  # Initial learning rate for optimizer
+args["AdamW_betas"] = (0.9, 0.95)             # The beta parameters for the AdamW optimizer (typical choices include (0.9, 0.95) or (0.9, 0.999))
+args["warmup_steps"] = 2000                   # Warmup increases the learning rate linearly to `learning_rate` in `warmup_steps` steps
+args["weight_decay"] = 0.01                   # Weight decay applies L2 regularization to all parameters except biases, LayerNorm-weights and `u` and `p` parameters of PMMP
+### Optimizer Parameters - END
+
+### Training Process Parameters - BEGIN
+args["iterations_per_epoch"] = 2 # the number of iterations or batches which are processed per epoch
 args["epochs_prelude"] = 0                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
 args["stop_epoch_at_batch_prelude"] = False   # Whether to stop prelude epoch early at batch n (False or int)
 args["stop_epoch_at_batch"] = False           # Whether to stop main training epoch early at batch n (False or int)
-args["stop_epoch_at_batch_fine_tuning"] = int(0.15*args["iterations"]) # Whether to stop fine-tuning epoch early at batch n (False or int)
+args["stop_epoch_at_batch_fine_tuning"] = int(0.15*args["iterations_per_epoch"]) # Whether to stop fine-tuning epoch early at batch n (False or int)
+### Training Process Parameters - END
 
-args["AdamW_betas"] = (0.9, 0.95)                         # The beta parameters for the AdamW optimizer (typical choices include (0.9, 0.95) or (0.9, 0.999))
 
+### Pruning Parameters - BEGIN
 args["do_pruning"] = True                     # Whether to perform model pruning
 args["first_pruning_after"] = 1               # Epoch after which to start pruning
 args["prune_every"] = 1                       # Prune model every n epochs
+### Pruning Parameters - END
 
-# Training continuation parameters
+
+### Model Loading Parameters - BEGIN
 args["use_pretrained_model"] = False          # Whether to use a pretrained model
 args["use_model_from_experiment"] = None      # Name of experiment to load model from (None or str)
 args["use_model_from_run"] = None             # Run ID to load model from (None or str)
 args["elapsed_epochs"] = 1                    # Total epochs to be recorded (must match expected total if continuing training)
+### Model Loading Parameters - END
 
-# Learning and logging parameters
-args["learning_rate"] = 3e-4                  # Initial learning rate for optimizer
+### General Training Parameters - BEGIN
 args["seed"] = 858                            # Random seed for reproducibility
 args["tolerated_relative_loss_increase"] = 0.0 # 0.1 # Maximum tolerated loss increase during TAMADE
 args["steps_per_chunk"] = 1                   # Number of optimization steps per data chunk
 args["log_every"] = 1                         # Log metrics every n optimization steps
 args["checkpoint_time"] = 80000               # Save checkpoint every n seconds
 args["max_runtime"] = 86000                   # Maximum runtime in seconds before forced termination
+### General Training Parameters - END
 
-# Metrics calculation settings (evaluated after training)
+### Metrics Calculation Parameters - BEGIN
+# (evaluated after training)
 other_settings = {
     "calculate_test_loss": False,             # Whether to calculate mean loss on test set
     "calculate_train_loss": True,             # Whether to calculate mean loss on training set
@@ -108,6 +118,7 @@ other_settings = {
     "calculate_on_line_code_length": False,   # Whether to calculate online description length
     "debug": False                            # Whether to print additional debug information
 }
+### Metrics Calculation Parameters - END
 
 ################### Functions ###################
 
@@ -133,30 +144,37 @@ def main(args: dict, other_settings: dict, path_to_database: str, experiment_nam
     # Set random seeds for reproducibility
     set_seed(args["seed"])
 
+    # Set PMMP flag
+    if args["training_method"] == pmmp_procedure:
+        args["pmmp"] = True
+
     # Load transformer configuration based on the selected model size
     transformer_config = TransformerConfig(args["transformer_config"])()
+    # Initialize the distributed trainer and checkpoint handler
+    distributed_trainer = DistributedTransformerTrainer(args, path_to_database, experiment_name, transformer_config, seed=args["seed"])
+    checkpointer = CheckpointHandler(experiment_name, args["checkpoint_time"], args["max_runtime"])
+
+    total_number_of_GPUs = distributed_trainer.world_size
+
     transformer_config["learning_rate"] = args["learning_rate"]  # Override default learning rate
     args["seq_length"] = transformer_config["seq_length"]  # Store sequence length (=context window) for dataset preparation
-    args["batch_size"]  = transformer_config["batch_size_per_gpu"]*num_gpus_per_node*num_nodes
-    args["train_only_on_leading_tokens"] = int(args["iterations"]*args["batch_size"]*args["seq_length"]) # Limit training to first N tokens (False or int), here specified in terms of iterations, batch_size and seq_length (context window)
+    args["batch_size"]  = transformer_config["batch_size_per_gpu"]*total_number_of_GPUs
+    args["train_only_on_leading_tokens"] = int(args["iterations_per_epoch"]*args["batch_size"]*args["seq_length"]) # Limit training to first N tokens (False or int), here specified in terms of iterations, batch_size and seq_length (context window)
 
     if args["stop_epoch_at_batch_prelude"]:
         prelude_iterations_per_epoch = args["stop_epoch_at_batch_prelude"]
     else:
-        prelude_iterations_per_epoch = args["iterations"]
+        prelude_iterations_per_epoch = args["iterations_per_epoch"]
     if args["stop_epoch_at_batch"]:
         main_iterations_per_epoch = args["stop_epoch_at_batch"]
     else:
-        main_iterations_per_epoch = args["iterations"]
+        main_iterations_per_epoch = args["iterations_per_epoch"]
     if args["stop_epoch_at_batch_fine_tuning"]:
         finetuning_iterations_per_epoch = args["stop_epoch_at_batch_fine_tuning"]
     else:
-        finetuning_iterations_per_epoch = args["iterations"]
+        finetuning_iterations_per_epoch = args["iterations_per_epoch"]
     args["total_number_of_iterations"] = prelude_iterations_per_epoch * args["epochs_prelude"] + main_iterations_per_epoch * args["epochs"] + finetuning_iterations_per_epoch * args["epochs_fine_tuning"]
     
-    # Initialize the distributed trainer and checkpoint handler
-    distributed_trainer = DistributedTransformerTrainer(args, path_to_database, experiment_name, transformer_config, seed=args["seed"])
-    checkpointer = CheckpointHandler(experiment_name, args["checkpoint_time"], args["max_runtime"])
     
     # Verify batch size is compatible with distributed training
     assert args["batch_size"] % distributed_trainer.world_size == 0, "Batch size must be divisible by the number of GPUs."
