@@ -68,6 +68,20 @@ class Tamade:
         self.utils = PruningUtils()
         self.evaluation_dataloader = "Not yet loaded"
 
+    def synchronize_threshold(self, local_threshold):
+        device = torch.cuda.current_device()
+        t = torch.tensor([local_threshold], dtype=torch.float32, device=device)
+        
+        # 2. Sum all tensors on all GPUs (in-place)
+        # dist.reduce_op.SUM is standard method for this
+        dist.all_reduce(t, op=dist.ReduceOp.SUM)
+        
+        # Divide by number of GPUs (world size) to obtain the average
+        world_size = dist.get_world_size()
+        global_threshold = t.item() / world_size
+        
+        return global_threshold
+
     def __call__(self, ddp_model: DDP, distributed_trainer: DistributedTransformerTrainer):  
         """Execute pruning procedure on provided model.
         
@@ -121,13 +135,16 @@ class Tamade:
             rank=self.rank
         )
         
-        pruned_model.module.load_state_dict(ddp_model.module.state_dict())
-        self.utils.global_magnitude_pruning(pruned_model, epsilon)
-
         # TODO: check if we need all models to perform TAMADE
         print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
+
+        synced_epsilon = self.synchronize_threshold(epsilon)
+        print("Synced epsilon is: ", synced_epsilon)
+
+        pruned_model.module.load_state_dict(ddp_model.module.state_dict())
+        self.utils.global_magnitude_pruning(pruned_model, synced_epsilon)
         
-        return pruned_model, epsilon, steps
+        return pruned_model, synced_epsilon, steps
         
     def load_evaluation_dataloader(self):
         """Prepare dataloader with subset of validation data for evaluation.
@@ -224,8 +241,11 @@ class PruningUtils:
                 num_batches += 1
                 
         # Aggregate losses from all processes
-        dist.all_reduce(torch.tensor([total_loss, num_batches], device=device))
+        loss_tensor = torch.tensor([total_loss, num_batches], device=device)
+        dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
         
+        total_loss, num_batches = loss_tensor[0].item(), loss_tensor[1].item()
+
         return total_loss / num_batches if num_batches > 0 else 0
         
     @staticmethod
