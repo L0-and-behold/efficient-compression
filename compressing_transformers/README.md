@@ -119,6 +119,7 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 | Parameter | Description |
 |-----------|-------------|
 | `iterations_per_epoch` | The number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model). |
+| `tokens_per_epoch` | (False or int). If not False, then ["iterations_per_epoch"] is overwritten and set equal to `int(args["tokens_per_epoch"] / batch_size / seq_length)`, where `seq_length` is the context window of the model. Make sure `args["tokens_per_epoch"]` is not bigger than the number of tokens in your dataset. This parameter can also be used to make the training token number per epoch equal to `N` times the number of parameters of the model. |
 | `epochs_prelude` | Number of epochs to train before starting main regularized training |
 | `epochs` | Number of epochs for main regularized training |
 | `epochs_fine_tuning` | Number of epochs for fine-tuning with reduced transformer (unregularized training) |

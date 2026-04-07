@@ -197,7 +197,8 @@ def calculate_some_metrics(distributed_trainer, ddp_model, dataloaders, args, ot
         if rank == 0:
             print("Calculating train loss")
         train_loss = loss_over_dataset(ddp_model, dataloader_train, args, distributed_trainer, debug=other_settings["debug"])
-        print("Train loss: ", train_loss)
+        if rank == 0:
+            print("Train loss: ", train_loss)
     else:
         train_loss = None
     

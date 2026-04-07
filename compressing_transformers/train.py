@@ -76,7 +76,7 @@ args["weight_decay"] = 0.01                   # Weight decay applies L2 regulari
 
 ### Training Process Parameters - BEGIN
 args["iterations_per_epoch"] = 2              # the number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model).
-# Note that if one wants to make sure that the number of tokens used per epoch is proportional to the number of parameters of the model, e.g. N times the number of parameters, then one can set args["iterations_per_epoch"] = int(N * num_params / batch_size / seq_length). Again make sure this number is not bigger than the number of tokens in your dataset.)
+args["tokens_per_epoch"] = False             # (False or int). If not False, then ["iterations_per_epoch"] is overwritten and set equal to int(args["tokens_per_epoch"] / batch_size / seq_length), where seq_length is the context window of the model. Make sure args["tokens_per_epoch"] is not bigger than the number of tokens in your dataset. This parameter can also be used to make the training token number per epoch equal to N times the number of parameters of the model.
 args["epochs_prelude"] = 0                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
 args["epochs_fine_tuning"] = 1                # Number of epochs for fine-tuning phase (unregularized with smaller model)
@@ -151,15 +151,17 @@ def main(args: dict, other_settings: dict, path_to_database: str, experiment_nam
 
     # Load transformer configuration based on the selected model size
     transformer_config = TransformerConfig(args["transformer_config"])()
+    transformer_config["learning_rate"] = args["learning_rate"]  # Override default learning rate
     # Initialize the distributed trainer and checkpoint handler
     distributed_trainer = DistributedTransformerTrainer(args, path_to_database, experiment_name, transformer_config, seed=args["seed"])
     checkpointer = CheckpointHandler(experiment_name, args["checkpoint_time"], args["max_runtime"])
 
     total_number_of_GPUs = distributed_trainer.world_size
 
-    transformer_config["learning_rate"] = args["learning_rate"]  # Override default learning rate
     args["seq_length"] = transformer_config["seq_length"]  # Store sequence length (=context window) for dataset preparation
     args["batch_size"]  = transformer_config["batch_size_per_gpu"]*total_number_of_GPUs
+    if args["tokens_per_epoch"]:
+        args["iterations_per_epoch"] = int(args["tokens_per_epoch"] / args["batch_size"] / args["seq_length"])
     args["train_only_on_leading_tokens"] = int(args["iterations_per_epoch"]*args["batch_size"]*args["seq_length"]) # Limit training to first N tokens (False or int), here specified in terms of iterations, batch_size and seq_length (context window)
 
     if args["stop_epoch_at_batch_prelude"]:
@@ -186,10 +188,6 @@ def main(args: dict, other_settings: dict, path_to_database: str, experiment_nam
         assert args["train_only_on_leading_tokens"] % args["seq_length"] == 0, f"'train_only_on_leading_tokens' must be a multiple of the sequence length {args['seq_length']}"
         assert args["train_only_on_leading_tokens"] % args["batch_size"] == 0, f"'train_only_on_leading_tokens' must be a multiple of the batch size {args['batch_size']}"
     
-    rank = distributed_trainer.rank
-    if rank == 0:
-        print(f"Starting online learning with {distributed_trainer.world_size} GPUs.")
-    
     # Start the training process
     train_and_save_results(distributed_trainer, checkpointer, args, other_settings)
 
@@ -213,7 +211,6 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     # Get process rank and world size for distributed operations
     rank = distributed_trainer.rank
     world_size = distributed_trainer.world_size
-    print(f"Rank {rank}: Using device: {distributed_trainer.device}")
     
     # Load Wikipedia dataset with the configured sequence length
     dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset_' + str(args["seq_length"]) + '.pt')
@@ -243,10 +240,6 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     # Print model information (only from rank 0 process)
     if rank == 0:
         distributed_trainer.print_model_info(model)
-    
-    # Begin training
-    if rank == 0:
-        print("Starting online learning")
     
     t1 = time.time()
     
@@ -404,7 +397,8 @@ def calculate_some_metrics(distributed_trainer: DistributedTransformerTrainer, d
         if rank == 0:
             print("Calculating train loss")
         train_loss = loss_over_dataset(ddp_model, dataloader_train, args, distributed_trainer, debug=other_settings["debug"])
-        print("Train loss: ", train_loss)
+        if rank == 0:
+            print("Train loss: ", train_loss)
     else:
         train_loss = None
     
