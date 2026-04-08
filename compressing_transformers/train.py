@@ -213,7 +213,10 @@ def train_and_save_results(distributed_trainer: DistributedTransformerTrainer, c
     world_size = distributed_trainer.world_size
     
     # Load Wikipedia dataset with the configured sequence length
-    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset_' + str(args["seq_length"]) + '.pt')
+    dirpath = os.path.dirname(os.path.abspath(__file__))
+    if not dirpath.endswith("compressing_transformers"):
+        dirpath = os.path.dirname(dirpath) # go to parent directory in case the script was started from an experiment_scripts folder
+    dataset_local_path = os.path.join(dirpath, 'src/Datasets/processed_wiki_dataset_' + str(args["seq_length"]) + '.pt')
 
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, args["seq_length"], rank = rank)
 

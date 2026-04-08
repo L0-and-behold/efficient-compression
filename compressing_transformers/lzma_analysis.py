@@ -78,7 +78,10 @@ def main(sequence_length=1024) -> None:
         See readme.md or src/Datasets/Wiki40BDatasets.py for instructions on downloading the dataset.
     """
 
-    dataset_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src/Datasets/processed_wiki_dataset_' + str(sequence_length) + '.pt')
+    dirpath = os.path.dirname(os.path.abspath(__file__))
+    if not dirpath.endswith("compressing_transformers"):
+        dirpath = os.path.dirname(dirpath) # go to parent directory in case the script was started from an experiment_scripts folder
+    dataset_local_path = os.path.join(dirpath, 'src/Datasets/processed_wiki_dataset_' + str(sequence_length) + '.pt')
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, sequence_length)
 
     for dataset_sizes in [16384000, 50003968, 299991040, 9307817984]:
