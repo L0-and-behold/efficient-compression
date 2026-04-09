@@ -122,7 +122,8 @@ class Tamade:
             rank=self.rank
         )
         
-        print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
+        if self.rank == 0:
+            print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
 
         pruned_model.module.load_state_dict(ddp_model.module.state_dict())
         self.utils.global_magnitude_pruning(pruned_model, epsilon)
