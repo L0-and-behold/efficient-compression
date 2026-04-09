@@ -275,11 +275,11 @@ function lux_training!(
             cr_data = isnothing(args.tamade_calibration_batches) ?
                 validation_set :
                 Iterators.take(validation_set, args.tamade_calibration_batches)
-            cr_tstate, _, _, _ = find_right_pruning_threshold(
-                tstate, loss_fun, cr_data,
+            cr_tstate = deepcopy(tstate)
+            cr_tstate, _ = prune_and_shrink!(cr_tstate, loss_fun, cr_data,
                 args.tolerated_relative_loss_increase, args.binary_search_resolution;
-                dtype=args.dtype, prune_input=false
-            )
+                dtype=args.dtype, dev=args.dev, delete_neurons=false, random_gradient_pruning=false,
+                final_epoch=true)
             l0_norm  = Int(round(recursive_sum(cr_tstate.states.mask, args.dtype(0))))
             l0_total = Lux.parameterlength(cr_tstate.model)
             cr_pct   = round((1 - l0_norm / max(l0_total, 1)) * 100; digits=1)

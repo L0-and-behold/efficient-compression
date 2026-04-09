@@ -31,8 +31,9 @@ function single_run_routine_classifier(
 
     plotlyjs()
 
-    # check whether these args have been run before
-    if has_been_run_before(path_to_db, experiment_name, args, variables)
+    # check whether these args have been run before (skip when resuming — run clearly exists)
+    if !(checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run) &&
+            has_been_run_before(path_to_db, experiment_name, args, variables)
         println("These exact parameters have been run before: ")
         for field in fieldnames(typeof(args))
             if String(field) in variables || field in variables

@@ -42,6 +42,11 @@ function do_batch_run(
 )
     @assert length(variable_names) == length(batch_of_values[1])
     
+    # Database setup — must happen before checkpoint resume so runs.csv exists when append_run_to_csv! is called
+    mkpath(path_to_db)
+    create_experiment(path_to_db, experiment_name, args)
+    initialize_runs_csv(path_to_db, experiment_name, args)
+
     # Init checkpoint — ID printed immediately so it appears in logs even if run crashes early
     checkpoint = CheckpointManager(
         args.use_checkpoints,
@@ -74,10 +79,6 @@ function do_batch_run(
     # warning: too many workers might lead to issues when reading/writing to disc at the same time
     shuffle!(batch_of_values)
 
-    # Database setup
-    mkpath(path_to_db)
-    create_experiment(path_to_db, experiment_name, args)
-    initialize_runs_csv(path_to_db, experiment_name, args)
     println("Data will be stored in $path_to_db / $experiment_name. Starting with batch of $(length(batch_of_values)) runs with variables: $(variable_names)")
 
     summary = "Summary : batch of $(length(batch_of_values)) runs with variables: $(variable_names) \n"
