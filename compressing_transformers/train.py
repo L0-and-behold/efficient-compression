@@ -105,6 +105,8 @@ other_settings = {
     "calculate_on_line_code_length": False,   # Whether to calculate online description length
     "debug": False                            # Whether to print additional debug information
 }
+args["only_process_every_nth_batch_when_calculating_train_loss"] = 4      # Must be a natural number. Only every args["only_process_every_nth_batch_when_calculating_train_loss"] of the train set is evaluated for computing the train loss. Numbers bigger 1 increase speed but make the estimate less accurate.
+args["only_process_every_nth_batch_when_calculating_test_loss"] = 4      # Must be a natural number. Only every args["only_process_every_nth_batch_when_calculating_test_loss"] of the test set is evaluated for computing the test loss. Numbers bigger 1 increase speed but make the estimate less accurate.
 ### Metrics Calculation Parameters - END
 
 

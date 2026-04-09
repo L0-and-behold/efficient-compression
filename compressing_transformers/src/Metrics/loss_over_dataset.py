@@ -5,7 +5,7 @@ from src.DistributedTransformerTrainer import DistributedTransformerTrainer
 from tqdm.auto import tqdm
 import math
 
-def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distributed_trainer: DistributedTransformerTrainer, debug=False) -> float:
+def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distributed_trainer: DistributedTransformerTrainer, debug=False, loss_type="") -> float:
     """Calculate average loss over an entire dataset using distributed evaluation.
     
     Efficiently computes loss by splitting batches across available GPUs and
@@ -17,6 +17,7 @@ def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distri
         args (dict): Configuration parameters including batch size
         distributed_trainer (DistributedTransformerTrainer): Trainer with distribution info
         debug (bool, optional): Run only one batch if True. Defaults to False.
+        loss_type (str, optional): Can take values "train", "test" or "". Defaults to "". If set to train, then args["only_process_every_nth_batch_when_calculating_train_loss"] is used to determine which fraction of batches is used for training. If set to "train", then args["only_process_every_nth_batch_when_calculating_test_loss"] is used instead. And if set to "" (or any other string), then every batch of the dataset is processed by default.
     
     Returns:
         float: Average loss value across all evaluated batches
@@ -28,16 +29,27 @@ def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distri
     evaluated_batches = 0
     criterion = torch.nn.CrossEntropyLoss()
     
+    if loss_type == "train":
+        only_process_every_nth_batch = args["only_process_every_nth_batch_when_calculating_train_loss"]
+    elif loss_type == "test":
+        only_process_every_nth_batch = args["only_process_every_nth_batch_when_calculating_test_loss"]
+    else:
+        only_process_every_nth_batch = 1
+
+    # Split the batch across GPUs
+    local_batch_size = args["batch_size"] // world_size
+    start_index = rank * local_batch_size
+    end_index = start_index + local_batch_size
+
     with torch.no_grad():
         if rank == 0:
             progress_bar = tqdm(total=100, desc=f"Evaluating", disable=not rank == 0)
             update_interval = max(1, len(dataloader) // 100)
             
         for (i, batch) in enumerate(dataloader):
+            if i % only_process_every_nth_batch != 0:
+                continue
             # Split the batch across GPUs
-            local_batch_size = args["batch_size"] // world_size
-            start_index = rank * local_batch_size
-            end_index = start_index + local_batch_size
             local_batch = batch[start_index:end_index].to(device)
             
             input_seq = local_batch[:, :-1]
