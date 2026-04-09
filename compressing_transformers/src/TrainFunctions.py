@@ -282,7 +282,7 @@ class TrainFunctions:
         if self.other_settings["calculate_train_loss"]:
             if rank == 0:
                 print("Calculating train loss")
-            train_loss = loss_over_dataset(ddp_model, dataloader_train, self.args, self.distributed_trainer, debug=self.other_settings["debug"], loss_type="train")
+            train_loss = loss_over_dataset(ddp_model, dataloader_train, self.args, self.distributed_trainer, debug=self.other_settings["debug"], only_process_every_nth_batch=self.args["only_process_every_nth_batch_when_calculating_train_loss"])
             if rank == 0:
                 print("Train loss: ", train_loss)
         else:
@@ -292,7 +292,7 @@ class TrainFunctions:
         if self.other_settings["calculate_test_loss"]:
             if rank == 0:
                 print("Calculating test loss")
-            test_loss = loss_over_dataset(ddp_model, dataloader_test, self.args, self.distributed_trainer, debug=self.other_settings["debug"], loss_type="test")
+            test_loss = loss_over_dataset(ddp_model, dataloader_test, self.args, self.distributed_trainer, debug=self.other_settings["debug"], only_process_every_nth_batch=self.args["only_process_every_nth_batch_when_calculating_test_loss"])
             if rank == 0:
                 print("Test loss: ", test_loss)
         else:
