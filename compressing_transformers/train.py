@@ -101,12 +101,12 @@ args["elapsed_epochs"] = 1                    # Total epochs to be recorded (mus
 ### Model Loading Parameters - END
 
 ### General Training Parameters - BEGIN
-args["seed"] = 858                            # Random seed for reproducibility
-args["tolerated_relative_loss_increase"] = 0.0 # 0.1 # Maximum tolerated loss increase during TAMADE
-args["steps_per_chunk"] = 1                   # Number of optimization steps per data chunk
-args["log_every"] = 1                         # Log metrics every n optimization steps
-args["checkpoint_time"] = 80000               # Save checkpoint every n seconds
-args["max_runtime"] = 86000                   # Maximum runtime in seconds before forced termination
+args["seed"] = 858                             # Random seed for reproducibility
+args["tolerated_relative_loss_increase"] = 0.1 # Maximum tolerated loss increase during TAMADE
+args["steps_per_chunk"] = 1                    # Number of optimization steps per data chunk
+args["log_every"] = 1                          # Log metrics every n optimization steps
+args["checkpoint_time"] = 80000                # Save checkpoint every n seconds
+args["max_runtime"] = 86000                    # Maximum runtime in seconds before forced termination
 ### General Training Parameters - END
 
 ### Metrics Calculation Parameters - BEGIN
