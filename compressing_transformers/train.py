@@ -61,7 +61,7 @@ args["weight_decay"] = 0.01                   # Weight decay applies L2 regulari
 ### Optimizer Parameters - END
 
 ### Training Process Parameters - BEGIN
-args["iterations_per_epoch"] = 2              # the number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model).
+args["iterations_per_epoch"] = 10              # the number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model).
 args["tokens_per_epoch"] = False             # (False or int). If not False, then ["iterations_per_epoch"] is overwritten and set equal to int(args["tokens_per_epoch"] / batch_size / seq_length), where seq_length is the context window of the model. Make sure args["tokens_per_epoch"] is not bigger than the number of tokens in your dataset. This parameter can also be used to make the training token number per epoch equal to N times the number of parameters of the model.
 args["epochs_prelude"] = 0                    # Number of epochs for prelude phase (unregularized)
 args["epochs"] = 1                            # Number of epochs for main training
@@ -105,8 +105,8 @@ other_settings = {
     "calculate_on_line_code_length": False,   # Whether to calculate online description length
     "debug": False                            # Whether to print additional debug information
 }
-args["only_process_every_nth_batch_when_calculating_train_loss"] = 4      # Must be a natural number. Only every args["only_process_every_nth_batch_when_calculating_train_loss"] of the train set is evaluated for computing the train loss. Numbers bigger 1 increase speed but make the estimate less accurate.
-args["only_process_every_nth_batch_when_calculating_test_loss"] = 4      # Must be a natural number. Only every args["only_process_every_nth_batch_when_calculating_test_loss"] of the test set is evaluated for computing the test loss. Numbers bigger 1 increase speed but make the estimate less accurate.
+args["only_process_every_nth_batch_when_calculating_train_loss"] = 5      # Must be a natural number. Only every args["only_process_every_nth_batch_when_calculating_train_loss"] of the train set is evaluated for computing the train loss. Numbers bigger 1 increase speed but make the estimate less accurate.
+args["only_process_every_nth_batch_when_calculating_test_loss"] = 1      # Must be a natural number. Only every args["only_process_every_nth_batch_when_calculating_test_loss"] of the test set is evaluated for computing the test loss. Numbers bigger 1 increase speed but make the estimate less accurate.
 ### Metrics Calculation Parameters - END
 
 

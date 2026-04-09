@@ -40,7 +40,7 @@ def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distri
             update_interval = max(1, len(dataloader) // 100)
             
         for (i, batch) in enumerate(dataloader):
-            if i % only_process_every_nth_batch != 0:
+            if (i+1) % only_process_every_nth_batch != 0:
                 continue
             # Split the batch across GPUs
             local_batch = batch[start_index:end_index].to(device)
