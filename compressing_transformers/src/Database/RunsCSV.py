@@ -51,7 +51,7 @@ class RunsCSV:
     def log_meta(self):
         """Log metadata about the run including ID, experiment name, timestamp, and duration."""
         end_time = time.time()
-        self.log_field("run_id", self.run.id)
+        # self.log_field("run_id", self.run.id) # the run_id is already transferred to self.df via args["run_id"]
         self.log_field("experiment_name", self.experiment.name)
         self.log_field("timestamp", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time)))
         self.log_field("run_time", end_time - self.run.start_time)
@@ -84,6 +84,8 @@ class RunsCSV:
             self.df.to_csv(self.filename, index=False)
         else:
             csv_df = pd.read_csv(self.filename)
+            csv_df = csv_df.loc[:, ~csv_df.columns.duplicated()] # remove duplicate entries
+            self.df = self.df.loc[:, ~self.df.columns.duplicated()] # remove duplicate entries
             csv_df = pd.concat([csv_df, self.df], ignore_index=True)
             csv_df.to_csv(self.filename, index=False)
             
@@ -110,9 +112,9 @@ class RunsCSV:
         df = pd.read_csv(self.filename)
         row = df[df["run_id"] == self.run.id]
         if len(row) == 0:
-            raise FileNotFoundError(f"Run {self.id} not found in experiment {self.experiment.name}.")
+            raise FileNotFoundError(f"Run {self.run.id} not found in experiment {self.experiment.name}.")
         elif len(row) > 1:
-            raise ValueError(f"Multiple runs with id {self.id} found in experiment {self.experiment.name}.")
+            raise ValueError(f"Multiple runs with id {self.run.id} found in experiment {self.experiment.name}.")
         for key in self.args.keys():
             self.args[key] = row[key].values[0]
             
@@ -142,9 +144,9 @@ class RunsCSV:
         # error handling
         matches = df["run_id"] == self.run.id
         if not matches.any():
-            raise FileNotFoundError(f"Run {self.id} not found in experiment {self.experiment.name}.")
+            raise FileNotFoundError(f"Run {self.run.id} not found in experiment {self.experiment.name}.")
         elif matches.sum() > 1:
-            raise ValueError(f"Multiple runs with id {self.id} found in experiment {self.experiment.name}.")
+            raise ValueError(f"Multiple runs with id {self.run.id} found in experiment {self.experiment.name}.")
         if fieldname not in df.columns:
             raise KeyError(f"Field {fieldname} not found in the csv file.")
         # writing on the .csv file

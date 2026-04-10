@@ -1,10 +1,12 @@
 import os, sys
+import argparse, csv
 
 _file_location = os.path.dirname(__file__)
 sys.path.append(_file_location)
 sys.path.append(os.path.abspath(os.path.join(_file_location, '..')))
 
-from src.TrainFunctions import TrainFunctions
+from src.TrainFunctions.TrainFunctions import TrainFunctions
+from src.TrainFunctions.short_names import get_short_names
 from src.DistributedOptimizationProcedures.DrrProcedure import drr_procedure
 from src.DistributedOptimizationProcedures.VanillaProcedure import vanilla_procedure
 from src.DistributedOptimizationProcedures.Rl1Procedure import rl1_procedure
@@ -25,6 +27,8 @@ using multiple GPUs with PyTorch's DistributedDataParallel. It provides an inter
 """
 Configuration section - defines all parameters needed for the training run.
 
+If you change the number of keys of args, make sure to change the short_names in the file src.TrainFunctions.short_names.py accordingly.
+
 See README.md for more information.
 
 The configuration is divided into several groups:
@@ -39,9 +43,9 @@ The configuration is divided into several groups:
 path_to_database = os.path.join(os.getcwd(), "experiment-results")
 experiment_name = "example-experiment"
 args = {}
+args["run_id"] = None
 
 ### Regularization Parameters - BEGIN
-# Model architecture and pruning parameters
 args["alpha"] = 1e-4                          # Regularization strength for ℓ₀-Regularization
 args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
 args["initial_u_value"] = 3.0                 # Initial u value for PMMP method
@@ -49,8 +53,8 @@ args["beta"] = 10.0                           # Sharpness parameter β for DRR m
 ### Regularization Parameters - END
 
 ### Model Configuration - BEGIN
-args["training_method"] = pmmp_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
-args["transformer_config"] = "transformer200k" # Transformer model
+args["training_procedure"] = pmmp_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
+args["transformer_config"] = "transformer200k" # Transformer config
 ### Model Configuration - END
 
 ### Optimizer Parameters - BEGIN
@@ -98,7 +102,7 @@ args["max_runtime"] = 86000                     # Maximum runtime in seconds bef
 ### Metrics Calculation Parameters - BEGIN
 # (evaluated after training)
 other_settings = {
-    "calculate_test_loss": False,             # Whether to calculate mean loss on test set
+    "calculate_test_loss": True,             # Whether to calculate mean loss on test set
     "calculate_train_loss": True,             # Whether to calculate mean loss on training set
     "calculate_model_byte_size": True,        # Whether to calculate model size in bytes
     "calculate_non_zero_params": True,        # Whether to count non-zero parameters
@@ -112,10 +116,73 @@ args["only_process_every_nth_batch_when_calculating_test_loss"] = 1      # Must 
 
 ################### Run ###################
 
+def parse_value(s):
+    s = s.strip() # strip white space
+    if s.startswith("(") and s.endswith(")"): # handle tuples recursively
+        return tuple(parse_value(x) for x in s[1:-1].split(","))
+    try:
+        return int(s)
+    except ValueError:
+        try:
+            return float(s)
+        except ValueError:
+            if s == "True":
+                return True
+            if s == "False":
+                return False
+            if s == "pmmp_procedure":
+                return pmmp_procedure
+            if s == "rl1_procedure":
+                return rl1_procedure
+            if s == "drr_procedure":
+                return drr_procedure
+            if s == "vanilla_procedure":
+                return vanilla_procedure
+            return s  # otherwise return the original string
+
+def main(args, other_settings, path_to_database, experiment_name):
+
+    # Detect if file is called as a batch job with config arguments and if it is, then parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default=None)
+    parser.add_argument("--index", type=int, default=0)
+    parser_args = parser.parse_args()
+
+    if parser_args.config: # only change args according to config.csv file if a config argument was passed during execution of train.py
+        csv_path = os.path.join(os.path.dirname(__file__), "experiment_scripts", parser_args.config + ".csv") # assuming the csv file is in a folder "experiment_scripts" relative to train.py
+        if os.path.exists(csv_path): # only change args according to config.csv if such a file exists           
+            experiment_name = os.path.basename(csv_path) # if it exists, use the config.csv file name as experiment_name
+            experiment_name = experiment_name[:-4] # strip away ".csv"
+            args["run_id"] = "" # prepare run_id to be assigned depending on tested parameters
+            short_names = get_short_names(args)
+
+            with open(csv_path) as f:
+                cfg = list(csv.DictReader(f))
+            for key in cfg[parser_args.index]:
+                if key not in args:
+                    raise KeyError(f"Key '{key}' specified in config file has not been found in args")
+                value_string = cfg[parser_args.index][key].strip() # strip white space
+                if value_string == "":
+                    print("\nWarning: value_string is empty for the key " + key + ". This might mean that you forgot to insert a value in your config csv file.\n")
+                args[key] = parse_value(value_string)
+                if value_string[-10:] == "_procedure":
+                    value_string = value_string[:-10] # strip away "_procedure" for run_id name
+                if args["run_id"] == "":
+                    args["run_id"] =  short_names[key] + "_" + value_string.replace(".", "o") # assign run_id programmatically to distinguish runs by their hyperparameter choices. replace . by o to prevent file system interpreting the folder name as a file.
+                else:
+                    args["run_id"] = args["run_id"] + "__" + short_names[key] + "_" + value_string.replace(".", "o")
+        else:
+            print("\nWarning: Config arguments were passed during execution of train.py but no config file was found at " + csv_path)
+            print("Using default configuration instead.\n")
+
+    trainfs = TrainFunctions(args, other_settings, path_to_database, experiment_name)
+    trainfs.train_and_save_results()
+
+
 if __name__ == "__main__":
     """Script entry point - executes the main function with the configured parameters.
     
     This conditional ensures the script only runs when executed directly and not when imported.
     """
-    trainfs = TrainFunctions(args, other_settings, path_to_database, experiment_name)
-    trainfs.train_and_save_results()
+
+    main(args, other_settings, path_to_database, experiment_name)

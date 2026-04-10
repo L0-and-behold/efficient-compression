@@ -26,6 +26,7 @@ class Run:
             None if run has not been loaded.
         path: Absolute path to the run folder.
         pmmp: Boolean flag for model configuration.
+        run_id: The run_id is the name given to the subfolder of the experiment containing this specific run. If you do not provide one (if it is set to None), a random id is automatically generated.
     
     Usage:
         - Create a run: Initialize with experiment, then call `create_run()`
@@ -36,10 +37,10 @@ class Run:
         - Load model: `run.load_model(device)`
         - Load optimizer: `run.load_optimizer(model)`
     """
-    def __init__(self, experiment, pmmp=False):
+    def __init__(self, experiment, pmmp=False, run_id=None):
         self.experiment = experiment
         self.start_time = time.time()
-        self.id = None
+        self.id = run_id
         self.path = None
         self.info = None
         self.prefix = "run"
@@ -100,14 +101,17 @@ class Run:
         Raises:
             ValueError: If a unique ID can't be generated after 100 attempts.
         """
-        local_random = random.Random(int(time.time() * 1000))
-        existing_ids = set(os.listdir(os.path.join(self.experiment.path, "artifacts")))
-        for i in range(100):
-            unique_postfix = ''.join(local_random.choices(string.ascii_lowercase + string.digits, k=4))
-            new_id = f"{self.prefix}-{unique_postfix}"
-            if new_id not in existing_ids:
-                return new_id
-        raise ValueError("Could not generate unique run id after 100 attempts.")
+        if self.id is None:
+            local_random = random.Random(int(time.time() * 1000))
+            existing_ids = set(os.listdir(os.path.join(self.experiment.path, "artifacts")))
+            for i in range(100):
+                unique_postfix = ''.join(local_random.choices(string.ascii_lowercase + string.digits, k=4))
+                new_id = f"{self.prefix}-{unique_postfix}"
+                if new_id not in existing_ids:
+                    return new_id
+            raise ValueError("Could not generate unique run id after 100 attempts.")
+        else:
+            return self.id
 
     def artifact_exists(self, filename):
         """Check if an artifact exists in the run folder.
@@ -151,7 +155,13 @@ class Run:
             if not os.path.exists(path):
                 os.makedirs(path, exist_ok=True)
                 return path
-            self.id = self.generate_unique_run_id() # If folder already exists, generate new id and try again
+            print("run_id folder name already exists. Generating new random run_id...")
+            if self.id is not None:
+                old_self_id = self.id
+                self.id = None # Set id back to None to generate a new one in next step
+                self.id = old_self_id + "__" + self.generate_unique_run_id() # If folder already exists, generate new id and try again
+            else:
+                self.id = self.generate_unique_run_id() # If folder already exists, generate new id and try again
         raise FileExistsError(f"Run folder could not be created after 20 attempts. Path: {path}")
     
     def fetch_run_info(self):
