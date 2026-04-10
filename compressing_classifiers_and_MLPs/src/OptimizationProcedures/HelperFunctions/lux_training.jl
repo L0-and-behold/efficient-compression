@@ -138,8 +138,17 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     start_turn_point = length(args.logs["turning_points_val_loss"])
     push!(args.logs["turning_points_val_loss"], start_epoch+1)
     push!(args.logs["best_tstate_points"], start_epoch+1)
+
+    last_lr = copy(args.lr)
     for epoch in 1:max_epochs
         
+        if !isnothing(args.schedule) # update learning rate if schedule is specified
+            new_lr = args.schedule(epoch)
+            if new_lr != last_lr
+                tstate = Optimisers.adjust!(tstate, new_lr)
+            end
+            last_lr = new_lr
+        end
         # Batch loop
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()

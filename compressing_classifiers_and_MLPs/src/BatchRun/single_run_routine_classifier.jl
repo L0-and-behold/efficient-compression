@@ -51,11 +51,8 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
     println("Start training for $run_id with architecture '$(args.architecture)', dataset '$(args.dataset)' and optimization procedure '$(args.optimization_procedure)'")
 
     # do some training to trigger compilation of the involved functions
-    if isnothing(args.schedule)
-        throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
-    else
-        throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.schedule); dev=args.dev)
-    end
+    
+    throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
     try 
         do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args) 
     catch 
@@ -63,11 +60,7 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
     end
     
     # do actual training
-    if isnothing(args.schedule)
-        tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
-    else
-        tstate = generate_tstate(model, model_seed, args.optimizer(args.schedule); dev=args.dev)
-    end
+    tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
 
     tstate, logs, loss_fctn = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
 

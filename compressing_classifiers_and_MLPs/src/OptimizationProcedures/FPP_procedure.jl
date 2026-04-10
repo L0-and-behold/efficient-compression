@@ -5,7 +5,7 @@ function recursively_modify_FPP!(params, fun)
         if isa(subparams, AbstractArray{T} where T)
             subparams .= fun(subparams)
         elseif isa(subparams, NamedTuple) && !isempty(subparams)
-            recursively_modify!(subparams, fun)
+            recursively_modify_FPP!(subparams, fun)
         end
     end
 end
@@ -19,15 +19,19 @@ function convert_tstate!(tstate, args)
     recursively_modify_FPP!(u, x -> args.initial_u_value .* one.(x))
 
     tstate = Training.TrainState(tstate.model, (p = tstate.parameters, pw=pw, pp=pp, u=u), tstate.states, tstate.optimizer)
-    @reset tstate.model.name = "FPP model"
+    if hasproperty(tstate.model, :name)
+        @reset tstate.model.name = "FPP model"
+    elseif hasproperty(tstate.model.layer, :name)
+        @reset tstate.model.layer.name = "FPP model"
+    end
     return tstate
 end
 
 """
     FPP_procedure(
-        train_set::Vector{<:Tuple},
-        validation_set::Vector{<:Tuple},
-        test_set::Vector{<:Tuple},
+        train_set::Union{Vector{<:Tuple}, DeviceIterator},
+        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
+        test_set::Union{Vector{<:Tuple}, DeviceIterator},
         tstate::Lux.Training.TrainState,
         loss_fctn::Function,
         args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
@@ -48,9 +52,9 @@ end
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function FPP_procedure(
-    train_set::Vector{<:Tuple},
-    validation_set::Vector{<:Tuple},
-    test_set::Vector{<:Tuple},
+    train_set::Union{Vector{<:Tuple}, DeviceIterator},
+    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
+    test_set::Union{Vector{<:Tuple}, DeviceIterator},
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}

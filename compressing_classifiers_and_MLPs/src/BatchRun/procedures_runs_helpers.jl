@@ -59,16 +59,16 @@ function do_small_run_to_trigger_precompilation(
 end
 
 """
-    save_CSV(artifact_folder, data::Vector{<:Tuple}, title::String)
+    save_CSV(artifact_folder, data::Union{Vector{<:Tuple}, DeviceIterator}, title::String)
 
 Save tuple data to a CSV file with epoch and data columns.
 
 # Arguments
 - `artifact_folder`: Directory to save the CSV file
-- `data::Vector{<:Tuple}`: Vector of tuples containing epoch and value pairs
+- `data::Union{Vector{<:Tuple}, DeviceIterator}`: Vector of tuples containing epoch and value pairs
 - `title::String`: Base name for the CSV file (without extension)
 """
-function save_CSV(artifact_folder, data::Vector{<:Tuple}, title::String)
+function save_CSV(artifact_folder, data::Union{Vector{<:Tuple}, DeviceIterator}, title::String)
     epochs = [d[1] for d in data]
     values = [d[2] for d in data]
     df = DataFrame(epoch=epochs, data=values)

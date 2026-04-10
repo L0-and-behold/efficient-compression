@@ -1,6 +1,7 @@
 import time
 import torch
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing import Dict, Any, Union
@@ -49,6 +50,7 @@ class L1Trainer(ProcedureTrainer):
 def rl1_procedure(
     ddp_model: DDP,
     optimizer: Optimizer,
+    scheduler: LRScheduler,
     logs: Dict[str, Any],
     distributed_trainer,
     dataloader_train: DataLoader,
@@ -74,4 +76,4 @@ def rl1_procedure(
     Returns:
         (trained_model, optimizer, logs, updated_args)
     """
-    return get_optimization_procedure(L1Trainer, ddp_model, optimizer, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args)
+    return get_optimization_procedure(L1Trainer, ddp_model, optimizer, scheduler, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args)

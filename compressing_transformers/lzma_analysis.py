@@ -64,7 +64,7 @@ def run_lzma_compression_benchmark(datasets, subset_size: int, chunk_size: int) 
     compressed_size = get_lzma_compressed_length(data, chunk_size)
     print(f"Compressed size: {compressed_size} bytes")
 
-def main() -> None:
+def main(sequence_length=1024) -> None:
     """Run LZMA2 benchmarking for various dataset sizes.
     
     The benchmarks are run for the following dataset sizes:
@@ -74,12 +74,14 @@ def main() -> None:
     - 9.3GB: 9307817984 bytes
     
     Note:
-        Ensure that the dataset is stored locally in file 'processed_wiki_dataset.pt'.
+        Ensure that the dataset is stored locally at the path specified below
         See readme.md or src/Datasets/Wiki40BDatasets.py for instructions on downloading the dataset.
     """
 
-    dataset_local_path = os.path.join(os.getcwd(), 'processed_wiki_dataset.pt')
-    sequence_length = 2048
+    dirpath = os.path.dirname(os.path.abspath(__file__))
+    if not dirpath.endswith("compressing_transformers"):
+        dirpath = os.path.dirname(dirpath) # go to parent directory in case the script was started from an experiment_scripts folder
+    dataset_local_path = os.path.join(dirpath, 'src/Datasets/processed_wiki_dataset_' + str(sequence_length) + '.pt')
     datasets = WikipediaDatasets.load_dataset(dataset_local_path, sequence_length)
 
     for dataset_sizes in [16384000, 50003968, 299991040, 9307817984]:

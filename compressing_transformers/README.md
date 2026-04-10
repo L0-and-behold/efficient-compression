@@ -93,29 +93,39 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 | Parameter | Description |
 |-----------|-------------|
 | `alpha` | Regularization strength for DRR or RL1 procedures |
-| `pmmp` | Set to True when using the PMMP procedure, False otherwise |
-| `initial_p_value` | Initial parameter value for PMMP procedure (probability threshold) |
+| `initial_p_value` | Initial `p` parameter value for PMMP procedure (probability threshold) |
+| `initial_u_value` | Initial `u` parameter value for PMMP procedure (constraint enforcement strength) |
 | `beta` | Parameter for DRR (Deterministic Reparameterization with Regularization) |
 
 ### Model Configuration
 
 | Parameter | Description |
 |-----------|-------------|
-| `transformer_config` | Model size selection: "transformer200k", "transformer800k", or "transformer4.1m" (see TransformerConfig.py) |
 | `training_method` | Regularization procedure selection: `rl1_procedure`, `pmmp_procedure`, `drr_procedure`, or `vanilla_procedure` function|
+| `transformer_config` | Model size selection: Viable model names are listed in TransformerConfig.py. For example, "transformer200k" or "t307_38p". The notation tX_Y denotes a transformer with X parameters and roughly Y GB of peak VRAM usage per GPU. If there is a 'p' behind Y, then Y denotes peak VRAM usage requirements for PMMP (which has more parameters than the other methods). |
+
+### Optimizer Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `learning_rate` | Initial learning rate for optimizer |
+| `AdamW_betas` | The beta parameters for the AdamW optimizer (typical choices include (0.9, 0.95) or (0.9, 0.999)) |
+| `warmup_steps` | Warmup increases the learning rate linearly to `learning_rate` in `warmup_steps` steps |
+| `weight_decay` | Weight decay applies L2 regularization to all parameters except biases, LayerNorm-weights and `u` and `p` parameters of PMMP |
+
 
 ### Training Process Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `train_only_on_leading_tokens` | Training set size in number of tokens/bytes. Set to False for full dataset or integer for subset |
+| `iterations_per_epoch` | The number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model). |
+| `tokens_per_epoch` | (False or int). If not False, then ["iterations_per_epoch"] is overwritten and set equal to `int(args["tokens_per_epoch"] / batch_size / seq_length)`, where `seq_length` is the context window of the model. Make sure `args["tokens_per_epoch"]` is not bigger than the number of tokens in your dataset. This parameter can also be used to make the training token number per epoch equal to `N` times the number of parameters of the model. |
 | `epochs_prelude` | Number of epochs to train before starting main regularized training |
 | `epochs` | Number of epochs for main regularized training |
 | `epochs_fine_tuning` | Number of epochs for fine-tuning with reduced transformer (unregularized training) |
 | `stop_epoch_at_batch_prelude` | If integer, limits effective training set for prelude epochs to specified number of batches |
 | `stop_epoch_at_batch` | If integer, limits effective training set for main training to specified number of batches |
 | `stop_epoch_at_batch_fine_tuning` | If integer, limits effective training set for fine-tuning to specified number of batches |
-| `batch_size` | Number of sequences processed at once (must be ≥ number of GPUs) |
 
 ### Pruning Parameters
 
@@ -138,7 +148,6 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 
 | Parameter | Description |
 |-----------|-------------|
-| `learning_rate` | Initial learning rate for Adam optimizer |
 | `seed` | Random seed for reproducibility |
 | `tolerated_relative_loss_increase` | Threshold parameter for Threshold Adaptive Mask Determination (TAMADE) |
 | `steps_per_chunk` | Number of gradient update steps to perform on each provided minibatch/chunk |

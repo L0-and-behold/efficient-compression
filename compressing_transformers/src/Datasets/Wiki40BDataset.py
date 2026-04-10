@@ -8,13 +8,15 @@ the load_dataset method is being called.
 """
 import torch
 from torch.utils.data import Dataset
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # suppresses INFO, WARNING, ERROR by tensorflow, which clutter the .err file due to conflicts with pytorch.
 import tensorflow_datasets as tfds
 import tensorflow as tf
 import numpy as np
-import os
 from tqdm import tqdm
 import copy
-
+import warnings
+warnings.filterwarnings("ignore", message=".*weights_only.*")
 
 class ByteWikipediaDataset(Dataset):
     """PyTorch Dataset for byte-level Wikipedia data.
@@ -131,7 +133,7 @@ class WikipediaDatasets:
         return datasets
         
     @classmethod
-    def load_dataset(cls, load_path, required_seq_length):
+    def load_dataset(cls, load_path, required_seq_length, rank=0):
         """Load datasets from disk or create them if not available.
         
         Attempts to load datasets from the specified path. If the file doesn't exist
@@ -148,16 +150,19 @@ class WikipediaDatasets:
             print(f"Dataset not found at {load_path} Creating a new dataset file...")
             return cls.create_and_save_dataset(required_seq_length, load_path)
             
-        print(f"Loading dataset from {load_path}")
+        if rank == 0:
+            print(f"Loading dataset from {load_path}")
         datasets = torch.load(load_path)
         
         if datasets.sequence_length != required_seq_length:
-            print(f"Warning: Loaded dataset has sequence length {datasets.sequence_length}, "
+            if rank == 0:
+                print(f"Warning: Loaded dataset has sequence length {datasets.sequence_length}, "
                   f"but {required_seq_length} was requested.")
-            print("Creating a new dataset with the correct sequence length...")
+                print("Creating a new dataset with the correct sequence length...")
             datasets = cls.create_and_save_dataset(required_seq_length, load_path)
         else:
-            print("Dataset loaded successfully.")
+            if rank == 0:
+                print("Dataset loaded successfully.")
             
         return datasets
         
@@ -196,8 +201,8 @@ class WikipediaDatasets:
 if __name__ == "__main__":
     import os
     SEQ_LENGTH = 2048
-    SAVE_DIR = os.getcwd()  # Use the current working directory
-    SAVE_PATH = os.path.join(SAVE_DIR, 'processed_wiki_dataset.pt')
+    SAVE_DIR = os.path.dirname(os.path.abspath(__file__))
+    SAVE_PATH = os.path.join(SAVE_DIR, 'processed_wiki_dataset_' + str(SEQ_LENGTH) + '.pt')
     
     if not os.path.exists(SAVE_PATH):
         datasets = WikipediaDatasets.create_and_save_dataset(SEQ_LENGTH, SAVE_PATH)
