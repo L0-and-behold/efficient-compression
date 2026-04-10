@@ -28,27 +28,21 @@ args = TrainArgs{Float32}()
 # Load configuration
 path_to_db, imagenet_path, _ = load_imagenet_config()
 
-experiment_name = "full-scale-v3"
+experiment_name = "RL1-sanity-check-alpha-sweep-v2"
 
 single_run_routine = single_run_routine_classifier
 
-# full-scale-v3: cosine LR, lr=0.09, rho=8e-6, label smoothing, 90+10 ep
-# FT runs at eta_min = lr*1e-2 = 9e-4 (schedule returns eta_min for epoch > max_epochs)
-variables = [:optimization_procedure, :α, :β, :initial_p_value, :initial_u_value]
+# RL1 α sweep: vanilla (α=0) + 1e-9 to 1e-4. 90+10 ep, TAMADE 3%, read logs early.
+variables = [:α]
 
 batch = [
-    (RL1_procedure,  3f-7,  0f0, 0f0, 0f0),
-    (RL1_procedure,  1f-6,  0f0, 0f0, 0f0),
-    (RL1_procedure,  3f-6,  0f0, 0f0, 0f0),
-    (DRR_procedure,  1f-5,  5f0, 0f0, 0f0),
-    (DRR_procedure,  3f-7,  5f0, 0f0, 0f0),
-    (DRR_procedure,  1f-6,  5f0, 0f0, 0f0),
-    (PMMP_procedure, 1f-5,  0f0, 1f0, 1f0),
-    (PMMP_procedure, 1f-5,  0f0, 1f0, 5f0),
-    (PMMP_procedure, 3f-6,  0f0, 1f0, 1f0),
-    (PMMP_procedure, 3f-6,  0f0, 1f0, 5f0),
-    (RL1_procedure,  1f-5,  0f0, 0f0, 0f0),  # extends RL1 to higher alpha
-    (DRR_procedure,  3f-6,  5f0, 0f0, 0f0),  # extends DRR above v3 ceiling
+    (0f0,),
+    (1f-9,),
+    (1f-8,),
+    (1f-7,),
+    (1f-6,),
+    (1f-5,),
+    (1f-4,),
 ]
 
 # Fixed arguments for all runs
@@ -61,6 +55,9 @@ args.val_set_size = 50000
 args.test_set_size = 50000
 args.train_batch_size = 128
 args.val_batch_size = 128
+
+args.lr = 0.09f0
+args.ρ = 8f-6
 
 args.smoothing_window = 1000  # disable convergence detection — run exactly min/max_epochs
 args.prune_window = 1000
@@ -75,10 +72,18 @@ args.finetuning_converge_val_loss = false
 args.shrinking = false
 args.NORM = false
 
+# with the intend to stop early
 args.min_epochs            = 90
 args.max_epochs            = 90
 args.finetuning_min_epochs = 10
 args.finetuning_max_epochs = 10
+
+args.tolerated_relative_loss_increase = 0.03f0  # 3%
+
+args.optimization_procedure = RL1_procedure
+args.β = 0f0
+args.initial_p_value = 0f0
+args.initial_u_value = 0f0
 
 args.tamade_calibration_batches = 200
 args.save_pre_pruning_model = true
