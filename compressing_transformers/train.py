@@ -44,6 +44,7 @@ path_to_database = os.path.join(os.getcwd(), "experiment-results")
 experiment_name = "example-experiment"
 args = {}
 args["run_id"] = None
+args["python_config_file"] = os.path.basename(__file__)
 
 ### Regularization Parameters - BEGIN
 args["alpha"] = 1e-4                          # Regularization strength for ℓ₀-Regularization
@@ -92,7 +93,7 @@ args["elapsed_epochs"] = 1                    # Total epochs to be recorded (mus
 
 ### General Training Parameters - BEGIN
 args["seed"] = 858                              # Random seed for reproducibility
-args["tolerated_relative_loss_increase"] = 0.01 # Maximum tolerated loss increase during TAMADE
+args["tolerated_relative_loss_increase"] = 0.02 # Maximum tolerated loss increase during TAMADE
 args["steps_per_chunk"] = 1                     # Number of optimization steps per data chunk
 args["log_every"] = 1                           # Log metrics every n optimization steps
 args["checkpoint_time"] = 80000                 # Save checkpoint every n seconds

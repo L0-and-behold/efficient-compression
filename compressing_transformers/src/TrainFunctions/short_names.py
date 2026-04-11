@@ -4,6 +4,7 @@ def get_short_names(args):
     short_names = {}
 
     short_names["run_id"] = "RunID"
+    short_names["python_config_file"] = "PyCF"
     
     ### Regularization Parameters - BEGIN
     short_names["alpha"] = "A"                          # Regularization strength for ℓ₀-Regularization
