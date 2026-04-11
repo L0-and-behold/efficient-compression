@@ -192,7 +192,7 @@ end
 ################################ structs #####################################
 
 
-struct RL1_loss{R <: Number, L1 <: Function, L2 <: Function} <: LossFunction
+mutable struct RL1_loss{R <: Number, L1 <: Function, L2 <: Function} <: LossFunction
     alpha::R
     rho::R
     fun1::Function
@@ -208,7 +208,7 @@ function (loss_params::RL1_loss)(model, ps::NamedTuple, st::NamedTuple, batch)
 end
 
 
-struct DRR{R <: Number, L2 <: Function} <: LossFunction
+mutable struct DRR{R <: Number, L2 <: Function} <: LossFunction
     alpha::R
     beta::R
     rho::R
