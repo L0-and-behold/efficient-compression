@@ -59,10 +59,11 @@ class TrainFunctions:
         self.distributed_trainer = DistributedTransformerTrainer(self.args, path_to_database, experiment_name, transformer_config, seed=self.args["seed"])
         self.checkpointer = CheckpointHandler(experiment_name, self.args["checkpoint_time"], self.args["max_runtime"])
 
-        total_number_of_GPUs = self.distributed_trainer.world_size
+        self.args["total_number_of_GPUs"] = self.distributed_trainer.world_size
+        self.args["batch_size_per_gpu"] = transformer_config["batch_size_per_gpu"] # storing this in args for logging purposes
 
         self.args["seq_length"] = transformer_config["seq_length"]  # Store sequence length (=context window) for dataset preparation
-        self.args["batch_size"]  = transformer_config["batch_size_per_gpu"]*total_number_of_GPUs
+        self.args["batch_size"]  = transformer_config["batch_size_per_gpu"]*self.args["total_number_of_GPUs"]
         if self.args["tokens_per_epoch"]:
             self.args["iterations_per_epoch"] = int(self.args["tokens_per_epoch"] / self.args["batch_size"] / self.args["seq_length"])
         self.args["train_only_on_leading_tokens"] = int(self.args["iterations_per_epoch"]*self.args["batch_size"]*self.args["seq_length"]) # Limit training to first N tokens (False or int), here specified in terms of iterations, batch_size and seq_length (context window)

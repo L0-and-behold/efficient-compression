@@ -53,7 +53,7 @@ args["beta"] = 10.0                           # Sharpness parameter β for DRR m
 ### Regularization Parameters - END
 
 ### Model Configuration - BEGIN
-args["training_procedure"] = pmmp_procedure       # Training procedure to use (rl1, vanilla, drr, or pmmp)
+args["training_procedure"] = rl1_procedure       # Training procedure to use (rl1_procedure, vanilla_procedure, drr_procedure, or pmmp_procedure)
 args["transformer_config"] = "transformer200k" # Transformer config
 ### Model Configuration - END
 
@@ -61,7 +61,7 @@ args["transformer_config"] = "transformer200k" # Transformer config
 args["learning_rate"] = 3e-4                  # Initial learning rate for optimizer
 args["AdamW_betas"] = (0.9, 0.95)             # The beta parameters for the AdamW optimizer (typical choices include (0.9, 0.95) or (0.9, 0.999))
 args["warmup_steps"] = 2000                   # Warmup increases the learning rate linearly to `learning_rate` in `warmup_steps` steps
-args["weight_decay"] = 0.01                   # Weight decay applies L2 regularization to all parameters except biases, LayerNorm-weights and `u` and `p` parameters of PMMP
+args["weight_decay"] = 0.0                   # Weight decay applies L2 regularization to all parameters except biases, LayerNorm-weights and `u` and `p` parameters of PMMP
 ### Optimizer Parameters - END
 
 ### Training Process Parameters - BEGIN
@@ -102,7 +102,7 @@ args["max_runtime"] = 86000                     # Maximum runtime in seconds bef
 ### Metrics Calculation Parameters - BEGIN
 # (evaluated after training)
 other_settings = {
-    "calculate_test_loss": True,             # Whether to calculate mean loss on test set
+    "calculate_test_loss": False,             # Whether to calculate mean loss on test set
     "calculate_train_loss": True,             # Whether to calculate mean loss on training set
     "calculate_model_byte_size": True,        # Whether to calculate model size in bytes
     "calculate_non_zero_params": True,        # Whether to count non-zero parameters
@@ -142,6 +142,8 @@ def parse_value(s):
 
 def main(args, other_settings, path_to_database, experiment_name):
 
+    os.environ.setdefault('RANK', '0') # Set default value in case RANK was not provided
+    rank = int(os.environ['RANK'])
     # Detect if file is called as a batch job with config arguments and if it is, then parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None)
@@ -149,7 +151,14 @@ def main(args, other_settings, path_to_database, experiment_name):
     parser_args = parser.parse_args()
 
     if parser_args.config: # only change args according to config.csv file if a config argument was passed during execution of train.py
-        csv_path = os.path.join(os.path.dirname(__file__), "experiment_scripts", parser_args.config + ".csv") # assuming the csv file is in a folder "experiment_scripts" relative to train.py
+        file_dirpath = os.path.dirname(os.path.abspath(__file__))
+        file_dirname = os.path.basename(file_dirpath)
+        if file_dirname == "experiment_scripts":
+            csv_path = os.path.join(file_dirpath, parser_args.config + ".csv") # if csv_file and train.py are both is inside a folder "experiment_scripts"
+        else:
+            csv_path = os.path.join(file_dirpath, "experiment_scripts", parser_args.config + ".csv") # if csv file is in a folder "experiment_scripts" while train.py is in parent folder
+        if rank == 0:
+            print("\nAttempt to read config at " + csv_path + "\n")
         if os.path.exists(csv_path): # only change args according to config.csv if such a file exists           
             experiment_name = os.path.basename(csv_path) # if it exists, use the config.csv file name as experiment_name
             experiment_name = experiment_name[:-4] # strip away ".csv"
@@ -159,21 +168,25 @@ def main(args, other_settings, path_to_database, experiment_name):
             with open(csv_path) as f:
                 cfg = list(csv.DictReader(f))
             for key in cfg[parser_args.index]:
-                if key not in args:
-                    raise KeyError(f"Key '{key}' specified in config file has not been found in args")
-                value_string = cfg[parser_args.index][key].strip() # strip white space
+                stripped_key = key.strip() #  strip whitespace
+                if stripped_key not in args:
+                    raise KeyError(f"Key '{stripped_key}' specified in config file has not been found in args")
+                value_string = cfg[parser_args.index][key].strip() # strip whitespace
                 if value_string == "":
-                    print("\nWarning: value_string is empty for the key " + key + ". This might mean that you forgot to insert a value in your config csv file.\n")
-                args[key] = parse_value(value_string)
+                    print("\nWarning: value_string is empty for the key '" + stripped_key + "'. This might mean that you forgot to insert a value in your config csv file.\n")
+                args[stripped_key] = parse_value(value_string)
                 if value_string[-10:] == "_procedure":
                     value_string = value_string[:-10] # strip away "_procedure" for run_id name
                 if args["run_id"] == "":
-                    args["run_id"] =  short_names[key] + "_" + value_string.replace(".", "o") # assign run_id programmatically to distinguish runs by their hyperparameter choices. replace . by o to prevent file system interpreting the folder name as a file.
+                    args["run_id"] =  short_names[stripped_key] + "_" + value_string.replace(".", "o") # assign run_id programmatically to distinguish runs by their hyperparameter choices. replace . by o to prevent file system interpreting the folder name as a file.
                 else:
-                    args["run_id"] = args["run_id"] + "__" + short_names[key] + "_" + value_string.replace(".", "o")
+                    args["run_id"] = args["run_id"] + "__" + short_names[stripped_key] + "_" + value_string.replace(".", "o")
+            if rank == 0:
+                print("Config successfully parsed.\n")
         else:
-            print("\nWarning: Config arguments were passed during execution of train.py but no config file was found at " + csv_path)
-            print("Using default configuration instead.\n")
+            if rank == 0:
+                print("\nWarning: Config arguments were passed during execution of train.py but no config file was found at " + csv_path)
+                print("Using default configuration instead.\n")
 
     trainfs = TrainFunctions(args, other_settings, path_to_database, experiment_name)
     trainfs.train_and_save_results()
