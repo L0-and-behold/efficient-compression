@@ -181,6 +181,9 @@ function lux_training!(
                 tstate = Optimisers.adjust!(tstate, new_lr)
             end
             last_lr = new_lr
+            if args.scale_alpha_with_lr && hasproperty(loss_fun, :alpha)
+                loss_fun.alpha = args.α * (new_lr / args.lr)
+            end
         end
 
         # Batch loop
@@ -279,7 +282,7 @@ function lux_training!(
             cr_tstate, _ = prune_and_shrink!(cr_tstate, loss_fun, cr_data,
                 args.tolerated_relative_loss_increase, args.binary_search_resolution;
                 dtype=args.dtype, dev=args.dev, delete_neurons=false, random_gradient_pruning=false,
-                final_epoch=true)
+                final_epoch=true, val_acc_tolerance=args.tamade_val_acc_tolerance)
             l0_norm  = Int(round(recursive_sum(cr_tstate.states.mask, args.dtype(0))))
             l0_total = Lux.parameterlength(cr_tstate.model)
             cr_pct   = round((1 - l0_norm / max(l0_total, 1)) * 100; digits=1)
@@ -333,7 +336,7 @@ function lux_training!(
                     else
                         final_epoch=false
                     end
-                    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=final_epoch)
+                    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=final_epoch, val_acc_tolerance=args.tamade_val_acc_tolerance)
                 end
 
                 convergence_condition = is_saturated(args.logs[conv_arg], args.smoothing_window)

@@ -85,6 +85,8 @@ module TrainingArguments
         tamade_calibration_batches::Union{Nothing, Int} = nothing
         cr_report_window::Union{Nothing, Int} = nothing
         label_smoothing::Bool = false
+        scale_alpha_with_lr::Bool = false
+        tamade_val_acc_tolerance::Union{Nothing, Float32} = nothing
     end
 
 end # module TrainingArguments

@@ -126,6 +126,61 @@ function find_right_pruning_threshold(tstate, loss_fun, data, tolerance, binary_
     return tstate, optimal_thr, steps, initial_thr
 end
 
+function find_right_pruning_threshold_val_acc(tstate, data, acc_tolerance, binary_search_resolution=1e-7; dtype=Float32, prune_input=false)
+    # Binary search for highest threshold where val accuracy drop <= acc_tolerance (absolute).
+    # Analogous to find_right_pruning_threshold but uses accuracy instead of loss.
+    if haskey(tstate.parameters, :p)
+        ps2 = (p=deepcopy(tstate.parameters.p),)
+    else
+        ps2 = (p=deepcopy(tstate.parameters),)
+    end
+
+    acc_without_pruning = accuracy(tstate, data)
+
+    initial_thr = zero(dtype)
+    function recursive_get_max_acc!(p)
+        for sp in p
+            if isa(sp, NamedTuple) && !isempty(sp)
+                recursive_get_max_acc!(sp)
+            elseif isa(sp, AbstractArray)
+                initial_thr = max(initial_thr, maximum(abs.(sp)))
+            end
+        end
+    end
+    if haskey(tstate.parameters, :p)
+        recursive_get_max_acc!(tstate.parameters.p)
+    else
+        recursive_get_max_acc!(tstate.parameters)
+    end
+
+    st = testmode_states(tstate)
+    function get_acc_drop(thr)
+        if haskey(tstate.parameters, :p)
+            recursive_copy!(ps2.p, tstate.parameters.p)
+            recursive_prune!(ps2.p, thr)
+            acc = accuracy(tstate.model, ps2, st, data)
+        else
+            recursive_copy!(ps2.p, tstate.parameters)
+            recursive_prune!(ps2.p, thr)
+            acc = accuracy(tstate.model, ps2.p, st, data)
+        end
+        return acc_without_pruning - acc
+    end
+
+    # tol=0.0: condition is exactly drop <= acc_tolerance (no relative slack)
+    optimal_thr, steps = TAMADE(get_acc_drop, acc_tolerance, zero(dtype), 2*initial_thr, 0.0, binary_search_resolution)
+
+    if prune_input
+        if haskey(tstate.parameters, :p)
+            recursive_prune!(tstate.parameters.p, optimal_thr)
+        else
+            recursive_prune!(tstate.parameters, optimal_thr)
+        end
+    end
+    return tstate, optimal_thr, steps, initial_thr
+end
+
+
 """
     prune_and_shrink!(tstate, loss_fun, data, tolerance, binary_search_resolution=1e-7 ; dtype=Float32, dev=cpu_device(), delete_neurons=true, random_gradient_pruning=true, final_epoch=false)
 
@@ -146,16 +201,17 @@ end
         - `final_epoch`: A Boolean that indicates whether training reached its final epoch or not. This is important for the PMMP procedure where pruning should only be performed in the last epoch to prevent interference with the PMMP mask.
 """
 function prune_and_shrink!(
-    tstate::Lux.Training.TrainState, 
-    loss_fun, 
-    data, 
-    tolerance, 
-    binary_search_resolution::Number=1e-7 ; 
-    dtype=Float32, 
-    dev=cpu_device(), 
-    delete_neurons::Bool=true, 
-    random_gradient_pruning::Bool=true, 
-    final_epoch::Bool=false
+    tstate::Lux.Training.TrainState,
+    loss_fun,
+    data,
+    tolerance,
+    binary_search_resolution::Number=1e-7 ;
+    dtype=Float32,
+    dev=cpu_device(),
+    delete_neurons::Bool=true,
+    random_gradient_pruning::Bool=true,
+    final_epoch::Bool=false,
+    val_acc_tolerance=nothing
     )
     
     if haskey(tstate.states, :mask)
@@ -177,7 +233,11 @@ function prune_and_shrink!(
         end
     else
         println("\nPruning...")
-        tstate, optimal_thr, steps, initial_thr = find_right_pruning_threshold(tstate, loss_fun, data, tolerance, binary_search_resolution; dtype=dtype, prune_input=true)
+        if !isnothing(val_acc_tolerance)
+            tstate, optimal_thr, steps, initial_thr = find_right_pruning_threshold_val_acc(tstate, data, val_acc_tolerance, binary_search_resolution; dtype=dtype, prune_input=true)
+        else
+            tstate, optimal_thr, steps, initial_thr = find_right_pruning_threshold(tstate, loss_fun, data, tolerance, binary_search_resolution; dtype=dtype, prune_input=true)
+        end
     end
 
     if random_gradient_pruning

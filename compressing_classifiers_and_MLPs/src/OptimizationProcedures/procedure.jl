@@ -79,7 +79,7 @@ function procedure(
     end
 
     tamade_data = isnothing(args.tamade_calibration_batches) ? validation_set : Iterators.take(validation_set, args.tamade_calibration_batches)
-    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, tamade_data, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=true)
+    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, tamade_data, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=true, val_acc_tolerance=args.tamade_val_acc_tolerance)
 
     # Report sparsity and accuracy after pruning
     if args.verbose

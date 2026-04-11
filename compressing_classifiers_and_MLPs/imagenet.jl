@@ -28,21 +28,20 @@ args = TrainArgs{Float32}()
 # Load configuration
 path_to_db, imagenet_path, _ = load_imagenet_config()
 
-experiment_name = "RL1-sanity-check-alpha-sweep-v2"
+experiment_name = "RL1-alpha-lr-scaling-v2"
 
 single_run_routine = single_run_routine_classifier
 
-# RL1 α sweep: vanilla (α=0) + 1e-9 to 1e-4. 90+10 ep, TAMADE 3%, read logs early.
+# RL1 α sweep with LR scaling: vanilla + 1e-8 to 1e-5. Wider range needed since sweet-spot
+# for lr-scaled alpha is unknown (effective alpha is lower than nominal most of training).
 variables = [:α]
 
 batch = [
     (0f0,),
-    (1f-9,),
     (1f-8,),
     (1f-7,),
     (1f-6,),
     (1f-5,),
-    (1f-4,),
 ]
 
 # Fixed arguments for all runs
@@ -84,6 +83,7 @@ args.optimization_procedure = RL1_procedure
 args.β = 0f0
 args.initial_p_value = 0f0
 args.initial_u_value = 0f0
+args.scale_alpha_with_lr = true
 
 args.tamade_calibration_batches = 200
 args.save_pre_pruning_model = true
