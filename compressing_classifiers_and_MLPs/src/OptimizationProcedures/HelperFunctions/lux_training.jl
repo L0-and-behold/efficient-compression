@@ -232,7 +232,7 @@ function lux_training!(
             epoch_val_loss /= length(validation_set)
             push!(args.logs["val_loss"], epoch_val_loss)
             if args.verbose 
-                @printf "\rEpoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
+                @printf "Epoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
             end
             # println("▶ Validation loss evaluated in $(time()-t)s")
 
@@ -248,7 +248,7 @@ function lux_training!(
             end            
         end
         if args.verbose && !args.log_val_loss
-            @printf "\rEpoch: %5d \t Train_loss: %.4g \t" epoch epoch_loss
+            @printf "Epoch: %5d \t Train_loss: %.4g \t" epoch epoch_loss
         end
         if haskey(tstate.parameters, :sigma)
             push!(args.logs["sigmas"], sum(tstate.parameters.sigma))

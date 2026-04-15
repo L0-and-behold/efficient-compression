@@ -153,17 +153,14 @@ function find_right_pruning_threshold_val_acc(tstate, data, acc_tolerance, binar
         recursive_get_max_acc!(tstate.parameters)
     end
 
-    st = testmode_states(tstate)
     function get_acc_drop(thr)
         if haskey(tstate.parameters, :p)
             recursive_copy!(ps2.p, tstate.parameters.p)
-            recursive_prune!(ps2.p, thr)
-            acc = accuracy(tstate.model, ps2, st, data)
         else
             recursive_copy!(ps2.p, tstate.parameters)
-            recursive_prune!(ps2.p, thr)
-            acc = accuracy(tstate.model, ps2.p, st, data)
         end
+        recursive_prune!(ps2.p, thr)
+        acc = accuracy(tstate.model, ps2.p, testmode_states(tstate), data)
         return acc_without_pruning - acc
     end
 
@@ -232,7 +229,7 @@ function prune_and_shrink!(
             recursively_set_to_zero!(tstate.states.mask, tstate.parameters.pp)
         end
     else
-        println("\nPruning...")
+        println("Pruning...")
         if !isnothing(val_acc_tolerance)
             tstate, optimal_thr, steps, initial_thr = find_right_pruning_threshold_val_acc(tstate, data, val_acc_tolerance, binary_search_resolution; dtype=dtype, prune_input=true)
         else

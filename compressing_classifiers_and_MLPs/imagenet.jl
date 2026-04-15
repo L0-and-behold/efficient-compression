@@ -28,16 +28,20 @@ args = TrainArgs{Float32}()
 # Load configuration
 path_to_db, imagenet_path, _ = load_imagenet_config()
 
-experiment_name = "RL1-val-acc-tamade-test"
+experiment_name = "RL1-alpha-lr-scaling-v2"
 
 single_run_routine = single_run_routine_classifier
 
-# Test run for val-acc TAMADE: prune to at most 2% absolute accuracy drop.
-# Compare CR/accuracy against v2 α=1e-6 run (loss-based, 3% loss tolerance).
+# RL1 α sweep with LR scaling: vanilla + 1e-8 to 1e-5. Wider range needed since sweet-spot
+# for lr-scaled alpha is unknown (effective alpha is lower than nominal most of training).
 variables = [:α]
 
 batch = [
+    (0f0,),
+    (1f-8,),
+    (1f-7,),
     (1f-6,),
+    (1f-5,),
 ]
 
 # Fixed arguments for all runs
@@ -79,7 +83,7 @@ args.optimization_procedure = RL1_procedure
 args.β = 0f0
 args.initial_p_value = 0f0
 args.initial_u_value = 0f0
-args.scale_alpha_with_lr = false
+args.scale_alpha_with_lr = true
 
 args.tamade_calibration_batches = 200
 args.save_pre_pruning_model = true
@@ -90,7 +94,6 @@ args.checkpoint_frequency = 5
 args.cr_report_window = 10
 
 args.label_smoothing = true
-args.tamade_val_acc_tolerance = 0.02f0  # max 2% absolute accuracy drop
 
 args.optimizer = lr -> Optimisers.OptimiserChain(Optimisers.Momentum(lr, 0.9f0))
 # Cosine LR with 5-epoch linear warmup. eta_min = 1% of peak = matches step-LR endpoint.
