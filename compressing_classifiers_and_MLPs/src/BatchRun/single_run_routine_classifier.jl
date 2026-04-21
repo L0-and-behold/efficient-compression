@@ -22,8 +22,11 @@ function single_run_routine_classifier(
 
     if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
         loaded_args = checkpoint.content.args
-        loaded_args.dataset   = args.dataset    # restore: stripped from checkpoint (JLD2 cannot serialize closures)
-        loaded_args.optimizer = args.optimizer  # restore: same reason
+        loaded_args.dataset                = args.dataset    # restore: stripped from checkpoint (JLD2 cannot serialize closures)
+        loaded_args.optimizer              = args.optimizer  # restore: same reason
+        loaded_args.schedule               = args.schedule   # restore: same reason
+        loaded_args.finetuning_min_epochs  = args.finetuning_min_epochs   # allow override at resume time
+        loaded_args.finetuning_max_epochs  = args.finetuning_max_epochs   # allow override at resume time
         args = loaded_args
     end
 

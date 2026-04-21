@@ -20,7 +20,13 @@ using CompressingClassifiersMLPs.BatchRun
 flush(stdout); flush(stderr)
 
 #####
-# Alpha sweep — RL1 and DRR combined (maybe later PMMP as well)
+# PMMP alpha × u sweep
+#
+# Motivation: alpha-sweep-v1 PMMP subs (1e-10 to 1e-7, u=1) show flat CR ~38-40% across
+# all epochs — essentially vanilla. Hypothesis: alpha too small to push pp away from its
+# pp=1 initial attractor; u controls how strongly p tracks pp once pp moves.
+# Testing α ∈ {1e-6, 1e-5, 5e-5} × u ∈ {2, 5}.
+# Note: alpha-sweep-v1 sub16 (PMMP 1e-5, u=1) collapsed ~ep20. Retest 1e-5 with u=2/5.
 #
 # Vanilla val acc per epoch (job 191578_3, cosine LR, rho=8e-6, label smoothing):
 # ep:  1     2     3     4     5     6     7     8     9    10
@@ -42,24 +48,17 @@ flush(stdout); flush(stderr)
 # ep: 81    82    83    84    85    86    87    88    89    90
 #     70.35 70.63 71.77 72.16 72.01  —     —     —     —   72.16(~72.0)
 #
-# Results summary — vanilla ep36=62.4%, ep50=63.2%, ep54=66.7%, ep58=67.5%, ep60=66.8%, ep70=67.2%, ep71=70.5%, ep80=69.7%, ep81=71.1%, ep88=71.8%
-#   [sub  1] RL1   2e-7:  STOPPED  ep62 val=65.9% (Δ-1.3pp)  CR@ep60=45.0%  — low CR    210054_1 OOM → 216135 OOM → 228421 FAIL → 244942 OOM → 260546
-#   [sub  2] RL1   4e-7:  RUNNING  ep90 val=72.6% (Δ+0.6pp)  CR@ep90=57.9%  — in FT     210054_2 OOM → 260021 FAIL → 260652(1FT) → 273245 FAIL → 276293
-#   [sub  3] RL1   8e-7:  RUNNING  ep85 val=68.1% (Δ+2.5pp)  CR@ep65=65.0%              210054_3 OOM → 216136 OOM → 228422 FAIL → 244943 OOM → 260023 OOM → 277431
-#   [sub  4] RL1   1e-6:  RUNNING  ep90 val=71.3% (Δ-0.7pp)  CR@ep90=70.6%  — in FT     210054_4 OOM → 260022 OOM → 260547 FAIL → 260653(1FT) → 273246 FAIL → 276294
-#   [sub  5] RL1   4e-6:  STOPPED  -12pp val acc gap @ ep14                              210054_5
-#   [sub  6] DRR   1e-8:  STOPPED  ep79 val=68.7% (Δ-2.3pp)  CR@ep75=41.7%  — low CR    216130_6
-#   [sub  7] DRR   1e-7:  RUNNING  ep90 val=70.6% (Δ-1.4pp)  CR@ep90=61.1%  — in FT     210054_7 OOM → 216137 OOM(FT) → 260548 FAIL → 260654(1FT) → 273247 FAIL → 276295
-#   [sub  8] DRR   2e-7:  RUNNING  ep65 val=66.9% (Δ+0.9pp)  CR@ep65=70.2%              210054_8 OOM → 216130_8 OOM → 228423 OOM → 260236 OOM → 260656
-#   [sub  9] DRR   4e-7:  RUNNING  ep90 val=73.2% (Δ+1.2pp)  CR@ep90=85.7%  — in FT     210054_9 OOM(FT) → 260235 FAIL → 260245(1FT) → 260549 FAIL → 260655(1FT) → 273248 FAIL → 276296
-#   [sub 10] PMMP  1e-10: STOPPED  ep30 val=63.3% (Δ-0.6pp)  CR@ep30=40.9%  — low CR    216130_10
-#   [sub 11] PMMP  1e-9:  STOPPED  ep30 val=65.3% (Δ+1.3pp)  CR@ep30=40.4%  — low CR    216130_11
-#   [sub 12] PMMP  1e-8:  DEAD — loss collapsed ep19→ep20 (2.578→6.907), val 0.1% onward 216130_12 OOM → 228424
-#   [sub 13] PMMP  1e-7:  STOPPED  ep71 val=69.3% (Δ+2.5pp)  CR@ep70=36.6%  — low CR    216130_13
-#   [sub 14] RL1   9e-7:  FINISHED  ep90+10: val=72.1% (Δ-0.06pp)  CR=68.0% ie. 3.12x     216130_14
-#   [sub 15] PMMP  1e-6:  STOPPED  ep27 val=61.0% (Δ+2.8pp)  CR@ep25=38.3%  — low CR    244945 OOM → 260550
-#   [sub 16] PMMP  1e-5:  DEAD — loss collapsed ~ep20, val 0.1%                          244946
-#   [sub 17] PMMP  2e-8:  STOPPED  ep17 val=58.7% (Δ+0.3pp)  CR@ep15=39.2%  — low CR    260240                           
+# Results summary — vanilla ep20=60.1%, ep30=63.9%, ep40=64.2%, ep50=63.2%, ep70=66.8%, ep90=72.0%
+#   [sub 1] PMMP  1e-6  u=2:  RUNNING   ep28 val=63.7% (Δ+3.0pp)  CR@ep25=37.3%  ckpt ep25  260555_1 OOM → 277388
+#   [sub 2] PMMP  1e-5  u=2:  DEAD — collapsed ep20→21 (loss 2.6→6.9), val 0.1%  ckpt ep25 useless  260555_2
+#   [sub 3] PMMP  5e-5  u=2:  RUNNING   ep13 val=48.3% (Δ-9.4pp)  CR@ep10=69.9%  ckpt ep10  260555_3 OOM → 277389
+#   [sub 4] PMMP  1e-6  u=5:  RUNNING   ep28 val=64.5% (Δ+3.8pp)  CR@ep25=41.2%  ckpt ep25  260555_4 OOM → 277390
+#   [sub 5] PMMP  1e-5  u=5:  RUNNING   ep30 val=60.7% (Δ-3.2pp)  CR@ep30=74.2%              260555_5
+#   [sub 6] PMMP  5e-5  u=5:  DEAD — collapsed ep21→22 (loss 3.4→6.9), val 0.1%  ckpt ep25 useless  260555_6
+#   [sub 7] PMMP  2.5e-6 u=2:  RUNNING   277380_7
+#   [sub 8] PMMP  2.5e-6 u=5:  RUNNING   277380_8
+#   [sub 9] PMMP  5e-6   u=2:  RUNNING   277380_9
+#   [sub 10] PMMP 5e-6   u=5:  RUNNING   277380_10
 #####
 
 args = TrainArgs{Float32}()
@@ -67,34 +66,27 @@ args = TrainArgs{Float32}()
 # Load configuration
 path_to_db, imagenet_path, _ = load_imagenet_config()
 
-experiment_name = "alpha-sweep-v1"
+experiment_name = "alpha-pmmp-v1"
 
 single_run_routine = single_run_routine_classifier
 
-variables = [:optimization_procedure, :α]
+variables = [:α, :initial_u_value]
 
 batch = [
-    (RL1_procedure, 2f-7),   # sub 1
-    (RL1_procedure, 4f-7),   # sub 2
-    (RL1_procedure, 8f-7),   # sub 3
-    (RL1_procedure, 1f-6),   # sub 4
-    (RL1_procedure, 4f-6),   # sub 5
-    (DRR_procedure, 1f-8),   # sub 6
-    (DRR_procedure, 1f-7),   # sub 7
-    (DRR_procedure, 2f-7),   # sub 8
-    (DRR_procedure, 4f-7),   # sub 9
-    (PMMP_procedure, 1f-10), # sub 10
-    (PMMP_procedure, 1f-9),  # sub 11
-    (PMMP_procedure, 1f-8),  # sub 12
-    (PMMP_procedure, 1f-7),  # sub 13
-    (RL1_procedure,  9f-7),  # sub 14
-    (PMMP_procedure, 1f-6),  # sub 15
-    (PMMP_procedure, 1f-5),  # sub 16
-    (PMMP_procedure, 2f-8),  # sub 17
+    (1f-6, 2f0),   # sub 1
+    (1f-5, 2f0),   # sub 2
+    (5f-5, 2f0),   # sub 3
+    (1f-6, 5f0),   # sub 4
+    (1f-5, 5f0),   # sub 5
+    (5f-5, 5f0),   # sub 6
+    (2.5f-6, 2f0), # sub 7
+    (2.5f-6, 5f0), # sub 8
+    (5f-6, 2f0),   # sub 9
+    (5f-6, 5f0),   # sub 10
 ]
 
 # Fixed arguments for all runs
-
+args.optimization_procedure = PMMP_procedure
 args.seed = 1
 args.architecture = resnet50
 args.dataset = imagenet_data_function()
@@ -127,11 +119,8 @@ args.finetuning_max_epochs = 10
 args.tamade_calibration_batches = 200
 args.tamade_val_acc_tolerance = 0.013f0 #prune to at most 1.3pp absolute val acc drop
 
-# DRR-specific
-args.β = 5f0
 # PMMP-specific
 args.initial_p_value = 1f0
-args.initial_u_value = 1f0
 
 args.save_pre_pruning_model = true
 args.skip_precompilation = true

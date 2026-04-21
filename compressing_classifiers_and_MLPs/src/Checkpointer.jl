@@ -106,7 +106,7 @@ function mark_checkpoint_finished!(checkpoint::CheckpointManager)
     src = joinpath(checkpoint.metadata.path, "$id.jld2")
     dst = joinpath(checkpoint.metadata.path, "FINISHED_$id.jld2")
     if isfile(src)
-        mv(src, dst)
+        mv(src, dst; force=true)
         println("  Checkpoint $id → FINISHED")
     end
 end
