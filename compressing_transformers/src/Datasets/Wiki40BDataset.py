@@ -152,6 +152,14 @@ class WikipediaDatasets:
             
         if rank == 0:
             print(f"Loading dataset from {load_path}")
+        # The .pt file may have been saved with classes as __main__.X (when Wiki40BDataset.py
+        # was run as a script). Inject them into __main__ so pickle can find them.
+        import sys
+        main = sys.modules['__main__']
+        if not hasattr(main, 'ByteWikipediaDataset'):
+            main.ByteWikipediaDataset = ByteWikipediaDataset
+        if not hasattr(main, 'WikipediaDatasets'):
+            main.WikipediaDatasets = WikipediaDatasets
         datasets = torch.load(load_path, weights_only=False)
         
         if datasets.sequence_length != required_seq_length:
