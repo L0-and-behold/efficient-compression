@@ -8,7 +8,7 @@ Usage:
     python conventional_compressors.py --dataset /path/to/dir --sizes 299991040 1232000000
     python conventional_compressors.py --workers 8
 
-Results are written to conventional_compressors_benchmark.out in the current directory.
+Results are written to output/conventional_compressors_benchmark.out.
 """
 import argparse
 import lzma
@@ -121,8 +121,8 @@ def main():
                         help="Dataset subset sizes in bytes")
     parser.add_argument("--workers", type=int, default=os.cpu_count(),
                         help=f"Parallel workers (default: {os.cpu_count()} = all CPUs)")
-    parser.add_argument("--output", default="conventional_compressors_benchmark.out",
-                        help="Output file path (default: conventional_compressors_benchmark.out)")
+    parser.add_argument("--output", default="output/conventional_compressors_benchmark.out",
+                        help="Output file path (default: output/conventional_compressors_benchmark.out)")
     args = parser.parse_args()
 
     if os.path.isdir(args.dataset):
@@ -135,6 +135,7 @@ def main():
 
     datasets = WikipediaDatasets.load_dataset(dataset_path, args.seq_len)
 
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, "w") as out:
         print(f"seq_len={args.seq_len}  zstd_level={ZSTD_LEVEL}  workers={args.workers}  sizes={args.sizes}", file=out)
         run_benchmarks(datasets, args.sizes, args.seq_len, args.workers, out)

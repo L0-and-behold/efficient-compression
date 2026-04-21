@@ -87,7 +87,7 @@ python conventional_compressors.py --dataset /path/to/processed_wiki_dataset_102
 python conventional_compressors.py --dataset /path/to/dir --seq-len 1024
 ```
 
-Both compressors are evaluated on the three standard dataset sizes (0.300 GB, 1.232 GB, 6.160 GB) using a chunk size equal to the sequence length, matching the online coding setting used for transformer evaluation. Results are written to `conventional_compressors_benchmark.out`.
+Both compressors are evaluated on the three standard dataset sizes (0.300 GB, 1.232 GB, 6.160 GB) using a chunk size equal to the sequence length, matching the online coding setting used for transformer evaluation. Results are written to `output/conventional_compressors_benchmark.out`.
 
 Additional options:
 ```shell
@@ -115,9 +115,10 @@ Output is printed to stdout and saved to `output/<stem>_<timestamp>.out`.
 
 ```shell
 python plots.py -i input/runs.csv
+python plots.py -i input/runs.csv --linear-x   # linear x-axis for Plot 1
 ```
 
-**Plot 1 — Loss vs. Model Size**: scatter plot of mean test loss vs. model byte size (log-x), with equipotential iso-lines of constant description length (DL):
+**Plot 1 — Loss vs. Model Size**: scatter plot of mean test loss vs. model byte size (log-x by default, or linear with `--linear-x`), with equipotential iso-lines of constant description length (DL):
 
 $$\text{DL} = \text{model\_bytes} + \frac{\text{loss} \times \text{dataset\_size}}{\ln 2 \times 8}$$
 

@@ -46,7 +46,10 @@ class Logger:
 def main():
     parser = argparse.ArgumentParser(description='Generate transformer experiment plots')
     parser.add_argument('-i', '--input', required=True, help='Path to runs.csv')
+    parser.add_argument('--linear-x', action='store_true',
+                        help='Use linear x-axis for loss-vs-size plot (default: log)')
     args = parser.parse_args()
+    log_x = not args.linear_x
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     stem = os.path.splitext(os.path.basename(args.input))[0]
@@ -74,15 +77,16 @@ def main():
     vanilla, procedures = split_data(df, logger)
     assert len(procedures) > 0, "No regularized procedure data found"
 
-    logger.log(f"\n--- Loss vs. Model Size ---")
-    fig1 = plot_loss_vs_size(vanilla, procedures, dataset_size, logger)
+    logger.log(f"\n--- Loss vs. Model Size ({'linear' if not log_x else 'log'} x) ---")
+    fig1 = plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=log_x)
 
     logger.log(f"\n--- Description Length vs. α ---")
     fig2 = plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger)
 
     # Save
     os.makedirs('output', exist_ok=True)
-    fig1.savefig(f'output/loss_vs_size_{stem}.pdf', bbox_inches='tight', dpi=300)
+    x_suffix = 'linear' if not log_x else 'log'
+    fig1.savefig(f'output/loss_vs_size_{stem}_{x_suffix}.pdf', bbox_inches='tight', dpi=300)
     fig2.savefig(f'output/dl_vs_alpha_{stem}.pdf', bbox_inches='tight', dpi=300)
     logger.log(f"\nPlots saved to output/")
 

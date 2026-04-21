@@ -4,12 +4,13 @@ Equipotential curves show lines of constant description length (DL).
 From DL = model_bytes + loss × dataset_size / ln(2) / 8, solving for loss:
     loss = 8·ln(2) / dataset_size × (DL − model_bytes)
 These are straight lines on the (model_bytes, loss) plane, appearing as
-lines with negative slope on the log-x plot.
+straight lines on a linear-x plot and curves on a log-x plot.
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib.ticker import FuncFormatter
 
 from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_config, human_bytes, PROCEDURE_ORDER
 from src.mdl_analysis.data_loading import compute_description_length
@@ -26,21 +27,26 @@ def equipotential_y(dataset_size, description_length):
     return mean_test_loss
 
 
-def plot_loss_vs_size(vanilla, procedures, dataset_size, logger):
-    """Scatter plot of mean test loss vs. model byte size (log-x).
+def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=True):
+    """Scatter plot of mean test loss vs. model byte size.
 
     Args:
-        vanilla:     DataFrame of vanilla baseline runs (rl1, α=0).
-        procedures:  Dict[str, DataFrame] of regularized procedure runs.
+        vanilla:      DataFrame of vanilla baseline runs (rl1, α=0).
+        procedures:   Dict[str, DataFrame] of regularized procedure runs.
         dataset_size: Total dataset size in bytes (for DL computation).
-        logger:      Logger instance for reporting.
+        logger:       Logger instance for reporting.
+        log_x:        If True (default), use log scale on x-axis; otherwise linear.
     """
     assert len(vanilla) > 0, "Need at least one vanilla baseline"
     assert len(procedures) > 0, "Need at least one procedure group"
     assert dataset_size > 0, "Dataset size must be positive"
 
     fig, ax = plt.subplots(1, 1, figsize=(4, 3.5))
-    ax.set_xscale('log')
+    if log_x:
+        ax.set_xscale('log')
+    else:
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: human_bytes(x)))
+        plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
     ax.set_xlabel('Model Size')
     ax.set_ylabel('Mean Test Loss')
 
@@ -101,7 +107,10 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger):
 
     norm = LogNorm(vmin=dl_min * 0.9, vmax=dl_max * 1.1)
     cmap = plt.get_cmap('gnuplot')
-    x_vals = np.logspace(np.log10(x_lo) * 0.8, np.log10(x_hi) * 1.2, 200)
+    if log_x:
+        x_vals = np.logspace(np.log10(x_lo) * 0.8, np.log10(x_hi) * 1.2, 200)
+    else:
+        x_vals = np.linspace(0, x_hi * 1.2, 200)
 
     for j, dl in enumerate(description_lengths):
         y_vals = equipotential_y(dataset_size, dl)(x_vals)
@@ -136,9 +145,19 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger):
 
     # --- Axis limits ---
     pad = 0.06
-    log_xlo, log_xhi = np.log10(x_lo), np.log10(x_hi)
-    ax.set_xlim(10 ** (log_xlo - pad * (log_xhi - log_xlo)),
-                10 ** (log_xhi + pad * (log_xhi - log_xlo)))
+    if log_x:
+        log_xlo, log_xhi = np.log10(x_lo), np.log10(x_hi)
+        ax.set_xlim(10 ** (log_xlo - pad * (log_xhi - log_xlo)),
+                    10 ** (log_xhi + pad * (log_xhi - log_xlo)))
+    else:
+        x_range = x_hi - x_lo
+        ax.set_xlim(0, x_hi + pad * x_range)
+        # Force a tick at the maximum model size so the full range is visible
+        fig.canvas.draw()
+        xlo_lim, xhi_lim = ax.get_xlim()
+        existing = [t for t in ax.get_xticks() if xlo_lim <= t <= xhi_lim]
+        if not any(abs(t - x_hi) < x_range * 0.02 for t in existing):
+            ax.set_xticks(sorted(existing + [x_hi]))
     y_pad = 0.05 * (y_hi - y_lo)
     ax.set_ylim(y_lo - y_pad, y_hi + y_pad)
 
