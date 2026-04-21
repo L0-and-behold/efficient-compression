@@ -6,6 +6,10 @@ Codebase for the experiments from our paper regarding language models and Wikipe
   - [Environment Setup](#environment-setup)
   - [Download the Dataset](#download-the-dataset)
   - [Run the Experiment](#run-the-experiment)
+  - [Conventional Compressor Benchmarks](#conventional-compressor-benchmarks)
+  - [Analysis Scripts](#analysis-scripts)
+    - [IUC — Information Under Curve](#iuc--information-under-curve)
+    - [plots.py — Training Plots](#plotspy--training-plots)
 - [Experiment Parameters and Setup](#experiment-parameters-and-setup)
   - [Regularization Parameters](#regularization-parameters)
   - [Model Configuration](#model-configuration)
@@ -90,6 +94,48 @@ Additional options:
 python conventional_compressors.py --sizes 299991040 1232000000 6159990784
 python conventional_compressors.py --workers 8
 ```
+
+## Analysis Scripts
+
+### IUC — Information Under Curve
+
+`IUC.py` computes the coding length of a training run by integrating the per-iteration loss curve over the first epoch.
+
+The input is the `train_loss.csv` artifact produced during training (found under `artifacts/run-<id>/train_loss.csv`), renamed to reflect the dataset size in bytes (e.g. `299991040.csv`). It must have exactly two columns: iteration number (starting at 1) and training loss in nats.
+
+```shell
+python IUC.py -i input/299991040.csv
+```
+
+Output is printed to stdout and saved to `output/<stem>_<timestamp>.out`.
+
+### plots.py — Training Plots
+
+`plots.py` generates two PDF plots from a `runs.csv` of transformer experiment results.
+
+```shell
+python plots.py -i input/runs.csv
+```
+
+**Plot 1 — Loss vs. Model Size**: scatter plot of mean test loss vs. model byte size (log-x), with equipotential iso-lines of constant description length (DL):
+
+$$\text{DL} = \text{model\_bytes} + \frac{\text{loss} \times \text{dataset\_size}}{\ln 2 \times 8}$$
+
+**Plot 2 — Description Length vs. α**: DL vs. regularization parameter α (log-x), with reference lines for the vanilla baseline and raw dataset size.
+
+Required columns: `training_procedure`, `model_byte_size`, `mean_test_loss`, `alpha`, `train_only_on_leading_tokens`, `transformer_config`.
+
+Example files are provided in `src/mdl_analysis/example-input/`:
+
+- `test.csv` — example `runs.csv` with made-up data, for testing `plots.py`
+- `299991040.csv` — example `train_loss.csv` (renamed to dataset size), for testing `IUC.py`
+
+```shell
+python plots.py -i src/mdl_analysis/example-input/test.csv
+python IUC.py -i src/mdl_analysis/example-input/299991040.csv
+```
+
+Outputs are saved to `output/` (PDFs and `.out` report).
 
 ## Experiment Parameters and Setup
 
