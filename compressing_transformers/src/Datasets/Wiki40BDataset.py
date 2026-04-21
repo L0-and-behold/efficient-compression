@@ -152,7 +152,7 @@ class WikipediaDatasets:
             
         if rank == 0:
             print(f"Loading dataset from {load_path}")
-        datasets = torch.load(load_path)
+        datasets = torch.load(load_path, weights_only=False)
         
         if datasets.sequence_length != required_seq_length:
             if rank == 0:

@@ -69,11 +69,26 @@ You can modify `train.py` directly to set your parameters and then run.
 python train.py
 ```
 
-### LZMA Benchmarks
+### Conventional Compressor Benchmarks
 
-To evaluate the coding length of the datasets under the LZMA compressor run:
+To benchmark LZMA2 and Zstandard compression on the dataset run:
 ```shell
-python lzma_analysis.py
+python conventional_compressors.py
+```
+
+This looks for `processed_wiki_dataset_512.pt` in the current directory (matching the default sequence length of 512). For a different sequence length or file location:
+```shell
+python conventional_compressors.py --dataset /path/to/processed_wiki_dataset_1024.pt --seq-len 1024
+# or point to a directory and specify the sequence length:
+python conventional_compressors.py --dataset /path/to/dir --seq-len 1024
+```
+
+Both compressors are evaluated on the three standard dataset sizes (0.300 GB, 1.232 GB, 6.160 GB) using a chunk size equal to the sequence length, matching the online coding setting used for transformer evaluation. Results are written to `conventional_compressors_benchmark.out`.
+
+Additional options:
+```shell
+python conventional_compressors.py --sizes 299991040 1232000000 6159990784
+python conventional_compressors.py --workers 8
 ```
 
 ## Experiment Parameters and Setup
