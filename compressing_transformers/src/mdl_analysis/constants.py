@@ -41,7 +41,8 @@ PROCEDURE_PATTERNS = {
 # Columns required in the input CSV
 REQUIRED_COLUMNS = [
     'training_procedure', 'model_byte_size', 'mean_test_loss',
-    'alpha', 'train_only_on_leading_tokens', 'transformer_config'
+    'alpha', 'train_only_on_leading_tokens', 'transformer_config',
+    'non_zero_params',
 ]
 
 
@@ -64,16 +65,18 @@ def label_of_procedure(procedure):
         return procedure.upper()
 
 
-# Transformer config naming:
-#   't307_38p' → 307M params    (integer millions)
-#   't0p3_1p'  → 0.3M params   ('p' as decimal point)
+def label_of_vanilla(non_zero_params) -> str:
+    """Format vanilla baseline label from actual parameter count, rounded to millions."""
+    millions = round(float(non_zero_params) / 1e6)
+    return f"UT {millions}M"
+
+
+# Kept for backwards compatibility but no longer used for vanilla labels.
 def label_of_config(config: str) -> str:
     """Parse transformer config name to 'UT <size>M' label."""
-    # Try integer form first: t307_38p → 307M
     m = re.match(r't(\d+)_(\d+)p', config)
     if m:
         return f"UT {m.group(1)}M"
-    # Decimal form: t0p3_1p → 0.3M
     m = re.match(r't(\d+)p(\d+)_(\d+)p', config)
     if m:
         return f"UT {m.group(1)}.{m.group(2)}M"

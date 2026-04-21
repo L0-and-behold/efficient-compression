@@ -10,7 +10,7 @@ Only runs with α > 0 are plotted (log-x scale requires positive values).
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_config, human_bytes, PROCEDURE_ORDER
+from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_vanilla, human_bytes, PROCEDURE_ORDER
 from src.mdl_analysis.data_loading import compute_description_length
 
 
@@ -65,7 +65,7 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
     vanilla_sorted = vanilla.sort_values('model_byte_size')
     baseline_color_start = len(ordered_keys)
     for vi, (_, row) in enumerate(vanilla_sorted.iterrows()):
-        config_label = label_of_config(row['transformer_config'])
+        config_label = label_of_vanilla(row['non_zero_params'])
         baseline_color = clrs[(baseline_color_start + vi) % len(clrs)]
         dl = compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size'])
         ax.hlines(y=dl, xmin=alpha_bounds[0], xmax=alpha_bounds[1],

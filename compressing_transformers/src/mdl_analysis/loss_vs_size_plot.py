@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import FuncFormatter
 
-from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_config, human_bytes, PROCEDURE_ORDER
+from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_vanilla, human_bytes, PROCEDURE_ORDER
 from src.mdl_analysis.data_loading import compute_description_length
 
 
@@ -85,7 +85,7 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=True):
     # Baselines use colors after the procedure colors
     baseline_color_start = len(ordered_keys)
     for vi, (_, row) in enumerate(vanilla_sorted.iterrows()):
-        config_label = label_of_config(row['transformer_config'])
+        config_label = label_of_vanilla(row['non_zero_params'])
         x = row['model_byte_size']
         y = row['mean_test_loss']
         dl = compute_description_length(y, dataset_size, x)

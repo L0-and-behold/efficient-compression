@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from src.mdl_analysis.data_loading import load_and_validate, split_data, compute_description_length
 from src.mdl_analysis.loss_vs_size_plot import plot_loss_vs_size
 from src.mdl_analysis.dl_vs_alpha_plot import plot_dl_vs_alpha
-from src.mdl_analysis.constants import label_of_config, label_of_procedure, human_bytes
+from src.mdl_analysis.constants import label_of_vanilla, label_of_procedure, human_bytes
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ def main():
     logger.log(f"\nVanilla baselines:")
     for _, row in vanilla.iterrows():
         dl = compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size'])
-        logger.log(f"  {label_of_config(row['transformer_config'])}: DL = {human_bytes(dl)}  ({dl:.0f} bytes)")
+        logger.log(f"  {label_of_vanilla(row['non_zero_params'])}: DL = {human_bytes(dl)}  ({dl:.0f} bytes)")
 
     logger.log(f"\nProcedures (minimum DL per group):")
     for key, sub in procedures.items():
