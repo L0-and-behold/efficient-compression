@@ -91,17 +91,17 @@ def main():
     logger.log(f"\nPlots saved to output/")
 
     # --- Description Length Summary ---
-    logger.log(f"\n--- Description Length Summary ---")
+    logger.log(f"\n--- Description Length Summary (over train set)---")
 
     logger.log(f"\nVanilla baselines:")
     for _, row in vanilla.iterrows():
-        dl = compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size'])
+        dl = compute_description_length(row['mean_train_loss'], dataset_size, row['model_byte_size'])
         logger.log(f"  {label_of_vanilla(row['non_zero_params'])}: DL = {human_bytes(dl)}  ({dl:.0f} bytes)")
 
     logger.log(f"\nProcedures (minimum DL per group):")
     for key, sub in procedures.items():
         dls = sub.apply(
-            lambda r: compute_description_length(r['mean_test_loss'], dataset_size, r['model_byte_size']),
+            lambda r: compute_description_length(r['mean_train_loss'], dataset_size, r['model_byte_size']),
             axis=1,
         )
         idx_min = dls.idxmin()

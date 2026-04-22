@@ -40,7 +40,7 @@ PROCEDURE_PATTERNS = {
 
 # Columns required in the input CSV
 REQUIRED_COLUMNS = [
-    'training_procedure', 'model_byte_size', 'mean_test_loss',
+    'training_procedure', 'model_byte_size', 'mean_test_loss', 'mean_train_loss',
     'alpha', 'train_only_on_leading_tokens', 'transformer_config',
     'non_zero_params',
 ]

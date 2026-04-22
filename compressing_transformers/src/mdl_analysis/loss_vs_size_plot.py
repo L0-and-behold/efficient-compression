@@ -105,12 +105,13 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=True):
     description_lengths = np.geomspace(dl_min * 0.9, dl_max * 1.1, 8)
     description_lengths = description_lengths[description_lengths > 0]
 
+    pad = 0.06
     norm = LogNorm(vmin=dl_min * 0.9, vmax=dl_max * 1.1)
     cmap = plt.get_cmap('gnuplot')
     if log_x:
         x_vals = np.logspace(np.log10(x_lo) * 0.8, np.log10(x_hi) * 1.2, 200)
     else:
-        x_vals = np.linspace(0, x_hi * 1.2, 200)
+        x_vals = np.linspace(x_lo - pad * (x_hi - x_lo), x_hi * 1.2, 200)
 
     for j, dl in enumerate(description_lengths):
         y_vals = equipotential_y(dataset_size, dl)(x_vals)
@@ -144,14 +145,13 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=True):
         ax.scatter(x, y, marker='x', s=100, color=bcolor, linewidth=2.5, label=config_label, zorder=5)
 
     # --- Axis limits ---
-    pad = 0.06
     if log_x:
         log_xlo, log_xhi = np.log10(x_lo), np.log10(x_hi)
         ax.set_xlim(10 ** (log_xlo - pad * (log_xhi - log_xlo)),
                     10 ** (log_xhi + pad * (log_xhi - log_xlo)))
     else:
         x_range = x_hi - x_lo
-        ax.set_xlim(0, x_hi + pad * x_range)
+        ax.set_xlim(x_lo - pad * x_range, x_hi + pad * x_range)
         # Force a tick at the maximum model size so the full range is visible
         fig.canvas.draw()
         xlo_lim, xhi_lim = ax.get_xlim()
