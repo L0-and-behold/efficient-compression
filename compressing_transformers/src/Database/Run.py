@@ -5,6 +5,9 @@ import pandas as pd
 import time
 import torch
 import itertools
+import math
+
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 from src.Transformer.TransformerDecoder import MultiLayerTransformerDecoder
 from src.Transformer.TransformerConfig import TransformerConfig
@@ -205,14 +208,14 @@ class Run:
         model.load_state_dict(torch.load(model_path, map_location=device))
         return model
 
-    def load_optimizer(self, model):
+    def load_optimizer(self, model, warmup_steps=1000, weight_decay=0.0, total_iterations=9999999, eta_min_percentage=0.1, betas=(0.9,0.95)):
         """Load an optimizer from the run folder.
         
         Args:
             model: The model whose parameters should be optimized.
             
         Returns:
-            torch.optim.Adam: The loaded optimizer.
+            torch.optim.AdamW: The loaded optimizer.
             
         Raises:
             ValueError: If run info hasn't been loaded.
@@ -226,10 +229,25 @@ class Run:
             print("Learning rate not found in run info. Using default learning rate of 1e-4.")
             lr = 1e-4
 
-        if self.pmmp:
-            optimizer = torch.optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr)
-        else:
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(grouped_parameters, lr=lr, betas=betas)
+
+        ### define the scheduler
+        warmup = LinearLR(optimizer, 
+                  start_factor=1e-8, 
+                  end_factor=1.0, 
+                  total_iters=warmup_steps)
+        cosine = CosineAnnealingLR(optimizer, 
+                                T_max=total_iterations,
+                                eta_min=eta_min_percentage*lr)
+        scheduler = SequentialLR(optimizer, 
+                                schedulers=[warmup, cosine], 
+                                milestones=[warmup_steps])
+
         optimizer_path = os.path.join(self.path, "optimizer.pth")
         optimizer.load_state_dict(torch.load(optimizer_path))
-        return optimizer
+
+        scheduler_path = os.path.join(self.path, "scheduler.pth")
+        scheduler.load_state_dict(torch.load(scheduler_path))
+
+        return optimizer, scheduler

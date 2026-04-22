@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 import itertools
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+
+
 from src.Transformer.TransformerDecoder import MultiLayerTransformerDecoder
 from src.Database.Database import Database
 from src.Database.Experiment import Experiment
@@ -71,11 +74,17 @@ class DistributedTransformerTrainer:
         torch.backends.cudnn.benchmark = False
         
     def _database_setup(self):
-        """Initialize database connections and create run tracking objects."""        
-        self.database = Database(self.path_to_database)
-        self.experiment = Experiment(self.database, self.experiment_name)
-        self.run = Run(self.experiment).create_run()
-        self.run_df = RunsCSV(self.run, self.args)
+        """Initialize database connections and create run tracking objects."""
+        if self.rank == 0:
+            self.database = Database(self.path_to_database)
+            self.experiment = Experiment(self.database, self.experiment_name)
+            self.run = Run(self.experiment).create_run()
+            self.run_df = RunsCSV(self.run, self.args)
+        else:
+            self.database = None
+            self.experiment = None
+            self.run = None
+            self.run_df = None
         
     def _world_setup(self):
         """Configure distributed process environment and initialize process group."""        
@@ -91,11 +100,11 @@ class DistributedTransformerTrainer:
         if self.verbose:
             print(f"Rank {self.rank}: Local rank {local_rank}, Device count: {torch.cuda.device_count()}")
             
-    def model_optimizer(self):
+    def model_optimizer(self, warmup_steps=2000, weight_decay=0.0, eta_min_percentage=0.1):
         """Create or load model and optimizer, with support for pretrained models.
         
         Returns:
-            tuple: Contains (model, ddp_model, optimizer) where ddp_model is the 
+            tuple: Contains (model, ddp_model, optimizer, scheduler) where ddp_model is the 
                   DistributedDataParallel-wrapped version of the model.
                   
         Raises:
@@ -103,7 +112,7 @@ class DistributedTransformerTrainer:
         """
         torch.manual_seed(self.seed + self.rank) # Different seed for each rank
 
-        # Initialize model & optimizer
+        # Initialize model & optimizer & scheduler
         if "use_pretrained_model" in self.args and self.args["use_pretrained_model"]:
             if self.rank == 0:
                 print(f"Loading model from experiment {self.args['use_model_from_experiment']}, run {self.args['use_model_from_run']}.")
@@ -113,25 +122,35 @@ class DistributedTransformerTrainer:
             prerun_run = Run(prerun_exp, pmmp=self.args["pmmp"]).load_run(self.args["use_model_from_run"])
             model = prerun_run.load_model(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
-            optimizer = prerun_run.load_optimizer(model)
+            optimizer, scheduler = prerun_run.load_optimizer(model, total_iterations = self.args["total_number_of_iterations"], betas = self.args["AdamW_betas"])
             
             if self.args["epochs"] + prerun_run.info["elapsed_epochs"].values[0] != self.args["elapsed_epochs"]:
                 raise ValueError(f"elapsed epochs in run {prerun_run.id} do not match the expected elapsed epochs. Expected: {self.args['elapsed_epochs']}, got: {prerun_run.info['elapsed_epochs'].values[0]}+{self.args['epochs']}")
         else:
             if self.rank == 0:
                 print("Initializing model from scratch.")
-            model = MultiLayerTransformerDecoder(self.embedding_dimension, self.num_heads, self.ff_dim, self.num_layers, pmmp=self.args["pmmp"], initial_p_value=self.args["initial_p_value"], dev=self.device).to(self.device)
+            model = MultiLayerTransformerDecoder(self.embedding_dimension, self.num_heads, self.ff_dim, self.num_layers, pmmp=self.args["pmmp"], initial_p_value=self.args["initial_p_value"], initial_u_value=self.args["initial_u_value"], dev=self.device).to(self.device)
             ddp_model = DDP(model, device_ids=[self.local_rank], find_unused_parameters=False)
             
-            if self.args["pmmp"]:
-                optimizer = optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=self.learning_rate)
-            else:
-                optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
+            grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)
+            optimizer = optim.AdamW(grouped_parameters, lr=self.learning_rate, betas=self.args["AdamW_betas"]) # you can check the groups via `optimizer.param_groups`
+
+            ### define the scheduler
+            warmup = LinearLR(optimizer, 
+                    start_factor=1e-8, 
+                    end_factor=1.0, 
+                    total_iters=warmup_steps)
+            cosine = CosineAnnealingLR(optimizer, 
+                                    T_max=self.args["total_number_of_iterations"],
+                                    eta_min=eta_min_percentage*self.learning_rate) 
+            scheduler = SequentialLR(optimizer, 
+                                    schedulers=[warmup, cosine], 
+                                    milestones=[warmup_steps])
                 
             if self.args["elapsed_epochs"] != self.args["epochs"]:
                 raise ValueError(f"Elapsed epochs does not equal epochs. Elapsed: {self.args['elapsed_epochs']}, epochs: {self.args['epochs']}")
-                
-        return model, ddp_model, optimizer
+
+        return model, ddp_model, optimizer, scheduler
         
     def cleanup(self):
         """Clean up distributed process group."""        
@@ -141,7 +160,7 @@ class DistributedTransformerTrainer:
     
     def print_model_info(self, model):
         """Print model architecture details and parameter count."""        
-        print(f"Training using {self.world_size} GPUs.")
+        print(f"Training using {self.world_size} GPUs.") # already stated in train.py
         print(f"Transformer decoder with {self.num_layers} layers, {self.embedding_dimension} embedding dimensions, {self.num_heads} heads, and {self.ff_dim} feedforward dimensions.")
         print(f"Number of parameters: {model.count_parameters()}")
         

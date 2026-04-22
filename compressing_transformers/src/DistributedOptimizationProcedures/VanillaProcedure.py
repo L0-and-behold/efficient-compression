@@ -1,4 +1,5 @@
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing import Dict, Any, Union
@@ -30,6 +31,7 @@ class VanillaTrainer(ProcedureTrainer):
 def vanilla_procedure(
     ddp_model: DDP,
     optimizer: Optimizer,
+    scheduler: LRScheduler,
     logs: Dict[str, Any],
     distributed_trainer,
     dataloader_train: DataLoader,
@@ -55,4 +57,4 @@ def vanilla_procedure(
     Returns:
         (trained_model, optimizer, logs, updated_args)
     """
-    return get_optimization_procedure(VanillaTrainer, ddp_model, optimizer, logs, distributed_trainer, dataloader_train, validation_set, checkpointer, args)
+    return get_optimization_procedure(VanillaTrainer, ddp_model, optimizer, scheduler, logs, distributed_trainer, dataloader_train, validation_set, checkpointer, args)

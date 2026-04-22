@@ -5,7 +5,7 @@ from src.DistributedTransformerTrainer import DistributedTransformerTrainer
 from tqdm.auto import tqdm
 import math
 
-def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distributed_trainer: DistributedTransformerTrainer, debug=False) -> float:
+def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distributed_trainer: DistributedTransformerTrainer, debug=False, only_process_every_nth_batch=1) -> float:
     """Calculate average loss over an entire dataset using distributed evaluation.
     
     Efficiently computes loss by splitting batches across available GPUs and
@@ -17,6 +17,7 @@ def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distri
         args (dict): Configuration parameters including batch size
         distributed_trainer (DistributedTransformerTrainer): Trainer with distribution info
         debug (bool, optional): Run only one batch if True. Defaults to False.
+        only_process_every_nth_batch (int >= 1, optional): Determines whether to use only every n-th batch for evaluating the loss. Higher values increase speed but decrease accuracy of the estimate. Defaults to 1.
     
     Returns:
         float: Average loss value across all evaluated batches
@@ -27,17 +28,21 @@ def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distri
     total_loss = 0
     evaluated_batches = 0
     criterion = torch.nn.CrossEntropyLoss()
-    
+
+    # Split the batch across GPUs
+    local_batch_size = args["batch_size"] // world_size
+    start_index = rank * local_batch_size
+    end_index = start_index + local_batch_size
+
     with torch.no_grad():
         if rank == 0:
             progress_bar = tqdm(total=100, desc=f"Evaluating", disable=not rank == 0)
             update_interval = max(1, len(dataloader) // 100)
             
         for (i, batch) in enumerate(dataloader):
+            if (i+1) % only_process_every_nth_batch != 0:
+                continue
             # Split the batch across GPUs
-            local_batch_size = args["batch_size"] // world_size
-            start_index = rank * local_batch_size
-            end_index = start_index + local_batch_size
             local_batch = batch[start_index:end_index].to(device)
             
             input_seq = local_batch[:, :-1]

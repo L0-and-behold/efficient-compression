@@ -25,16 +25,17 @@ class Experiment:
         self.assert_experiment_exists()
 
     def find_or_create_experiment(self):
+        # path = os.path.join(self.database.path, self.name)
+        # def _create_experiment(path):
+        #     os.makedirs(path, exist_ok=True)
+        #     os.makedirs(os.path.join(path, "artifacts"), exist_ok=True)
+        # if os.path.exists(path):
+        #    pass
+        # else:
+        #     _create_experiment(path)
         path = os.path.join(self.database.path, self.name)
-
-        def _create_experiment(path):
-            os.makedirs(path, exist_ok=True)
-            os.makedirs(os.path.join(path, "artifacts"), exist_ok=True)
-        
-        if os.path.exists(path):
-           pass
-        else:
-            _create_experiment(path)
+        os.makedirs(path, exist_ok=True)
+        os.makedirs(os.path.join(path, "artifacts"), exist_ok=True)
         return path
     
     def assert_experiment_exists(self):

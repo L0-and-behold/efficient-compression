@@ -68,6 +68,7 @@ class Tamade:
         self.utils = PruningUtils()
         self.evaluation_dataloader = "Not yet loaded"
 
+
     def __call__(self, ddp_model: DDP, distributed_trainer: DistributedTransformerTrainer):  
         """Execute pruning procedure on provided model.
         
@@ -90,7 +91,7 @@ class Tamade:
         )
         dist.barrier()
         
-        pruned_model = MultiLayerTransformerDecoder(distributed_trainer.embedding_dimension, distributed_trainer.num_heads, distributed_trainer.ff_dim, distributed_trainer.num_layers, pmmp=distributed_trainer.args["pmmp"], dev=distributed_trainer.device).to(distributed_trainer.device)
+        pruned_model = MultiLayerTransformerDecoder(distributed_trainer.embedding_dimension, distributed_trainer.num_heads, distributed_trainer.ff_dim, distributed_trainer.num_layers, pmmp=False, dev=distributed_trainer.device).to(distributed_trainer.device)
         pruned_model = DDP(pruned_model, device_ids=[distributed_trainer.local_rank], find_unused_parameters=False)
         
         def _f_to_search_on(x):
@@ -121,9 +122,11 @@ class Tamade:
             rank=self.rank
         )
         
+        if self.rank == 0:
+            print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
+
         pruned_model.module.load_state_dict(ddp_model.module.state_dict())
         self.utils.global_magnitude_pruning(pruned_model, epsilon)
-        print("Pruned model with epsilon: ", epsilon, " after searching for optimal epsilon in ", steps, " steps.")
         
         return pruned_model, epsilon, steps
         
@@ -222,8 +225,11 @@ class PruningUtils:
                 num_batches += 1
                 
         # Aggregate losses from all processes
-        dist.all_reduce(torch.tensor([total_loss, num_batches], device=device))
+        loss_tensor = torch.tensor([total_loss, num_batches], device=device)
+        dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
         
+        total_loss, num_batches = loss_tensor[0].item(), loss_tensor[1].item()
+
         return total_loss / num_batches if num_batches > 0 else 0
         
     @staticmethod

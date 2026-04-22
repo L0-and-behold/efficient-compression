@@ -1,6 +1,7 @@
 import time
 import torch
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing import Dict, Any, Union
@@ -55,8 +56,7 @@ class PmmpTrainer(ProcedureTrainer):
             w.grad = - diff * p + u * 2 * wp1p
             p.grad = - diff * w + u * w**2 * (1 - 2 * p) + self.alpha
             u.grad = - (awp**2 + w * wp1p) 
-            # this division by self.model_param_number is only recommended if u is a tensor 
-            # with a single entry and not if it is a tensor of the shape of p
+            # a division by self.model_param_number is only recommended if u is a tensor with a single entry and not if it is a tensor of the shape of p
 
     def project_params(self):
         """Apply PMMP parameter projections after gradient updates.
@@ -72,6 +72,7 @@ class PmmpTrainer(ProcedureTrainer):
 def pmmp_procedure(
     ddp_model: DDP,
     optimizer: Optimizer,
+    scheduler: LRScheduler,
     logs: Dict[str, Any],
     distributed_trainer,
     dataloader_train: DataLoader,
@@ -97,4 +98,4 @@ def pmmp_procedure(
     Returns:
         (trained_model, optimizer, logs, updated_args)
     """
-    return get_optimization_procedure(PmmpTrainer, ddp_model, optimizer, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args)
+    return get_optimization_procedure(PmmpTrainer, ddp_model, optimizer, scheduler, logs, distributed_trainer, dataloader_train, val_dataset, checkpointer, args)
