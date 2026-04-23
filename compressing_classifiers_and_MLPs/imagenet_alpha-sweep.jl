@@ -22,36 +22,18 @@ flush(stdout); flush(stderr)
 #####
 # Alpha sweep — RL1 and DRR combined (maybe later PMMP as well)
 #
-# Vanilla val acc per epoch (job 191578_3, cosine LR, rho=8e-6, label smoothing):
-# ep:  1     2     3     4     5     6     7     8     9    10
-#     12.56 27.60 35.00 38.28 43.72 46.90 51.97 52.45 54.34 53.32
-# ep: 11    12    13    14    15    16    17    18    19    20
-#     58.02 55.20 57.71 58.81 56.90 60.09 58.96 58.42 61.43 60.15
-# ep: 21    22    23    24    25    26    27    28    29    30
-#     60.04 57.40 59.17 59.81 60.41 62.02 59.18 60.66 60.60 63.94
-# ep: 31    32    33    34    35    36    37    38    39    40
-#     64.49 60.30 62.34 61.77 63.75 62.43 61.49 60.42 64.44 64.24
-# ep: 41    42    43    44    45    46    47    48    49    50
-#     65.30 63.71 65.99 65.05 63.97 66.43 65.66 66.18 66.11 63.16
-# ep: 51    52    53    54    55    56    57    58    59    60
-#     66.45 67.17 64.84 66.72 63.97 66.43 65.66 66.18 66.11 63.16
-# ep: 61    62    63    64    65    66    67    68    69    70
-#     66.45 67.17 64.84 66.72 65.97 65.57 67.56 67.52 66.84 66.84
-# ep: 71    72    73    74    75    76    77    78    79    80
-#     67.41 69.40 69.57 69.57 69.71 71.09 70.82 71.11 70.19 69.93
-# ep: 81    82    83    84    85    86    87    88    89    90
-#     70.35 70.63 71.77 72.16 72.01  —     —     —     —   72.16(~72.0)
+# Vanilla val acc per epoch (job 191578_3, cosine LR, rho=8e-6, label smoothing): 72.2% <- this is our top-1 vanilla value
 #
 # Results summary — vanilla ep36=62.4%, ep50=63.2%, ep54=66.7%, ep58=67.5%, ep60=66.8%, ep70=67.2%, ep71=70.5%, ep80=69.7%, ep81=71.1%, ep88=71.8%
-#   [sub  1] RL1   2e-7:  STOPPED  ep62 val=65.9% (Δ-1.3pp)  CR@ep60=45.0%  — low CR    210054_1 OOM → 216135 OOM → 228421 FAIL → 244942 OOM → 260546
-#   [sub  2] RL1   4e-7:  RUNNING  ep90 val=72.6% (Δ+0.6pp)  CR@ep90=57.9%  — in FT     210054_2 OOM → 260021 FAIL → 260652(1FT) → 273245 FAIL → 276293
-#   [sub  3] RL1   8e-7:  RUNNING  ep85 val=68.1% (Δ+2.5pp)  CR@ep65=65.0%              210054_3 OOM → 216136 OOM → 228422 FAIL → 244943 OOM → 260023 OOM → 277431
-#   [sub  4] RL1   1e-6:  RUNNING  ep90 val=71.3% (Δ-0.7pp)  CR@ep90=70.6%  — in FT     210054_4 OOM → 260022 OOM → 260547 FAIL → 260653(1FT) → 273246 FAIL → 276294
+#   [sub  1] RL1   2e-7:  STOPPED   ep62 val=65.9% (Δ-1.3pp)  CR@ep60=45.0%  — low CR    210054_1 OOM → 216135 OOM → 228421 FAIL → 244942 OOM → 260546
+#   [sub  2] RL1   4e-7:  FINISHED  val=73.29 (Δ-1.1pp) CR@pruning=63.5               210054_2 OOM → 260021 FAIL → 260652(1FT) → 273245 FAIL → 276293 FAIL → 278630 FAIL → 278770 stopped
+#   [sub  3] RL1   8e-7:  FINISHED   val=73.31 (Δ-1.1pp)  CR@pruning=61.1%             210054_3 OOM → 216136 OOM → 228422 FAIL → 244943 OOM → 260023 OOM → 277431 FAIL → 278771 OOM
+#   [sub  4] RL1   1e-6:  FINISHED   val=72.16% (Δ±0.0pp)  CR@FT-epoch-5=74.3%    210054_4 OOM → 260022 OOM → 260547 FAIL → 260653(1FT) → 273246 FAIL → 276294 FAIL → 278631 stopped
 #   [sub  5] RL1   4e-6:  STOPPED  -12pp val acc gap @ ep14                              210054_5
 #   [sub  6] DRR   1e-8:  STOPPED  ep79 val=68.7% (Δ-2.3pp)  CR@ep75=41.7%  — low CR    216130_6
-#   [sub  7] DRR   1e-7:  RUNNING  ep90 val=70.6% (Δ-1.4pp)  CR@ep90=61.1%  — in FT     210054_7 OOM → 216137 OOM(FT) → 260548 FAIL → 260654(1FT) → 273247 FAIL → 276295
-#   [sub  8] DRR   2e-7:  RUNNING  ep65 val=66.9% (Δ+0.9pp)  CR@ep65=70.2%              210054_8 OOM → 216130_8 OOM → 228423 OOM → 260236 OOM → 260656
-#   [sub  9] DRR   4e-7:  RUNNING  ep90 val=73.2% (Δ+1.2pp)  CR@ep90=85.7%  — in FT     210054_9 OOM(FT) → 260235 FAIL → 260245(1FT) → 260549 FAIL → 260655(1FT) → 273248 FAIL → 276296
+#   [sub  7] DRR   1e-7:  FINISHED  val=71.06% (Δ-1.1pp)  CR@ep90=64.9    210054_7 OOM → 216137 OOM(FT) → 260548 FAIL → 260654(1FT) → 273247 FAIL → 276295 FAIL → 278632 stopped
+#   [sub  8] DRR   2e-7:  STOPPED  ckpt@ep25 (too slow & we already have good drr values)  210054_8 OOM → 216130_8 OOM → 228423 OOM → 260236 OOM → 260656 OOM → 278772 stopped
+#   [sub  9] DRR   4e-7:  FINISHED  eval=73.418% (Δ+1.2pp)  CR@ep90=87.5%     210054_9 OOM(FT) → 260235 FAIL → 260245(1FT) → 260549 FAIL → 260655(1FT) → 273248 FAIL → 276296 FAIL → 278633 stopped
 #   [sub 10] PMMP  1e-10: STOPPED  ep30 val=63.3% (Δ-0.6pp)  CR@ep30=40.9%  — low CR    216130_10
 #   [sub 11] PMMP  1e-9:  STOPPED  ep30 val=65.3% (Δ+1.3pp)  CR@ep30=40.4%  — low CR    216130_11
 #   [sub 12] PMMP  1e-8:  DEAD — loss collapsed ep19→ep20 (2.578→6.907), val 0.1% onward 216130_12 OOM → 228424
