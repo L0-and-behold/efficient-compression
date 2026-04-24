@@ -173,6 +173,8 @@ def main(args, other_settings, path_to_database, experiment_name):
                 if stripped_key not in args:
                     raise KeyError(f"Key '{stripped_key}' specified in config file has not been found in args")
                 value_string = cfg[parser_args.index][key].strip() # strip whitespace
+                if rank == 0:
+                    print(stripped_key + ": " + value_string)
                 if value_string == "":
                     print("\nWarning: value_string is empty for the key '" + stripped_key + "'. This might mean that you forgot to insert a value in your config csv file.\n")
                 args[stripped_key] = parse_value(value_string)
@@ -183,7 +185,7 @@ def main(args, other_settings, path_to_database, experiment_name):
                 else:
                     args["run_id"] = args["run_id"] + "__" + short_names[stripped_key] + "_" + value_string.replace(".", "o")
             if rank == 0:
-                print("Config successfully parsed.\n")
+                print("\nConfig successfully parsed.\n")
         else:
             if rank == 0:
                 print("\nWarning: Config arguments were passed during execution of train.py but no config file was found at " + csv_path)
