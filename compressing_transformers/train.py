@@ -48,9 +48,9 @@ args["python_config_file"] = os.path.basename(__file__)
 
 ### Regularization Parameters - BEGIN
 args["alpha"] = 1e-4                          # Regularization strength for ℓ₀-Regularization
-args["initial_p_value"] = 0.7                 # Initial p value for PMMP method
-args["initial_u_value"] = 3.0                 # Initial u value for PMMP method
-args["beta"] = 10.0                           # Sharpness parameter β for DRR method
+args["initial_p_value"] = 1.0                 # Initial p value for PMMP method
+args["initial_u_value"] = 0.0                 # Initial u value for PMMP method
+args["beta"] = 5.0                           # Sharpness parameter β for DRR method
 ### Regularization Parameters - END
 
 ### Model Configuration - BEGIN
@@ -78,9 +78,9 @@ args["stop_epoch_at_batch_fine_tuning"] = int(0.15*args["iterations_per_epoch"])
 
 
 ### Pruning Parameters - BEGIN
-args["do_pruning"] = True                     # Whether to perform model pruning
-args["first_pruning_after"] = 1               # Epoch after which to start pruning
-args["prune_every"] = 1                       # Prune model every n epochs
+args["do_pruning"] = True                         # Whether to perform model pruning
+args["first_pruning_after"] = 1                    # Epoch after which to start pruning
+args["prune_every"] = args["first_pruning_after"]  # Prune model every n epochs
 ### Pruning Parameters - END
 
 
@@ -88,7 +88,7 @@ args["prune_every"] = 1                       # Prune model every n epochs
 args["use_pretrained_model"] = False          # Whether to use a pretrained model
 args["use_model_from_experiment"] = None      # Name of experiment to load model from (None or str)
 args["use_model_from_run"] = None             # Run ID to load model from (None or str)
-args["elapsed_epochs"] = 1                    # Total epochs to be recorded (must match expected total if continuing training)
+args["elapsed_epochs"] = args["epochs"]       # Total epochs to be recorded (must match expected total if continuing training)
 ### Model Loading Parameters - END
 
 ### General Training Parameters - BEGIN
