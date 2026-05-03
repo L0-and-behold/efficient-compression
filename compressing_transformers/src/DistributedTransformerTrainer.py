@@ -78,7 +78,8 @@ class DistributedTransformerTrainer:
         if self.rank == 0:
             self.database = Database(self.path_to_database)
             self.experiment = Experiment(self.database, self.experiment_name)
-            self.run = Run(self.experiment).create_run()
+            self.run = Run(self.experiment, pmmp=self.args["pmmp"], run_id=self.args["run_id"]).create_run()
+            self.args["run_id"] = self.run.id # the run_id might have been modified in the Run class called one line above, for example in case of runs with duplicate parameter settings or folder names. In that case, the run_id of args has to be updated to reflect this change
             self.run_df = RunsCSV(self.run, self.args)
         else:
             self.database = None

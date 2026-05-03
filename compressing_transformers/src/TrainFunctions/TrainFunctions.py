@@ -1,6 +1,7 @@
 import os
 import time
 import torch
+import csv
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 import numpy as np
@@ -43,7 +44,7 @@ class TrainFunctions:
         self.set_seed(self.args["seed"])
 
         # Set PMMP flag
-        if self.args["training_method"] == pmmp_procedure:
+        if self.args["training_procedure"] == pmmp_procedure:
             self.args["pmmp"] = True
         else:
             self.args["pmmp"] = False
@@ -58,10 +59,11 @@ class TrainFunctions:
         self.distributed_trainer = DistributedTransformerTrainer(self.args, path_to_database, experiment_name, transformer_config, seed=self.args["seed"])
         self.checkpointer = CheckpointHandler(experiment_name, self.args["checkpoint_time"], self.args["max_runtime"])
 
-        total_number_of_GPUs = self.distributed_trainer.world_size
+        self.args["total_number_of_GPUs"] = self.distributed_trainer.world_size
+        self.args["batch_size_per_gpu"] = transformer_config["batch_size_per_gpu"] # storing this in args for logging purposes
 
         self.args["seq_length"] = transformer_config["seq_length"]  # Store sequence length (=context window) for dataset preparation
-        self.args["batch_size"]  = transformer_config["batch_size_per_gpu"]*total_number_of_GPUs
+        self.args["batch_size"]  = transformer_config["batch_size_per_gpu"]*self.args["total_number_of_GPUs"]
         if self.args["tokens_per_epoch"]:
             self.args["iterations_per_epoch"] = int(self.args["tokens_per_epoch"] / self.args["batch_size"] / self.args["seq_length"])
         self.args["train_only_on_leading_tokens"] = int(self.args["iterations_per_epoch"]*self.args["batch_size"]*self.args["seq_length"]) # Limit training to first N tokens (False or int), here specified in terms of iterations, batch_size and seq_length (context window)
@@ -108,7 +110,7 @@ class TrainFunctions:
         
         # Load Wikipedia dataset with the configured sequence length
         dirpath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        dataset_local_path = os.path.join(dirpath, 'src/Datasets/processed_wiki_dataset_' + str(self.args["seq_length"]) + '.pt')
+        dataset_local_path = os.path.join(dirpath, 'Datasets/processed_wiki_dataset_' + str(self.args["seq_length"]) + '.pt')
 
         datasets = WikipediaDatasets.load_dataset(dataset_local_path, self.args["seq_length"], rank = rank)
 
@@ -139,7 +141,7 @@ class TrainFunctions:
         t1 = time.time()
         
         # Execute the selected training procedure
-        optimization_procedure = self.args["training_method"]
+        optimization_procedure = self.args["training_procedure"]
         new_ddp_model, optimizer, scheduler, logs, self.args = optimization_procedure(
             ddp_model, optimizer, scheduler, logs, self.distributed_trainer, dataloader_train, val_dataset, self.checkpointer, self.args
         )
@@ -230,6 +232,13 @@ class TrainFunctions:
         torch.save(optimizer.state_dict(), os.path.join(run.path, "optimizer.pth"))
         torch.save(scheduler.state_dict(), os.path.join(run.path, "scheduler.pth"))
         
+        # Save args
+        with open(os.path.join(run.path, "args.csv"), "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["key", "value"])
+            for k, v in self.args.items():
+                writer.writerow([k, v])
+
         # Log metadata and configuration parameters
         run_df.log_meta()
         run_df.log_args(self.args)

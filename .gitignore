@@ -20,5 +20,5 @@ core.raven*
 */reports
 */slurm_scripts
 
-compressing_transformers/output
 compressing_transformers/input
+compressing_transformers/output

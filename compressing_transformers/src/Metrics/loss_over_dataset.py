@@ -37,7 +37,7 @@ def loss_over_dataset(ddp_model: DDP, dataloader: DataLoader, args: dict, distri
     with torch.no_grad():
         if rank == 0:
             progress_bar = tqdm(total=100, desc=f"Evaluating", disable=not rank == 0)
-            update_interval = max(1, len(dataloader) // 100)
+            update_interval = max(1, len(dataloader) // 100 // only_process_every_nth_batch)
             
         for (i, batch) in enumerate(dataloader):
             if (i+1) % only_process_every_nth_batch != 0:
