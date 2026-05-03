@@ -7,3 +7,5 @@ scipy
 tqdm
 apache-beam
 apache-beam[gcp]
+zstandard
+lzma
