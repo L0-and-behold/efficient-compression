@@ -1,11 +1,11 @@
-"""Plot: Description length vs. regularization parameter α.
+"""Plot: Train loss description length vs. model_byte_size.
 
 Shows how total description length (model bytes + coding length) varies
-with the regularization strength α.  Vanilla baselines (rl1, α=0) and
+with the model_byte_size.  Vanilla baselines (rl1, α=0) and
 # TODO: vanilla baseline denotation different
 the raw dataset size are shown as horizontal reference lines.
 
-Only runs with α > 0 are plotted (log-x scale requires positive values).
+Only runs with model_byte_size > 0 are plotted (log-x scale requires positive values).
 """
 
 import numpy as np
@@ -15,16 +15,17 @@ from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_proc
 from src.mdl_analysis.data_loading import compute_description_length
 
 
-def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
+def plot_dl_vs_size(vanilla, procedures, dataset_size, logger, plot_dataset_size=True, logscale=True):
     assert len(vanilla) > 0, "Need at least one vanilla baseline"
     assert dataset_size > 0, "Dataset size must be positive"
 
     fig, ax = plt.subplots(1, 1, figsize=(4, 3.5))
-    ax.set_xscale('log')  # α is always plotted on log scale
-    ax.set_xlabel('α')
+    if logscale:
+        ax.set_xscale('log')
+    ax.set_xlabel('Model Size')
     ax.set_ylabel('Description Length [bytes]')
 
-    alpha_bounds = [np.inf, -np.inf]  # track range for hline extents
+    size_bounds = [np.inf, -np.inf]  # track range for hline extents
     all_dl = []
 
     # Procedure order: rl1, drr, pmmp (then any unknown keys alphabetically)
@@ -36,31 +37,27 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
         color = clrs[i % len(clrs)]
         marker = symbols[i % len(symbols)]
 
-        alpha = sub['alpha'].values
         x = sub['model_byte_size'].values
-        y = sub['mean_test_loss'].values
-        # TODO: use train loss instead?
+        y = sub['mean_train_loss'].values
         dl = compute_description_length(y, dataset_size, x)
 
-        # Only runs with α > 0 can appear on a log-x scale.
-        # α=0 runs are either vanilla baselines or PMMP references.
-        mask = alpha > 0
+        mask = x > 0
         if not mask.any():
             continue
-        alpha, dl = alpha[mask], dl[mask]
+        x, dl = x[mask], dl[mask]
 
-        s = np.argsort(alpha)
-        alpha, dl = alpha[s], dl[s]
+        s = np.argsort(x)
+        x, dl = x[s], dl[s]
 
         label = label_of_procedure(key)
-        ax.scatter(alpha, dl, marker=marker, color=color, s=marker_size, label=label)
-        ax.plot(alpha, dl, color=color, linewidth=2, alpha=0.7)
+        ax.scatter(x, dl, marker=marker, color=color, s=marker_size, label=label)
+        ax.plot(x, dl, color=color, linewidth=2, alpha=0.7)
 
         all_dl.extend(dl)
-        alpha_bounds[0] = min(alpha_bounds[0], alpha.min())
-        alpha_bounds[1] = max(alpha_bounds[1], alpha.max())
+        size_bounds[0] = min(size_bounds[0], x.min())
+        size_bounds[1] = max(size_bounds[1], x.max())
 
-    assert alpha_bounds[0] < np.inf, "No runs with α>0 found — nothing to plot"
+    assert size_bounds[0] < np.inf, "No runs with model_byte_size>0 found — nothing to plot"
 
     # Vanilla baselines (rl1 with α=0) as horizontal reference lines,
     # TODO: vanilla baseline denotation different
@@ -70,20 +67,29 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
     for vi, (_, row) in enumerate(vanilla_sorted.iterrows()):
         config_label = label_of_vanilla(row['non_zero_params'])
         baseline_color = clrs[(baseline_color_start + vi) % len(clrs)]
-        dl = compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size'])
-        # TODO: use train loss instead?
-        ax.hlines(y=dl, xmin=alpha_bounds[0], xmax=alpha_bounds[1],
+        dl = compute_description_length(row['mean_train_loss'], dataset_size, row['model_byte_size'])
+        ax.hlines(y=dl, xmin=size_bounds[0], xmax=size_bounds[1],
                   linestyle='dashed', color=baseline_color, label=config_label)
 
     # Dataset size = cost of verbatim coding (no model, just store the data)
-    ax.hlines(y=dataset_size, xmin=alpha_bounds[0], xmax=alpha_bounds[1],
+    if plot_dataset_size:
+        ax.hlines(y=dataset_size, xmin=size_bounds[0], xmax=size_bounds[1],
               linestyle='dashed', color='black', label='Dataset Size')
+
+    # correct for possible margin problem on left side
+    _, xmax = ax.get_xlim()
+    margin = ax.margins()[0]
+    if logscale:
+        log_padding = 10 ** (margin * (np.log10(xmax) - np.log10(size_bounds[0])))
+        ax.set_xlim(left=size_bounds[0] / log_padding)
+    else:
+        padding = (xmax - size_bounds[0]) * margin / (1 - margin)  # approximate
+        ax.set_xlim(left=size_bounds[0] - padding)
 
     # Human-readable y-axis ticks in MB/GB
     all_dl.append(dataset_size)
     for _, row in vanilla.iterrows():
-        all_dl.append(compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size']))
-        # TODO: use train loss instead?
+        all_dl.append(compute_description_length(row['mean_train_loss'], dataset_size, row['model_byte_size']))
     fig.canvas.draw()  # force tick computation
     tick_vals = ax.get_yticks()
     ax.set_yticks(tick_vals, minor=False)

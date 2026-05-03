@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from src.mdl_analysis.data_loading import load_and_validate, split_data, compute_description_length
 from src.mdl_analysis.loss_vs_size_plot import plot_loss_vs_size
 from src.mdl_analysis.dl_vs_alpha_plot import plot_dl_vs_alpha
+from src.mdl_analysis.dl_vs_size_plot import plot_dl_vs_size
 from src.mdl_analysis.constants import label_of_vanilla, label_of_procedure, human_bytes
 
 
@@ -74,20 +75,31 @@ def main():
     logger.log(f"Transformer configs: {list(configs)}")
 
     # Split into vanilla baselines (rl1 + α=0) and regularized procedure runs
+    # TODO: vanilla baseline denotation different
     vanilla, procedures = split_data(df, logger)
     assert len(procedures) > 0, "No regularized procedure data found"
 
-    logger.log(f"\n--- Loss vs. Model Size ({'linear' if not log_x else 'log'} x) ---")
+    logger.log(f"\n--- Test Loss vs. Model Size ({'linear' if not log_x else 'log'} x) ---")
     fig1 = plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=log_x)
 
     logger.log(f"\n--- Description Length vs. α ---")
     fig2 = plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger)
+
+    logger.log(f"\n--- Description Length vs. Model Size ---")
+    fig3 = plot_dl_vs_size(vanilla, procedures, dataset_size, logger)
+    fig4 = plot_dl_vs_size(vanilla, procedures, dataset_size, logger, plot_dataset_size=False)
+    fig5 = plot_dl_vs_size(vanilla, procedures, dataset_size, logger, plot_dataset_size=False, logscale=False)
+    fig6 = plot_dl_vs_size(vanilla, procedures, dataset_size, logger, logscale=False)
 
     # Save
     os.makedirs('output', exist_ok=True)
     x_suffix = 'linear' if not log_x else 'log'
     fig1.savefig(f'output/loss_vs_size_{stem}_{x_suffix}.pdf', bbox_inches='tight', dpi=300)
     fig2.savefig(f'output/dl_vs_alpha_{stem}.pdf', bbox_inches='tight', dpi=300)
+    fig3.savefig(f'output/dl_vs_size_{stem}.pdf', bbox_inches='tight', dpi=300)
+    fig4.savefig(f'output/dl_vs_size_noDatasetSize_{stem}.pdf', bbox_inches='tight', dpi=300)
+    fig5.savefig(f'output/dl_vs_size_noDatasetSize_Linear_{stem}.pdf', bbox_inches='tight', dpi=300)
+    fig6.savefig(f'output/dl_vs_size_Linear_{stem}.pdf', bbox_inches='tight', dpi=300)
     logger.log(f"\nPlots saved to output/")
 
     # --- Description Length Summary ---
