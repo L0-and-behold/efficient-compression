@@ -27,11 +27,11 @@ def equipotential_y(dataset_size, description_length):
     return mean_test_loss
 
 
-def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=True):
+def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=True):
     """Scatter plot of mean test loss vs. model byte size.
 
     Args:
-        vanilla:      DataFrame of vanilla baseline runs (rl1, α=0).
+        vanilla:      DataFrame of vanilla baseline runs (where training_procedure contains 'vanilla_procedure').
         procedures:   Dict[str, DataFrame] of regularized procedure runs.
         dataset_size: Total dataset size in bytes (for DL computation).
         logger:       Logger instance for reporting.
@@ -96,8 +96,10 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=True):
     # --- Equipotential iso-lines (drawn first so data points sit on top) ---
     assert len(all_dl) > 0, "No data points collected"
     all_dl = np.array(all_dl)
-    x_lo, x_hi = min(all_x), max(all_x)
-    y_lo, y_hi = min(all_y), max(all_y)
+
+    y_lo, y_hi = min(all_y), min(max(all_y),y_max)
+    all_x_whose_y_is_lower_y_max = [x for x, y in zip(all_x, all_y) if y < y_max]
+    x_lo, x_hi = min(all_x_whose_y_is_lower_y_max), max(all_x_whose_y_is_lower_y_max)
 
     # Iso-lines span slightly beyond the data range (±10%) for visual context
     dl_min, dl_max = all_dl.min(), all_dl.max()

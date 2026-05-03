@@ -1,8 +1,7 @@
 """Plot: Description length vs. regularization parameter α.
 
 Shows how total description length (model bytes + coding length) varies
-with the regularization strength α.  Vanilla baselines (rl1, α=0) and
-# TODO: vanilla baseline denotation different
+with the regularization strength α.  Vanilla baselines (where training_procedure contains 'vanilla_procedure') and
 the raw dataset size are shown as horizontal reference lines.
 
 Only runs with α > 0 are plotted (log-x scale requires positive values).
@@ -39,7 +38,6 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
         alpha = sub['alpha'].values
         x = sub['model_byte_size'].values
         y = sub['mean_test_loss'].values
-        # TODO: use train loss instead?
         dl = compute_description_length(y, dataset_size, x)
 
         # Only runs with α > 0 can appear on a log-x scale.
@@ -62,8 +60,7 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
 
     assert alpha_bounds[0] < np.inf, "No runs with α>0 found — nothing to plot"
 
-    # Vanilla baselines (rl1 with α=0) as horizontal reference lines,
-    # TODO: vanilla baseline denotation different
+    # Vanilla baselines (where training_procedure contains 'vanilla_procedure') as horizontal reference lines,
     # sorted by model size, each with a unique color matching the loss-vs-size plot
     vanilla_sorted = vanilla.sort_values('model_byte_size')
     baseline_color_start = len(ordered_keys)
@@ -71,7 +68,6 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
         config_label = label_of_vanilla(row['non_zero_params'])
         baseline_color = clrs[(baseline_color_start + vi) % len(clrs)]
         dl = compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size'])
-        # TODO: use train loss instead?
         ax.hlines(y=dl, xmin=alpha_bounds[0], xmax=alpha_bounds[1],
                   linestyle='dashed', color=baseline_color, label=config_label)
 
@@ -83,7 +79,6 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
     all_dl.append(dataset_size)
     for _, row in vanilla.iterrows():
         all_dl.append(compute_description_length(row['mean_test_loss'], dataset_size, row['model_byte_size']))
-        # TODO: use train loss instead?
     fig.canvas.draw()  # force tick computation
     tick_vals = ax.get_yticks()
     ax.set_yticks(tick_vals, minor=False)

@@ -1,8 +1,7 @@
 """Plot: Train loss description length vs. model_byte_size.
 
 Shows how total description length (model bytes + coding length) varies
-with the model_byte_size.  Vanilla baselines (rl1, α=0) and
-# TODO: vanilla baseline denotation different
+with the model_byte_size.  Vanilla baselines (where training_procedure contains 'vanilla_procedure') and
 the raw dataset size are shown as horizontal reference lines.
 
 Only runs with model_byte_size > 0 are plotted (log-x scale requires positive values).
@@ -59,8 +58,7 @@ def plot_dl_vs_size(vanilla, procedures, dataset_size, logger, plot_dataset_size
 
     assert size_bounds[0] < np.inf, "No runs with model_byte_size>0 found — nothing to plot"
 
-    # Vanilla baselines (rl1 with α=0) as horizontal reference lines,
-    # TODO: vanilla baseline denotation different
+    # Vanilla baselines (where training_procedure contains 'vanilla_procedure') as horizontal reference lines,
     # sorted by model size, each with a unique color matching the loss-vs-size plot
     vanilla_sorted = vanilla.sort_values('model_byte_size')
     baseline_color_start = len(ordered_keys)
