@@ -44,7 +44,7 @@ Now, an experiment can be run
 ```shell
 julia run_an_experiment.jl
 ```
-where the default settings in the file `run_an_experiment.jl` serve as a simple example.
+where the default settings in the file `run_an_experiment.jl` serve as a simple example for MNIST, CIFAR, and teacher-student compression. To reproduce the paper's ImageNet results, use `imagenet.jl` instead (see [ImageNet](#imagenet) below).
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
@@ -70,8 +70,17 @@ This repository contains a python script to download ImageNet from Hugging Face,
 
 Please refer to: [installingImageNet.md](installingImageNet/installingImageNet.md)
 
-Assuming that ImageNet is available locally, preprocess it using the provided Julia
-script:
+Before running ImageNet experiments, create `config.toml` by copying `config.toml.example`
+and filling in your paths:
+
+```toml
+[paths]
+imagenet_path = "/path/to/raw/imagenet"
+imagenet_preprocessed_path = "/path/to/chunked"
+path_to_db = "/path/to/results"
+```
+
+Preprocess ImageNet into chunked tensors (one-time step):
 
 ```bash
 julia scripts/prepare_imagenet.jl
@@ -83,9 +92,9 @@ This step:
 - prepares the dataset for efficient runtime loading on CPU or GPU.
 
 After this step, ImageNet is ready to be used via the
-`imagenet_chunked_data` or `imagenet_online_data` dataset APIs.
+`imagenet_data_function()` dataset API.
 
-To run the ImageNet experiment:
+To reproduce the paper's ImageNet table results (vanilla, DRR, RL1, PMMP best configs):
 
 ```bash
 julia --threads auto imagenet.jl
@@ -128,6 +137,7 @@ The other training settings are controlled by the `args=TrainArgs()` object. In 
 | `ρ` | Coefficient for L2 weight regularization in DRR and RL1 procedures. |
 | `L1_alpha`| Coefficient for additional L1 regularization term in PMMP procedure. It adds L1_alpha times the L1-norm of the parameters of the unregularized objective to the PMMP loss function. |
 | `tolerated_relative_loss_increase` | Pruning threshold parameter (`δ`) for TAMADE: finds largest pruning threshold such that post-pruning loss ≤ (1 + δ) × pre-pruning loss. |
+| `tamade_val_acc_tolerance` | Alternative TAMADE stopping criterion: prunes to at most this absolute drop in validation accuracy (in fraction, e.g. `0.013f0` = 1.3 pp). Takes precedence over `tolerated_relative_loss_increase` when set. Recommended for ImageNet. |
 | `NORM`| If `true`, applies layerwise normalization to `α` and `ρ` in DRR. |
 | `layer_NORM`| If set to `true`, the `NORM` normalization described above divides by the number of neurons in a given layer to normalize. If set to `false`, and the layer consists of convolutional blocks (in a CNN), then it divides by the number of neurons in a convolution block to normalize. |
 

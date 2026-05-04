@@ -19,33 +19,25 @@ using CompressingClassifiersMLPs.BatchRun
 
 flush(stdout); flush(stderr)
 
-#####
-# Experiment setup
-#####
-
 args = TrainArgs{Float32}()
 
 # Load configuration
 path_to_db, imagenet_path, _ = load_imagenet_config()
 
-experiment_name = "RL1-alpha-lr-scaling-v2"
+experiment_name = "imagenet"
 
 single_run_routine = single_run_routine_classifier
 
-# RL1 α sweep with LR scaling: vanilla + 1e-8 to 1e-5. Wider range needed since sweet-spot
-# for lr-scaled alpha is unknown (effective alpha is lower than nominal most of training).
-variables = [:α]
+variables = [:optimization_procedure, :α]
 
 batch = [
-    (0f0,),
-    (1f-8,),
-    (1f-7,),
-    (1f-6,),
-    (1f-5,),
+    (RL1_procedure, 0f0),       # vanilla val-acc 72.2%
+    (DRR_procedure, 4f-7),      # DRR     val-acc 73.4%   CR 87.5% (8.00x)
+    (RL1_procedure, 2.5f-6),    # RL1     val-acc 71.1%   CR 85.2% (6.78×)
+    (PMMP_procedure, 5f-6),     # PMMP    val-acc 70.7%   CR 71.4% (3.50×)
 ]
 
 # Fixed arguments for all runs
-
 args.seed = 1
 args.architecture = resnet50
 args.dataset = imagenet_data_function()
@@ -60,7 +52,6 @@ args.ρ = 8f-6
 
 args.smoothing_window = 1000  # disable convergence detection — run exactly min/max_epochs
 args.prune_window = 1000
-args.shrinking_from_deviation_of = 1e-2
 args.multiply_mask_after_each_batch = false
 
 args.noise = 0f0
@@ -71,38 +62,38 @@ args.finetuning_converge_val_loss = false
 args.shrinking = false
 args.NORM = false
 
-# with the intend to stop early
 args.min_epochs            = 90
 args.max_epochs            = 90
 args.finetuning_min_epochs = 10
 args.finetuning_max_epochs = 10
 
-args.tolerated_relative_loss_increase = 0.03f0  # 3%
-
-args.optimization_procedure = RL1_procedure
-args.β = 0f0
-args.initial_p_value = 0f0
-args.initial_u_value = 0f0
-args.scale_alpha_with_lr = true
-
 args.tamade_calibration_batches = 200
+args.tamade_val_acc_tolerance = 0.013f0 #prune to at most 1.3pp absolute val acc drop
+
+# DRR-specific
+args.β = 5f0
+
+# PMMP-specific
+args.initial_p_value = 1f0
+args.initial_u_value = 2f0
+
 args.save_pre_pruning_model = true
 args.skip_precompilation = true
 args.debug = false
 args.use_checkpoints = true
-args.checkpoint_frequency = 5
+args.checkpoint_frequency = 10
 args.cr_report_window = 10
 
 args.label_smoothing = true
 
 args.optimizer = lr -> Optimisers.OptimiserChain(Optimisers.Momentum(lr, 0.9f0))
-# Cosine LR with 5-epoch linear warmup. eta_min = 1% of peak = matches step-LR endpoint.
-# For FT (epoch > args.max_epochs): holds at eta_min.
+# Cosine LR with 5-epoch linear warmup. eta_min = 1% of peak.
+# FT phase (epoch > max_epochs): holds at eta_min.
 function imagenet_schedule(epoch, args)
     lr      = args.lr
-    eta_min = lr * 1f-2       # floor = 1% of peak (0.001 at lr=0.1)
+    eta_min = lr * 1f-2
     warmup  = 5
-    T       = args.max_epochs  # set per-run via batch variables (85 or 90)
+    T       = args.max_epochs
     if epoch <= warmup
         return lr * Float32(epoch) / Float32(warmup)
     elseif epoch <= T
@@ -110,7 +101,7 @@ function imagenet_schedule(epoch, args)
         T_eff = Float32(T - warmup)
         return eta_min + (lr - eta_min) * 0.5f0 * (1f0 + cos(Float32(π) * t / T_eff))
     else
-        return eta_min  # FT phase: stable small LR (same magnitude as old step-LR end)
+        return eta_min
     end
 end
 args.schedule = imagenet_schedule

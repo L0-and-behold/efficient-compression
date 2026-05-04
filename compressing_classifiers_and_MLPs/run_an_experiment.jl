@@ -39,7 +39,6 @@ Results stored at: <project_root>/experiment-results/<experiment_name>/
 
 # Directory for saving results
 path_to_db = joinpath(pwd(), "experiment-results")
-println(homedir())
 experiment_name = "example-experiment"
 
 """
