@@ -5,6 +5,9 @@ import pandas as pd
 import time
 import torch
 import itertools
+import math
+
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 from src.Transformer.TransformerDecoder import MultiLayerTransformerDecoder
 from src.Transformer.TransformerConfig import TransformerConfig
@@ -23,6 +26,7 @@ class Run:
             None if run has not been loaded.
         path: Absolute path to the run folder.
         pmmp: Boolean flag for model configuration.
+        run_id: The run_id is the name given to the subfolder of the experiment containing this specific run. If you do not provide one (if it is set to None), a random id is automatically generated.
     
     Usage:
         - Create a run: Initialize with experiment, then call `create_run()`
@@ -33,10 +37,10 @@ class Run:
         - Load model: `run.load_model(device)`
         - Load optimizer: `run.load_optimizer(model)`
     """
-    def __init__(self, experiment, pmmp=False):
+    def __init__(self, experiment, pmmp=False, run_id=None):
         self.experiment = experiment
         self.start_time = time.time()
-        self.id = None
+        self.id = run_id
         self.path = None
         self.info = None
         self.prefix = "run"
@@ -97,14 +101,17 @@ class Run:
         Raises:
             ValueError: If a unique ID can't be generated after 100 attempts.
         """
-        local_random = random.Random(int(time.time() * 1000))
-        existing_ids = set(os.listdir(os.path.join(self.experiment.path, "artifacts")))
-        for i in range(100):
-            unique_postfix = ''.join(local_random.choices(string.ascii_lowercase + string.digits, k=4))
-            new_id = f"{self.prefix}-{unique_postfix}"
-            if new_id not in existing_ids:
-                return new_id
-        raise ValueError("Could not generate unique run id after 100 attempts.")
+        if self.id is None:
+            local_random = random.Random(int(time.time() * 1000))
+            existing_ids = set(os.listdir(os.path.join(self.experiment.path, "artifacts")))
+            for i in range(100):
+                unique_postfix = ''.join(local_random.choices(string.ascii_lowercase + string.digits, k=4))
+                new_id = f"{self.prefix}-{unique_postfix}"
+                if new_id not in existing_ids:
+                    return new_id
+            raise ValueError("Could not generate unique run id after 100 attempts.")
+        else:
+            return self.id
 
     def artifact_exists(self, filename):
         """Check if an artifact exists in the run folder.
@@ -148,7 +155,13 @@ class Run:
             if not os.path.exists(path):
                 os.makedirs(path, exist_ok=True)
                 return path
-            self.id = self.generate_unique_run_id() # If folder already exists, generate new id and try again
+            print("run_id folder name already exists. Generating new random run_id...")
+            if self.id is not None:
+                old_self_id = self.id
+                self.id = None # Set id back to None to generate a new one in next step
+                self.id = old_self_id + "__" + self.generate_unique_run_id() # If folder already exists, generate new id and try again
+            else:
+                self.id = self.generate_unique_run_id() # If folder already exists, generate new id and try again
         raise FileExistsError(f"Run folder could not be created after 20 attempts. Path: {path}")
     
     def fetch_run_info(self):
@@ -205,14 +218,14 @@ class Run:
         model.load_state_dict(torch.load(model_path, map_location=device))
         return model
 
-    def load_optimizer(self, model):
+    def load_optimizer(self, model, warmup_steps=1000, weight_decay=0.0, total_iterations=9999999, eta_min_percentage=0.1, betas=(0.9,0.95)):
         """Load an optimizer from the run folder.
         
         Args:
             model: The model whose parameters should be optimized.
             
         Returns:
-            torch.optim.Adam: The loaded optimizer.
+            torch.optim.AdamW: The loaded optimizer.
             
         Raises:
             ValueError: If run info hasn't been loaded.
@@ -226,10 +239,25 @@ class Run:
             print("Learning rate not found in run info. Using default learning rate of 1e-4.")
             lr = 1e-4
 
-        if self.pmmp:
-            optimizer = torch.optim.Adam(itertools.chain(model.parameters(), model.parameters_w(), model.parameters_p(), model.parameters_u()), lr=lr)
-        else:
-            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        grouped_parameters = model.get_optimizer_grouped_parameters(weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(grouped_parameters, lr=lr, betas=betas)
+
+        ### define the scheduler
+        warmup = LinearLR(optimizer, 
+                  start_factor=1e-8, 
+                  end_factor=1.0, 
+                  total_iters=warmup_steps)
+        cosine = CosineAnnealingLR(optimizer, 
+                                T_max=total_iterations,
+                                eta_min=eta_min_percentage*lr)
+        scheduler = SequentialLR(optimizer, 
+                                schedulers=[warmup, cosine], 
+                                milestones=[warmup_steps])
+
         optimizer_path = os.path.join(self.path, "optimizer.pth")
         optimizer.load_state_dict(torch.load(optimizer_path))
-        return optimizer
+
+        scheduler_path = os.path.join(self.path, "scheduler.pth")
+        scheduler.load_state_dict(torch.load(scheduler_path))
+
+        return optimizer, scheduler

@@ -1,7 +1,11 @@
-tensorflow==2.16.2
+tensorflow==2.21.0
 tensorflow-datasets
 numpy
 pandas
 matplotlib
 scipy
 tqdm
+apache-beam
+apache-beam[gcp]
+zstandard
+lzma

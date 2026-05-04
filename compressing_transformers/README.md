@@ -6,6 +6,10 @@ Codebase for the experiments from our paper regarding language models and Wikipe
   - [Environment Setup](#environment-setup)
   - [Download the Dataset](#download-the-dataset)
   - [Run the Experiment](#run-the-experiment)
+  - [Conventional Compressor Benchmarks](#conventional-compressor-benchmarks)
+  - [Analysis Scripts](#analysis-scripts)
+    - [IUC — Information Under Curve](#iuc--information-under-curve)
+    - [plots.py — Training Plots](#plotspy--training-plots)
 - [Experiment Parameters and Setup](#experiment-parameters-and-setup)
   - [Regularization Parameters](#regularization-parameters)
   - [Model Configuration](#model-configuration)
@@ -69,12 +73,70 @@ You can modify `train.py` directly to set your parameters and then run.
 python train.py
 ```
 
-### LZMA Benchmarks
+### Conventional Compressor Benchmarks
 
-To evaluate the coding length of the datasets under the LZMA compressor run:
+To benchmark LZMA2 and Zstandard compression on the dataset run:
 ```shell
-python lzma_analysis.py
+python conventional_compressors.py
 ```
+
+This looks for `processed_wiki_dataset_512.pt` in the current directory (matching the default sequence length of 512). For a different sequence length or file location:
+```shell
+python conventional_compressors.py --dataset /path/to/processed_wiki_dataset_1024.pt --seq-len 1024
+# or point to a directory and specify the sequence length:
+python conventional_compressors.py --dataset /path/to/dir --seq-len 1024
+```
+
+Both compressors are evaluated on the three standard dataset sizes (0.300 GB, 1.232 GB, 6.160 GB) using a chunk size equal to the sequence length, matching the online coding setting used for transformer evaluation. Results are written to `output/conventional_compressors_benchmark.out`.
+
+Additional options:
+```shell
+python conventional_compressors.py --sizes 299991040 1232000000 6159990784
+python conventional_compressors.py --workers 8
+```
+
+## Analysis Scripts
+
+### IUC — Information Under Curve
+
+`IUC.py` computes the coding length of a training run by integrating the per-iteration loss curve over the first epoch.
+
+The input is the `train_loss.csv` artifact produced during training (found under `artifacts/run-<id>/train_loss.csv`), renamed to reflect the dataset size in bytes (e.g. `299991040.csv`). It must have exactly two columns: iteration number (starting at 1) and training loss in nats.
+
+```shell
+python IUC.py -i input/299991040.csv
+```
+
+Output is printed to stdout and saved to `output/<stem>_<timestamp>.out`.
+
+### plots.py — Training Plots
+
+`plots.py` generates two PDF plots from a `runs.csv` of transformer experiment results.
+
+```shell
+python plots.py -i input/runs.csv
+python plots.py -i input/runs.csv --linear-x   # linear x-axis for Plot 1
+```
+
+**Plot 1 — Loss vs. Model Size**: scatter plot of mean test loss vs. model byte size (log-x by default, or linear with `--linear-x`), with equipotential iso-lines of constant description length (DL):
+
+$$\text{DL} = \text{model\_bytes} + \frac{\text{loss} \times \text{dataset\_size}}{\ln 2 \times 8}$$
+
+**Plot 2 — Description Length vs. α**: DL vs. regularization parameter α (log-x), with reference lines for the vanilla baseline and raw dataset size.
+
+Required columns: `training_procedure`, `model_byte_size`, `mean_test_loss`, `alpha`, `train_only_on_leading_tokens`, `transformer_config`.
+
+Example files are provided in `src/mdl_analysis/example-input/`:
+
+- `test.csv` — example `runs.csv` with made-up data, for testing `plots.py`
+- `299991040.csv` — example `train_loss.csv` (renamed to dataset size), for testing `IUC.py`
+
+```shell
+python plots.py -i src/mdl_analysis/example-input/test.csv
+python IUC.py -i src/mdl_analysis/example-input/299991040.csv
+```
+
+Outputs are saved to `output/` (PDFs and `.out` report).
 
 ## Experiment Parameters and Setup
 
@@ -93,29 +155,39 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 | Parameter | Description |
 |-----------|-------------|
 | `alpha` | Regularization strength for DRR or RL1 procedures |
-| `pmmp` | Set to True when using the PMMP procedure, False otherwise |
-| `initial_p_value` | Initial parameter value for PMMP procedure (probability threshold) |
+| `initial_p_value` | Initial `p` parameter value for PMMP procedure (probability threshold) |
+| `initial_u_value` | Initial `u` parameter value for PMMP procedure (constraint enforcement strength) |
 | `beta` | Parameter for DRR (Deterministic Reparameterization with Regularization) |
 
 ### Model Configuration
 
 | Parameter | Description |
 |-----------|-------------|
-| `transformer_config` | Model size selection: "transformer200k", "transformer800k", or "transformer4.1m" (see TransformerConfig.py) |
 | `training_method` | Regularization procedure selection: `rl1_procedure`, `pmmp_procedure`, `drr_procedure`, or `vanilla_procedure` function|
+| `transformer_config` | Model size selection: Viable model names are listed in TransformerConfig.py. For example, "transformer200k" or "t307_38p". The notation tX_Y denotes a transformer with X parameters and roughly Y GB of peak VRAM usage per GPU. If there is a 'p' behind Y, then Y denotes peak VRAM usage requirements for PMMP (which has more parameters than the other methods). |
+
+### Optimizer Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `learning_rate` | Initial learning rate for optimizer |
+| `AdamW_betas` | The beta parameters for the AdamW optimizer (typical choices include (0.9, 0.95) or (0.9, 0.999)) |
+| `warmup_steps` | Warmup increases the learning rate linearly to `learning_rate` in `warmup_steps` steps |
+| `weight_decay` | Weight decay applies L2 regularization to all parameters except biases, LayerNorm-weights and `u` and `p` parameters of PMMP |
+
 
 ### Training Process Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `train_only_on_leading_tokens` | Training set size in number of tokens/bytes. Set to False for full dataset or integer for subset |
+| `iterations_per_epoch` | The number of iterations or batches which are processed per epoch. Each iteration, `batch_size` many `seq_length` long batches are processed. Therefore, make sure the dataset contains at least `args["iterations_per_epoch"]*batch_size*seq_length` many tokens (where `seq_length` is the context window of the model). |
+| `tokens_per_epoch` | (False or int). If not False, then ["iterations_per_epoch"] is overwritten and set equal to `int(args["tokens_per_epoch"] / batch_size / seq_length)`, where `seq_length` is the context window of the model. Make sure `args["tokens_per_epoch"]` is not bigger than the number of tokens in your dataset. This parameter can also be used to make the training token number per epoch equal to `N` times the number of parameters of the model. |
 | `epochs_prelude` | Number of epochs to train before starting main regularized training |
 | `epochs` | Number of epochs for main regularized training |
 | `epochs_fine_tuning` | Number of epochs for fine-tuning with reduced transformer (unregularized training) |
 | `stop_epoch_at_batch_prelude` | If integer, limits effective training set for prelude epochs to specified number of batches |
 | `stop_epoch_at_batch` | If integer, limits effective training set for main training to specified number of batches |
 | `stop_epoch_at_batch_fine_tuning` | If integer, limits effective training set for fine-tuning to specified number of batches |
-| `batch_size` | Number of sequences processed at once (must be ≥ number of GPUs) |
 
 ### Pruning Parameters
 
@@ -138,7 +210,6 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 
 | Parameter | Description |
 |-----------|-------------|
-| `learning_rate` | Initial learning rate for Adam optimizer |
 | `seed` | Random seed for reproducibility |
 | `tolerated_relative_loss_increase` | Threshold parameter for Threshold Adaptive Mask Determination (TAMADE) |
 | `steps_per_chunk` | Number of gradient update steps to perform on each provided minibatch/chunk |

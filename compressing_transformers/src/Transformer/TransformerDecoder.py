@@ -17,10 +17,9 @@ class DecoderBlock(nn.Module):
         """
         super(DecoderBlock, self).__init__()
         self.self_attention = nn.MultiheadAttention(d_model, num_heads)
-        self.norm1 = nn.LayerNorm(d_model)
+        self.norm = nn.LayerNorm(d_model)
         self.linear1 = nn.Linear(d_model, ff_hidden_layer)
         self.linear2 = nn.Linear(ff_hidden_layer, d_model)
-        self.norm2 = nn.LayerNorm(d_model)
         
     def forward(self, x, target_mask):
         """Process input through self-attention and feed-forward with residual connections.
@@ -32,12 +31,11 @@ class DecoderBlock(nn.Module):
         Returns:
             Processed tensor of shape (seq_len, batch, d_model)
         """
-        attn_output, _ = self.self_attention(x, x, x, attn_mask=target_mask)
+        y = self.norm(x) # perform prenorm instead of post norm for stability
+        attn_output, _ = self.self_attention(y, y, y, attn_mask=target_mask)
         x = x + attn_output
-        x = self.norm1(x)
-        ff_output = self.linear2(F.relu(self.linear1(x)))
-        x = x + ff_output
-        x = self.norm2(x)
+        y = self.norm(x) # again, prenorm is performed instead of postnorm
+        x = x + self.linear2(F.gelu(self.linear1(y))) 
         return x
 
 
@@ -79,7 +77,7 @@ class MultiLayerTransformerDecoder(nn.Module):
     
     def __init__(self, d_model, num_heads, ff_hidden_layer, 
                  num_layers, alphabet_size = 256, pmmp = False, 
-                 initial_p_value = 0.5, dev = 'cuda'):
+                 initial_p_value = 0.5, initial_u_value=3.0, dev = 'cuda'):
         """Initialize transformer decoder with model configuration.
         
         Args:
@@ -90,6 +88,7 @@ class MultiLayerTransformerDecoder(nn.Module):
             alphabet_size: Size of the token vocabulary
             pmmp: Whether to use PMMP  parameters
             initial_p_value: Initial probability value for PMMP
+            initial_u_value: Initial constraint enforcement strength value for PMMP
             dev: Device to use for PMMP parameters ('cuda' or 'cpu')
         """        
         super(MultiLayerTransformerDecoder, self).__init__()
@@ -103,29 +102,44 @@ class MultiLayerTransformerDecoder(nn.Module):
         ])
         self.linear = nn.Linear(d_model, alphabet_size)
         self.softmax = nn.LogSoftmax(dim=-1)
+        self.final_norm = nn.LayerNorm(d_model)
+        self.num_layers = num_layers
+        self.pmmp = pmmp
+
         self.initialize_weights()
         
         if pmmp:
             self.dev = dev
             self.initial_p_value = initial_p_value
+            self.initial_u_value = initial_u_value
             self.create_pmmp_params()
+
     
     def initialize_weights(self):
-        """Initialize model weights with fixed random seed for reproducibility."""        
+        """Initialize model weights with fixed random seed for reproducibility.""" 
+        # Ensure deterministic initialization       
         current_seed = torch.initial_seed()
+        torch.manual_seed(current_seed)
         
         def _init_weights(module):
             if isinstance(module, (nn.Linear, nn.Embedding)):
-                # Ensure deterministic initialization
-                torch.manual_seed(current_seed)
-                module.weight.data.normal_(mean=0.0, std=0.02)
+                module.weight.data.normal_(mean=0.0, std=0.02) # some implementations also use 0.02 / sqrt(self.d_model)
                 if isinstance(module, nn.Linear) and module.bias is not None:
                     module.bias.data.zero_()
             elif isinstance(module, nn.LayerNorm):
                 module.bias.data.zero_()
                 module.weight.data.fill_(1.0)
-                
+        
         self.apply(_init_weights)
+
+        # Apply 1/sqrt(2L) scaling to residual stream output projections
+        scale = (2 * self.num_layers) ** (-0.5)
+        for name, module in self.named_modules():
+            if isinstance(module, nn.MultiheadAttention):
+                module.out_proj.weight.data.mul_(scale)
+            if isinstance(module, DecoderBlock):
+                module.linear2.weight.data.mul_(scale)
+
     
     def generate_square_subsequent_mask(self, sz):
         """Generate causal attention mask to prevent attending to future tokens.
@@ -167,7 +181,9 @@ class MultiLayerTransformerDecoder(nn.Module):
         
         for transformer_block in self.transformer_blocks:
             x = transformer_block(x, target_mask)
-            
+
+        x = self.final_norm(x) # needed if prenorm is used in decoder blocks
+
         x = x.transpose(0, 1)  # Change back to (batch, seq_len, d_model)
         output = self.linear(x)
         output = self.softmax(output)
@@ -197,7 +213,7 @@ class MultiLayerTransformerDecoder(nn.Module):
         self.p = [copy.deepcopy(param.data.detach()).to(self.dev) for param in self.parameters()]
         self.u = [copy.deepcopy(param.data.detach()).to(self.dev) for param in self.parameters()]
         self.fill_params(self.p, self.initial_p_value)
-        self.fill_params(self.u, 0)
+        self.fill_params(self.u, self.initial_u_value)
         for (a, w, p, u) in zip(self.parameters(), self.parameters_w(),self.parameters_p(), self.parameters_u()):
             if a.requires_grad:
                 w.requires_grad = True
@@ -232,3 +248,48 @@ class MultiLayerTransformerDecoder(nn.Module):
         """
         for param in self.u:
             yield param
+
+    def get_optimizer_grouped_parameters(self, weight_decay):
+        """
+        Split parameters into groups for selective weight decay
+        """
+        no_decay = ["bias", "norm.weight"]
+        
+        # Wir nutzen Generatoren/Listen-Comprehensions, die nur Referenzen speichern
+        params_with_decay = []
+        params_without_decay = []
+
+        if self.pmmp:
+            for ((name, param), w, p, u) in zip(self.named_parameters(), self.parameters_w(),self.parameters_p(), self.parameters_u()):
+                if not param.requires_grad:
+                    continue
+                
+                if any(nd in name.lower() for nd in no_decay):
+                    params_without_decay.append(param)
+                    params_without_decay.append(w)
+                else:
+                    params_with_decay.append(param)
+                    params_with_decay.append(w)
+
+                # params_without_decay.append(w) # alternative implementation but essentially equivalent up to a factor 2 of weight_decay and w becomes less synchronised with param. Instead we divide by factor of 2 below to obtain better synchronisation and more direct penalization of w
+
+                params_without_decay.append(p)
+                params_without_decay.append(u)
+
+            return [
+                {"params": params_with_decay, "weight_decay": weight_decay/2}, # we divide by a factor of 2 for reasons mentioned in the comment above
+                {"params": params_without_decay, "weight_decay": 0.0},
+            ]
+        else:
+            for (name, param) in self.named_parameters():
+                if not param.requires_grad:
+                    continue
+                if any(nd in name for nd in no_decay):
+                    params_without_decay.append(param)
+                else:
+                    params_with_decay.append(param)
+
+            return [
+                {"params": params_with_decay, "weight_decay": weight_decay},
+                {"params": params_without_decay, "weight_decay": 0.0},
+            ]
