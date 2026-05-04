@@ -49,16 +49,18 @@ flush(stdout); flush(stderr)
 #     70.35 70.63 71.77 72.16 72.01  —     —     —     —   72.16(~72.0)
 #
 # Results summary — vanilla ep20=60.1%, ep30=63.9%, ep40=64.2%, ep50=63.2%, ep70=66.8%, ep90=72.0%
-#   [sub 1] PMMP  1e-6  u=2:  RUNNING   ep28 val=63.7% (Δ+3.0pp)  CR@ep25=37.3%  ckpt ep25  260555_1 OOM → 277388
-#   [sub 2] PMMP  1e-5  u=2:  DEAD — collapsed ep20→21 (loss 2.6→6.9), val 0.1%  ckpt ep25 useless  260555_2
-#   [sub 3] PMMP  5e-5  u=2:  RUNNING   ep13 val=48.3% (Δ-9.4pp)  CR@ep10=69.9%  ckpt ep10  260555_3 OOM → 277389
-#   [sub 4] PMMP  1e-6  u=5:  RUNNING   ep28 val=64.5% (Δ+3.8pp)  CR@ep25=41.2%  ckpt ep25  260555_4 OOM → 277390
-#   [sub 5] PMMP  1e-5  u=5:  RUNNING   ep30 val=60.7% (Δ-3.2pp)  CR@ep30=74.2%              260555_5
-#   [sub 6] PMMP  5e-5  u=5:  DEAD — collapsed ep21→22 (loss 3.4→6.9), val 0.1%  ckpt ep25 useless  260555_6
-#   [sub 7] PMMP  2.5e-6 u=2:  RUNNING   277380_7
-#   [sub 8] PMMP  2.5e-6 u=5:  RUNNING   277380_8
-#   [sub 9] PMMP  5e-6   u=2:  RUNNING   277380_9
-#   [sub 10] PMMP 5e-6   u=5:  RUNNING   277380_10
+#   [sub 1] PMMP  1e-6  u=2:   STOPPED CR trivial   ep36 val=62.4% (Δ+0.0pp)  CR@ep35=37.6%  260555_1 OOM → 277388 FAIL → 278634 OOM → 279739 stopped
+#   [sub 2] PMMP  1e-5  u=2:   DEAD — collapsed ep20→21 (loss 2.6→6.9), val 0.1%  ckpt ep25 useless  260555_2
+#   [sub 3] PMMP  5e-5  u=2:   STOPPED — Δ-9.4pp at ep13, too big                              260555_3 OOM
+#   [sub 4] PMMP  1e-6  u=5:   STOPPED (worse than it's u=2 counterpart)   ep42 val=66.6% (Δ+2.9pp)  CR@ep40=40.5%  260555_4 OOM → 277390 FAIL → 278635_4
+#   [sub 5] PMMP  1e-5  u=5:   FINISHED  post ep 90 pruning: val=69.16% (Δ-3pp) CR=80.8% ie. 5.21x  260555_5 OOM → 278782_5
+#   [sub 6] PMMP  5e-5  u=5:   DEAD — collapsed ep21→22 (loss 3.4→6.9), val 0.1%  ckpt ep25 useless  260555_6
+#   [sub 7] PMMP  2.5e-6 u=2:  STOPPED (worse than the u=5 counterpart)   ep16 val=58.4% (Δ-1.7pp)  CR@ep15=47.5%  277380_7(CPU) → 278841_7
+#   [sub 8] PMMP  2.5e-6 u=5:  FINISHED  FT-4: val=70.666% (Δ-1.5pp)  CR=42.4% ie. 1.74x  277380_8(CPU) → 278841_8
+#   [sub 9] PMMP  5e-6   u=2:  FINISHED FT-7:  val=70.66% (Δ-1.5pp)  CR@ep90=71.4% ie. 3.50x  277380_9(CPU) → 278841 OOM → 279740 fail → 279756 OOM → 279850 OOM → 286441 fail → 286766
+#   [sub 10] PMMP 5e-6   u=5:  FINISHED FT-2 val=70.84% (Δ-1.4pp)  CR@FT=60.9% ie. 2.56x  278841_10 OOM → 281317 OOM → 286442 fail → 286767 OOM@FT3 → 288140
+#   [sub 11] PMMP 4e-6   u=2:  FINISHED FT-2 val=66.7% (Δ-5.5pp)  CR@FT=65.7%  281319_11 OOM → 286443 OOM → 286768
+#   [sub 12] PMMP 6e-6   u=2:  FINISHED  val=69.3% (Δ-2.9pp)  CR=76.2%,  281319_12
 #####
 
 args = TrainArgs{Float32}()
@@ -83,6 +85,8 @@ batch = [
     (2.5f-6, 5f0), # sub 8
     (5f-6, 2f0),   # sub 9
     (5f-6, 5f0),   # sub 10
+    (4f-6, 2f0),   # sub 11
+    (6f-6, 2f0),   # sub 12
 ]
 
 # Fixed arguments for all runs
