@@ -44,7 +44,7 @@ Now, an experiment can be run
 ```shell
 julia run_an_experiment.jl
 ```
-where the default settings in the file `run_an_experiment.jl` serve as a simple example for MNIST, CIFAR, and teacher-student compression. To reproduce the paper's ImageNet results, use `imagenet.jl` instead (see [ImageNet](#imagenet) below).
+where the default settings in the file `run_an_experiment.jl` serve as a simple example for MNIST, CIFAR, and teacher-student compression. Once familiar with the framework, `imagenet.jl` reproduces the paper's ImageNet table results (see [ImageNet](#imagenet) below).
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
@@ -101,6 +101,8 @@ julia --threads auto imagenet.jl
 ```
 
 The `--threads auto` flag is required: the data loader uses `parallel = true` (MLUtils `DataLoader`), which spawns Julia threads to prefetch batches concurrently. Without multiple threads, parallel prefetching falls back to serial loading and training will be significantly slower.
+
+The four configurations (vanilla, DRR, RL1, PMMP) can be run in parallel, one GPU each, using the sub-batch mechanism. Pass `--num_sub_batches 4 --sub_batch N` (N = 1…4) to run a single configuration per worker. See [Parallelized Execution](#parallelized-execution-with-subbatches-and-slurm) for the full pattern.
 
 
 
