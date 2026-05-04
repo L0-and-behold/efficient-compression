@@ -108,7 +108,7 @@ The four configurations (vanilla, DRR, RL1, PMMP) can be run in parallel, one GP
 
 ## Experiment Parameters and Setup
 
-After the experiment finishes, the results are saved into a folder including a runs.csv file containing parameters and calculated metrics as well as an artifact folder with the trained model parameters and loss curves.
+After the experiment finishes, the results are saved into a folder including a runs.csv file containing parameters and calculated metrics as well as an artifact folder with the trained model parameters and loss curves. For the imagenet experiments we also refer to the logs during training for accuracy and compression results.
 
 Set the path for results storage in `run_an_experiment.jl` by changing:
 
@@ -316,7 +316,7 @@ echo "All jobs submitted!"
 
 2. Set up a slurm job script, which accepts arguments passed from the abovementioned executable
 
-```slurm
+```sh
 #!/bin/bash -l
 
 #SBATCH --output=./reports/%x_%j.out
