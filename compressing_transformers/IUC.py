@@ -77,7 +77,7 @@ def human_bytes(n: float) -> str:
 
 
 def build_report(path: Path, df_full: pd.DataFrame, epoch1: pd.DataFrame,
-                 dataset_bytes: int, bytes_per_batch: float, iuc: float,
+                 dataset_bytes: int, tokens_per_batch: float, iuc: float,
                  timestamp: str) -> str:
     loss_col = df_full.columns[1]
     lines = [
@@ -100,7 +100,7 @@ def build_report(path: Path, df_full: pd.DataFrame, epoch1: pd.DataFrame,
         ("  (no reset found — single epoch in file)" if len(epoch1) == len(df_full) else ""),
         "",
         "[Computation]",
-        f"  Bytes per batch : {bytes_per_batch:,.2f} bytes / iteration",
+        f"  Tokens per batch : {tokens_per_batch:,.2f} tokens / iteration",
         f"  IUC             : {iuc:,.2f} bytes  ({human_bytes(iuc)})",
     ]
     return "\n".join(lines)
@@ -125,12 +125,12 @@ def main():
 
     # --- Compute IUC ---
     loss_vals = epoch1.iloc[:, 1].to_numpy(dtype=float)
-    bytes_per_batch = dataset_bytes / num_iters
-    iuc = float(np.sum(loss_vals) * bytes_per_batch / math.log(2) / 8)
+    tokens_per_batch = dataset_bytes / num_iters # In our case, each token is encoded by one byte
+    iuc = float(np.sum(loss_vals) * tokens_per_batch / math.log(2) / 8)
 
     # --- Build report ---
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    report = build_report(path, df, epoch1, dataset_bytes, bytes_per_batch, iuc, timestamp)
+    report = build_report(path, df, epoch1, dataset_bytes, tokens_per_batch, iuc, timestamp)
 
     print(report)
 
