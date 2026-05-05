@@ -1,4 +1,8 @@
 *.pt
+*.txt
+*.log
+*.slurm
+diff
 __pycache__
 .vscode
 experiment-results
@@ -8,6 +12,9 @@ compressing_classifiers_and_MLPs/core.*
 compressing_classifiers_and_MLPs/instantiateScript.jl
 compressing_classifiers_and_MLPs/experiments
 compressing_classifiers_and_MLPs/src/DatasetsModels/imagenet
+compressing_classifiers_and_MLPs/config.toml
+prototyping.jl
+.trash
 compressing_classifiers_and_MLPs/reports
 compressing_classifiers_and_MLPs/slurm_scripts
 compressing_transformers/src/Datasets/processed_wiki_dataset.pt

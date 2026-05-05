@@ -36,7 +36,7 @@ for alpha in alphas
     println("alpha=",alpha," i=",i)
     println()
 
-    args = TrainArgs(; T=Float32) 
+    args = TrainArgs{Float32}() 
 
     args.gauss_loss = false
     args.α = alpha

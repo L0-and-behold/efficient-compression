@@ -9,34 +9,16 @@ Supports sub-batch execution via --num_sub_batches and --sub_batch command line 
 # Header
 #####
 
-using Pkg
-Pkg.activate(".")
+using Pkg; Pkg.activate("."); using Revise
 
-using Revise, ArgParse
+using ArgParse, Suppressor
 using Lux: cpu_device
-using Suppressor
 
-# We suppress warnings on docstring replacements. Turn off for development.
-@suppress begin
-    include("src/OptimizationProcedures/OptimizationProcedures.jl")
-    using .OptimizationProcedures: PMMP_procedure,
-        RL1_procedure,
-        DRR_procedure,
-        layerwise_procedure, 
-        Lenet_MLP, 
-        Lenet_5, 
-        Lenet_5_Caffe, 
-        VGG
-end
-
-include("src/TrainArgs.jl")
-include("src/BatchRun/BatchRun.jl")
-include("src/DatasetsModels/DatasetsModels.jl")
-using .DatasetsModels: MNIST_data, CIFAR_data
-using .BatchRun: do_batch_run, 
-    get_sub_batch,
-    single_run_routine_classifier,
-    single_run_routine_teacherstudent  
+using CompressingClassifiersMLPs
+using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
+using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure, RL1_procedure, DRR_procedure, layerwise_procedure, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG
+using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, CIFAR_data
+using CompressingClassifiersMLPs.BatchRun: do_batch_run, get_sub_batch, single_run_routine_classifier, single_run_routine_teacherstudent
 
 #####
 # Experiment setup
@@ -48,7 +30,7 @@ This structure encapsulates the configuration needed to reproduce
 a specific training run.
 """
 
-args = TrainArgs(; T=Float32)
+args = TrainArgs{Float32}()
 
 """
 Output location configuration.
@@ -57,7 +39,6 @@ Results stored at: <project_root>/experiment-results/<experiment_name>/
 
 # Directory for saving results
 path_to_db = joinpath(pwd(), "experiment-results")
-println(homedir())
 experiment_name = "example-experiment"
 
 """
@@ -159,6 +140,7 @@ Supports parallelization through command-line sub-batch specification.
 
 # If provided via command line arguments, run only a subset of the batch
 experiment_name, batch = get_sub_batch(experiment_name, batch)
+args.resume_checkpoint_id = parse_resume_checkpoint()
 
 do_batch_run(path_to_db, experiment_name, single_run_routine, args, variables, batch; break_if_one_run_errors=break_if_one_run_errors)
 

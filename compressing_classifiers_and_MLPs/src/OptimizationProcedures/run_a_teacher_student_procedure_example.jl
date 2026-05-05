@@ -17,7 +17,7 @@ include("layerwise_procedure.jl")
 
 begin
 # Training arguments are initialized
-args = TrainArgs(; T=Float32) 
+args = TrainArgs{Float32}() 
 
 # Teacher and Student models are initialized and data is generated from the Gaussian distribution, whose mean value is computed by the teacher network.
 train_set, validation_set, test_set, tstate, loss_fctn, args, teacher_tstate = setup_data_teacher_and_student(args; architecture_teacher=args.architecture_teacher, architecture_student=args.architecture_student, seed_teacher=35, seed_student=43, seed_train_set=1, seed_val_set=2, seed_test_set=2, teacher_weight_scaling=2, loss_fctn = Lux.MSELoss(), opt = Optimisers.Adam)

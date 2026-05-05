@@ -95,8 +95,7 @@ function fetch_pretrained_optimizer_state(path_to_db, experiment_name, args, var
     run_ids = search_run(path_to_db, experiment_name, query)
     filename = get_artifact_path(path_to_db, experiment_name, run_ids[1], "optimizer.jld2")
     if !isfile(filename)
-        @warn("File not found: $filename. Will create a new optimizer according to the arguments: $args.optimizer")
-        return TrainingTools.get_optimizer(args)
+        @error("No optimizer.jld2 file found when loading training state from disc.")
     end
     model_state = JLD2.load(filename, "opt")
     return model_state

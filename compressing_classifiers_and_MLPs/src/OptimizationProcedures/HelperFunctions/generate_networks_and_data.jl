@@ -8,9 +8,6 @@ using LuxCUDA, Revise
 using Boltz
 using CUDA
 using Metalhead
-
-include("loss_functions.jl")
-
 """
     generate_dense_network(
         architecture::Vector{Int64};
@@ -186,7 +183,7 @@ function scale_alpha_rho!(args, train_set, loss_fctn)
     args.α /= num_batches
     args.L1_alpha /= num_batches
     args.ρ /= num_batches
-    if loss_fctn == Lux.MSELoss() || loss_fctn == logitcrossentropy # those aggregate data with mean
+    if loss_fctn == Lux.MSELoss() || loss_fctn == logitcrossentropy || loss_fctn == logitcrossentropy_ls # those aggregate data with mean
         args.α /= num_elements_in_batch
         args.L1_alpha /= num_elements_in_batch
         args.ρ /= num_elements_in_batch
@@ -196,6 +193,8 @@ end
 function generate_tstate(model, seed, opt; lr_scheduler=nothing, dev=Lux.gpu_device())
     rng = Random.default_rng()
     Random.seed!(rng, seed)
+    # Note: Lux's Conv default init is kaiming_uniform (matching PyTorch), so this matches
+    # the canonical ResNet50 initialization.
     ps, st = Lux.setup(rng, model) |> dev
     tstate = Lux.Training.TrainState(model, ps, st, opt)
     return tstate
@@ -273,12 +272,39 @@ end
 
     Generates VGG architecture following https://www.kaggle.com/code/vtu5118/cifar-10-using-vgg16 (but with both fc layers of equal size like in the original architecture https://arxiv.org/abs/1409.1556)
 """
+function VGG end
 function VGG(input_dims = (32,32), in_channels = 3; depth=16, nclasses=10, batchnorm=true, fcsize=512, dropout=0.4f0)
     return Vision.VGG(input_dims; config=Vision.VGG_CONFIG[depth], inchannels=in_channels, batchnorm=batchnorm, nclasses=nclasses, fcsize=fcsize, dropout=dropout)
 end
 
-function resnet(; depth=50) # for Imagenet
+function resnet50(; depth=50) # for Imagenet
     return Vision.ResNet(depth; pretrained=false)
+end
+
+function resnet18(; depth=18) # for Imagenet
+    return Vision.ResNet(depth; pretrained=false)
+end
+
+using Lux
+using Random
+
+"""
+    toy_resnet(img_size::Int=224, n_classes::Int=1000; rng=Random.default_rng())
+
+Returns a trivial one-layer MLP that accepts images of shape (H, W, C, B)
+and outputs logits of shape (n_classes, B).
+
+A toy model to use in-place of resnet18/resnet50 during development.
+"""
+function toy_resnet(;img_size::Int=224, n_classes::Int=1000, rng=Random.default_rng())
+    n_input = img_size * img_size * 3  # H × W × C
+    
+    model = Chain(
+        FlattenLayer(),  # (H, W, C, B) -> (H*W*C, B)
+        Dense(n_input => n_classes)
+    )
+    
+    return model
 end
 
 function alexnet() # for Imagenet

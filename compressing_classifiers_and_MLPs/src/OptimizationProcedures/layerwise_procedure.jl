@@ -1,16 +1,11 @@
-using Revise, CUDA
-import Lux
-include("procedure.jl")
-
-
 """
     layerwise_procedure(
-        train_set::Union{Vector{<:Tuple}, DeviceIterator},
-        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-        test_set::Union{Vector{<:Tuple}, DeviceIterator},
-        tstate::Lux.Training.TrainState,
-        loss_fctn::Function,
-        args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
+    tstate::Lux.Training.TrainState,
+    loss_fctn::Function,
+    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
     
     This function runs a layerwise compression procedure. During this procedure, the network is pruned layer by layer every args.prune_window epochs. The pruning in a given layer is performed, employing a probabilistic reformulation of L0 regularized regression. 
 
@@ -24,13 +19,13 @@ include("procedure.jl")
         - `validation_set`: The validation set.
         - `test_set`: The test set.
         - `tstate`: An object of type `Lux.Training.TrainState`, containing all model, optimizer and parameter information.
-        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy or MSELoss)
+        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy, logitcrossentropy_ls, or MSELoss)
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function layerwise_procedure(
-    train_set::Union{Vector{<:Tuple}, DeviceIterator},
-    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
     args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}

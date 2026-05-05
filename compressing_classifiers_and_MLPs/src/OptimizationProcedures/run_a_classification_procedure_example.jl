@@ -3,7 +3,7 @@ A simple script to run, test and develop the different optimization procedures i
 """
 
 using CUDA
-include("../TrainArgs_classifier.jl")
+include("../TrainArgs.jl")
 include("HelperFunctions/loss_functions.jl")
 include("HelperFunctions/generate_networks_and_data.jl")
 include("../DatasetsModels/DatasetsModels.jl")
@@ -20,7 +20,7 @@ include("FPP_procedure.jl")
 # Note that if RL1 is initialized with alpha=0=rho, then it corresponds to unregularized ("vanilla") optimization
 
 # Training arguments are initialized
-args = TrainArgs(; T=Float32);
+args = TrainArgs{Float32}();
 
 ## Load one of the following datasets
 # train_set, validation_set, test_set = MNIST_data(args.train_batch_size, args.dev; seed=123)
@@ -32,7 +32,7 @@ args.train_batch_size = 256
 args.val_batch_size = 256
 args.test_batch_size = 256
 image_size = 224
-train_set, validation_set, test_set = imagenet_data(imagenet_path, args.train_batch_size, args.val_batch_size, image_size; dev=gpu_device())
+train_set, validation_set, test_set = imagenet_online_data(imagenet_path, args.train_batch_size, args.val_batch_size, image_size; dev=gpu_device())
 args.train_set_size = length(train_set) * args.train_batch_size
 args.val_set_size = 50000
 args.test_set_size = 50000
@@ -50,7 +50,8 @@ args.schedule = Step(
 # args.val_batch_size = size(validation_set[1][2])[2]
 # args.test_batch_size = size(test_set[1][2])[2]
 args.α = 1f-4
-model_seed = 42; loss_fctn = logitcrossentropy;
+model_seed = 42
+loss_fctn = args.label_smoothing ? logitcrossentropy_ls : logitcrossentropy 
 args.gradient_repetition_factor = 5
 
 ## Initialize one of the following models

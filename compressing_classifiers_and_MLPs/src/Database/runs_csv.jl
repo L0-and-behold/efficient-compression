@@ -4,8 +4,6 @@ This module provides utilities for creating, initializing, and appending to run 
 in CSV format for experiment tracking.
 """
 
-using DataFrames
-
 META_FIELD_NAMES = [
     :run_id,
     :experiment_name,
@@ -83,9 +81,9 @@ them to empty strings for CSV writing.
 """
 function append_run_to_csv!(path_to_db::String, experiment_name::String, single_run_df)
     df_csv = CSV.read(joinpath(expanduser(path_to_db), experiment_name, "runs.csv"), DataFrame)
-    df_csv = vcat(df_csv, single_run_df)
-    single_run_df = DataFrames.transform(single_run_df, DataFrames.names(single_run_df) .=> ByRow(x -> something(x, "")), renamecols=false) # replace missing with "" for CSV.write # TODO: Is this line necessary?
-    CSV.write(joinpath(expanduser(path_to_db), experiment_name, "runs.csv"), df_csv)
+    df_csv = vcat(df_csv, single_run_df; cols=:union)
+    CSV.write(joinpath(expanduser(path_to_db), experiment_name, "runs.csv"), df_csv;
+              transform=(col, val) -> something(val, missing))
 end
 
 """
