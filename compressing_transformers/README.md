@@ -163,7 +163,7 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 
 | Parameter | Description |
 |-----------|-------------|
-| `training_method` | Regularization procedure selection: `rl1_procedure`, `pmmp_procedure`, `drr_procedure`, or `vanilla_procedure` function|
+| `training_procedure` | Regularization procedure selection: `rl1_procedure`, `pmmp_procedure`, `drr_procedure`, or `vanilla_procedure` function|
 | `transformer_config` | Model size selection: Viable model names are listed in TransformerConfig.py. For example, "transformer200k" or "t307_38p". The notation tX_Y denotes a transformer with X parameters and roughly Y GB of peak VRAM usage per GPU. If there is a 'p' behind Y, then Y denotes peak VRAM usage requirements for PMMP (which has more parameters than the other methods). |
 
 ### Optimizer Parameters
@@ -185,6 +185,7 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 | `epochs_prelude` | Number of epochs to train before starting main regularized training |
 | `epochs` | Number of epochs for main regularized training |
 | `epochs_fine_tuning` | Number of epochs for fine-tuning with reduced transformer (unregularized training) |
+| `train_only_on_leading_tokens` | Derived value (not directly settable). Computed by TrainFunctions as `iterations_per_epoch × batch_size × seq_length`; reflects the total number of tokens trained per epoch and is logged in `runs.csv` for reference. |
 | `stop_epoch_at_batch_prelude` | If integer, limits effective training set for prelude epochs to specified number of batches |
 | `stop_epoch_at_batch` | If integer, limits effective training set for main training to specified number of batches |
 | `stop_epoch_at_batch_fine_tuning` | If integer, limits effective training set for fine-tuning to specified number of batches |
@@ -227,10 +228,14 @@ The parametrs controlling the training can be set by modifying the `args` dictio
 | `calculate_non_zero_params` | Whether to calculate and log count of non-zero parameters |
 | `calculate_on_line_code_length` | Whether to calculate online description length (requires log_every=1) |
 | `debug` | Whether to enable debug mode with additional logging |
+| `only_process_every_nth_batch_when_calculating_train_loss` | Sample every Nth batch when computing training loss (default: 5; set to 1 for full evaluation) |
+| `only_process_every_nth_batch_when_calculating_test_loss` | Sample every Nth batch when computing test loss (default: 1) |
 
 ## Standard Dataset Configurations
 
 We provide standard configurations for different dataset sizes used in our experiments.
+
+TODO: update with most recent experiment configurations
 
 ### 16MB Dataset
 
@@ -330,9 +335,6 @@ These parameters are used across all dataset configurations:
 "log_every": 1,
 "checkpoint_time": 83000,  # ~23 hours
 "max_runtime": 86000,  # ~24 hours
-
-# Model Evaluation Settings
-"minimal_context_window": 1500,
 ```
 
 
