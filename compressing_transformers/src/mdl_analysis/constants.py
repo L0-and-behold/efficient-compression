@@ -86,6 +86,7 @@ def label_of_config(config: str) -> str:
 def human_bytes(value):
     """Format a byte count as human-readable string with 3 significant digits."""
     def _fmt(v, unit):
+        """Format a numeric value with the given unit suffix."""
         if v >= 100:
             return f"{v:.0f}{unit}"
         elif v >= 10:

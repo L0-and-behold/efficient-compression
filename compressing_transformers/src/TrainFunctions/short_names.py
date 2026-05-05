@@ -1,6 +1,7 @@
 from collections import Counter
 
 def get_short_names(args):
+    """Return a mapping from full parameter names to short abbreviations."""
     short_names = {}
 
     short_names["run_id"] = "RunID"

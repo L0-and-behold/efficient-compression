@@ -20,6 +20,7 @@ from src.mdl_analysis.constants import REQUIRED_COLUMNS, PROCEDURE_PATTERNS
 
 
 def load_and_validate(csv_path: str, logger) -> pd.DataFrame:
+    """Load and validate the runs CSV, logging any dropped rows."""
     assert os.path.exists(csv_path), f"File not found: {csv_path}"
     df = pd.read_csv(csv_path)
     logger.log(f"Loaded {csv_path}: {len(df)} rows, {len(df.columns)} columns")

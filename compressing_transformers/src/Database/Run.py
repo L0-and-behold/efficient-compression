@@ -38,6 +38,7 @@ class Run:
         - Load optimizer: `run.load_optimizer(model)`
     """
     def __init__(self, experiment, pmmp=False, run_id=None):
+        """Initialize a Run from a row dict and optional artifact path."""
         self.experiment = experiment
         self.start_time = time.time()
         self.id = run_id
@@ -47,9 +48,11 @@ class Run:
         self.pmmp = pmmp
 
     def __str__(self):
+        """Return a readable string representation of the run."""
         return f"Run {self.id} in experiment {self.experiment.name}"
-    
+
     def __print__(self):
+        """Print the run to stdout."""
         print(self.__str__())
 
     def load_run(self, run_id):

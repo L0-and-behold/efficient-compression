@@ -25,14 +25,17 @@ from src.mdl_analysis.constants import label_of_vanilla, label_of_procedure, hum
 class Logger:
     """Tee print output to both stdout and a report file."""
     def __init__(self, report_path):
+        """Initialize logger with an output filename."""
         self.lines = []
         self.report_path = report_path
 
     def log(self, msg=""):
+        """Print message and append it to the internal log."""
         print(msg)
         self.lines.append(str(msg))
 
     def save(self):
+        """Write accumulated log lines to the output file."""
         os.makedirs(os.path.dirname(self.report_path), exist_ok=True)
         with open(self.report_path, 'w') as f:
             f.write("\n".join(self.lines) + "\n")
@@ -44,6 +47,7 @@ class Logger:
 # ---------------------------------------------------------------------------
 
 def main():
+    """Parse CLI arguments and generate training plots."""
     parser = argparse.ArgumentParser(description='Generate transformer experiment plots')
     parser.add_argument('-i', '--input', required=True, help='Path to runs.csv')
     parser.add_argument('--linear-x', action='store_true',
