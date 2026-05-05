@@ -15,6 +15,7 @@ from src.mdl_analysis.data_loading import compute_description_length
 
 
 def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
+    """Plot description length vs. regularization alpha for all procedures."""
     assert len(vanilla) > 0, "Need at least one vanilla baseline"
     assert dataset_size > 0, "Dataset size must be positive"
 

@@ -122,6 +122,7 @@ class MultiLayerTransformerDecoder(nn.Module):
         torch.manual_seed(current_seed)
         
         def _init_weights(module):
+            """Initialize Linear and Embedding weights with normal distribution."""
             if isinstance(module, (nn.Linear, nn.Embedding)):
                 module.weight.data.normal_(mean=0.0, std=0.02) # some implementations also use 0.02 / sqrt(self.d_model)
                 if isinstance(module, nn.Linear) and module.bias is not None:

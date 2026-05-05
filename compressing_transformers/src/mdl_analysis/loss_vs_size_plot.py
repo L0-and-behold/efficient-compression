@@ -23,6 +23,7 @@ def equipotential_y(dataset_size, description_length):
     Rearranging:   loss = 8·ln(2) / dataset_size × (DL − model_bytes)
     """
     def mean_test_loss(model_byte_size):
+        """Return mean test loss for a given model byte size on this iso-line."""
         return 8 * np.log(2) / dataset_size * (description_length - model_byte_size)
     return mean_test_loss
 

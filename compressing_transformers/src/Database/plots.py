@@ -15,6 +15,7 @@ OUTPUT     = "comparison.svg"
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load(csv_file):
+    """Load loss curves from a CSV file, grouped by run."""
     iterations, losses = [], []
     offset, prev = 0, None
     with open(csv_file) as f:
@@ -30,6 +31,7 @@ def load(csv_file):
     return iterations, losses
 
 def moving_avg(values, window):
+    """Compute a centered moving average over a 1-D array."""
     result = []
     for i in range(len(values)):
         start = max(0, i - window + 1)
@@ -37,6 +39,7 @@ def moving_avg(values, window):
     return result
 
 def plot():
+    """Plot loss curves for all runs in a single figure."""
     plt.figure(figsize=(12, 6))
 
     for csv_file, label in FILES:
