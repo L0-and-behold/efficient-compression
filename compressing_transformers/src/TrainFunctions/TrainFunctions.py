@@ -137,6 +137,11 @@ class TrainFunctions:
         # Print model information (only from rank 0 process)
         if rank == 0:
             self.distributed_trainer.print_model_info(model)
+            print(torch.cuda.get_device_name(0))
+            print(torch.cuda.get_device_properties(0))
+            print(f"Total memory of rank 0 GPU: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+            print(f"Allocated memory of rank 0 GPU: {torch.cuda.memory_allocated(0) / 1e9:.2f} GB")
+            print(f"Reserved memory of rank 0 GPU:  {torch.cuda.memory_reserved(0) / 1e9:.2f} GB")
         
         t1 = time.time()
         

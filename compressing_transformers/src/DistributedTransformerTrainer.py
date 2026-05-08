@@ -98,6 +98,9 @@ class DistributedTransformerTrainer:
         local_rank = self.rank % torch.cuda.device_count()
         torch.cuda.set_device(local_rank)
 
+        if self.rank == 0:
+            print("Backend: ", dist.get_backend())
+            
         if self.verbose:
             print(f"Rank {self.rank}: Local rank {local_rank}, Device count: {torch.cuda.device_count()}")
             
