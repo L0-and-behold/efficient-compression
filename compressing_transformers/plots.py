@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from src.mdl_analysis.data_loading import load_and_validate, split_data, compute_description_length
 from src.mdl_analysis.loss_vs_size_plot import plot_loss_vs_size
 from src.mdl_analysis.dl_vs_alpha_plot import plot_dl_vs_alpha
+from src.mdl_analysis.dl_vs_size_plot import plot_dl_vs_size
 from src.mdl_analysis.constants import label_of_vanilla, label_of_procedure, human_bytes
 
 
@@ -50,14 +51,46 @@ def main():
     """Parse CLI arguments and generate training plots."""
     parser = argparse.ArgumentParser(description='Generate transformer experiment plots')
     parser.add_argument('-i', '--input', required=True, help='Path to runs.csv')
+    parser.add_argument('-o', '--output', required=False, help='Path to output plots within output folder', default='')
+    parser.add_argument('-y', '--y_max', required=False, help='Maximum test loss-value on the y-axis', default=float('inf'))
+    parser.add_argument('-l', '--legend_flag', required=False, help='Legend for plots', default="True")
+    parser.add_argument('-t', '--tight_flag', required=False, help='Tight layout plot', default="False")
+    parser.add_argument('-nd', '--plots_without_dataset_line', required=False, help='Add dl vs alpha and dl vs size plots without the dataset bar for better visibility if compression is very high', default="False")
     parser.add_argument('--linear-x', action='store_true',
                         help='Use linear x-axis for loss-vs-size plot (default: log)')
     args = parser.parse_args()
     log_x = not args.linear_x
+    output_subfolder = args.output
+    if output_subfolder != "":
+        base_path = 'output/'+output_subfolder
+    else:
+        base_path = 'output'
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    y_max = float(args.y_max)
+    if y_max == float('inf'):
+        y_suffix = ""
+    else:
+        y_suffix = "__y_max_" + str(y_max)
+
+    tight_flag = args.tight_flag.lower() == "true"
+    if tight_flag:
+        tight_suffix = "_tight"
+    else:
+        tight_suffix = ""
+
+    legend_flag = args.legend_flag.lower() == "true"
+    if legend_flag:
+        legend_suffix = ""
+    else:
+        legend_suffix = "_no_legend"
+
+    plots_without_dataset_line = args.plots_without_dataset_line.lower() == "true"
+
+
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     stem = os.path.splitext(os.path.basename(args.input))[0]
-    report_path = f"output/{stem}_{timestamp}.out"
+
+    report_path = f"{base_path}/{stem}_{timestamp}{y_suffix}.out"
     logger = Logger(report_path)
 
     logger.log(f"=== Transformer Plots — {timestamp} ===")
@@ -77,22 +110,38 @@ def main():
     configs = df['transformer_config'].unique()
     logger.log(f"Transformer configs: {list(configs)}")
 
-    # Split into vanilla baselines (rl1 + α=0) and regularized procedure runs
+    # Split into vanilla baselines (where training_procedure contains 'vanilla_procedure') and regularized procedure runs
     vanilla, procedures = split_data(df, logger)
     assert len(procedures) > 0, "No regularized procedure data found"
 
-    logger.log(f"\n--- Loss vs. Model Size ({'linear' if not log_x else 'log'} x) ---")
-    fig1 = plot_loss_vs_size(vanilla, procedures, dataset_size, logger, log_x=log_x)
+    logger.log(f"\n--- Test Loss vs. Model Size ({'linear' if not log_x else 'log'} x) ---")
+    fig1 = plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=log_x, tight_flag=tight_flag, legend_flag=legend_flag)
 
     logger.log(f"\n--- Description Length vs. α ---")
-    fig2 = plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger)
+    fig2 = plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger, tight_flag=tight_flag, legend_flag=legend_flag)
+
+    logger.log(f"\n--- Description Length vs. Model Size ---")
+    fig3 = plot_dl_vs_size(vanilla, procedures, dataset_size, logger, tight_flag=tight_flag, legend_flag=legend_flag)
+
+    if plots_without_dataset_line:
+        fig22 = plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger, plot_dataset_size=False, tight_flag=tight_flag, legend_flag=legend_flag)
+        fig32 = plot_dl_vs_size(vanilla, procedures, dataset_size, logger, plot_dataset_size=False, tight_flag=tight_flag, legend_flag=legend_flag)
 
     # Save
     os.makedirs('output', exist_ok=True)
+    if output_subfolder != "":
+        os.makedirs(base_path, exist_ok=True)
+
     x_suffix = 'linear' if not log_x else 'log'
-    fig1.savefig(f'output/loss_vs_size_{stem}_{x_suffix}.pdf', bbox_inches='tight', dpi=300)
-    fig2.savefig(f'output/dl_vs_alpha_{stem}.pdf', bbox_inches='tight', dpi=300)
-    logger.log(f"\nPlots saved to output/")
+
+    fig1.savefig(f'{base_path}/loss_vs_size_{stem}_{x_suffix}{y_suffix}{tight_suffix}{legend_suffix}.pdf', bbox_inches='tight', dpi=300, pad_inches=0)
+    fig2.savefig(f'{base_path}/dl_vs_alpha_{stem}{y_suffix}{tight_suffix}{legend_suffix}.pdf', bbox_inches='tight', dpi=300, pad_inches=0)
+    fig3.savefig(f'{base_path}/dl_vs_size_{stem}{y_suffix}{tight_suffix}{legend_suffix}.pdf', bbox_inches='tight', dpi=300, pad_inches=0)
+    if plots_without_dataset_line:
+        fig22.savefig(f'{base_path}/dl_vs_alpha_noDatasetSize_{stem}{y_suffix}{tight_suffix}{legend_suffix}.pdf', bbox_inches='tight', dpi=300, pad_inches=0)
+        fig32.savefig(f'{base_path}/dl_vs_size_noDatasetSize_{stem}{y_suffix}{tight_suffix}{legend_suffix}.pdf', bbox_inches='tight', dpi=300, pad_inches=0)
+
+    logger.log(f"\nPlots saved to "+base_path)
 
     # --- Description Length Summary ---
     logger.log(f"\n--- Description Length Summary (over train set)---")

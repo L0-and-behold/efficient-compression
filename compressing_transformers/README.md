@@ -114,14 +114,21 @@ Output is printed to stdout and saved to `output/<stem>_<timestamp>.out`.
 
 ```shell
 python plots.py -i input/runs.csv
-python plots.py -i input/runs.csv --linear-x   # linear x-axis for Plot 1
+python plots.py -i input/runs.csv -o big_dataset # puts output into subfolder output/big_dataset 
+python plots.py -i input/runs.csv -y 1.5 # restricts loss values (y-axis range) to be below y=1.5 in the loss_vs_size plots (and restricts x-axis range accordingly)
 ```
 
-**Plot 1 — Loss vs. Model Size**: scatter plot of mean test loss vs. model byte size (log-x by default, or linear with `--linear-x`), with equipotential iso-lines of constant description length (DL):
+The `-o` and `-y` flags are optional and can be combined.
+
+**Plot 1 — Loss vs. Model Size**: scatter plot of mean test loss vs. model byte size (by default, both linear and log plots are created), with equipotential iso-lines of constant description length (DL):
 
 $$\text{DL} = \text{model\_bytes} + \frac{\text{loss} \times \text{dataset\_size}}{\ln 2 \times 8}$$
 
 **Plot 2 — Description Length vs. α**: DL vs. regularization parameter α (log-x), with reference lines for the vanilla baseline and raw dataset size.
+
+**Plot 2 — Description Length vs. Model Size**: DL vs. model byte size (by default, both linear and log plots are created), with reference lines for the vanilla baseline and raw dataset size.
+
+
 
 Required columns: `training_procedure`, `model_byte_size`, `mean_test_loss`, `alpha`, `train_only_on_leading_tokens`, `transformer_config`.
 

@@ -46,7 +46,7 @@ def classify_procedure(training_procedure_str: str) -> str:
 def split_data(df: pd.DataFrame, logger):
     """
     Split the dataframe into:
-      - vanilla baselines: vanilla_procedure (individual crosses)
+      - vanilla baselines: when training_procedure contains 'vanilla_procedure' (individual crosses)
       - procedure runs: everything else, grouped by procedure key
     """
     df = df.copy()
@@ -65,7 +65,7 @@ def split_data(df: pd.DataFrame, logger):
 
     # Vanilla baselines: rows classified as 'vanilla'
     vanilla = df[df['procedure_key'] == 'vanilla']
-    assert len(vanilla) > 0, "No vanilla baselines found (vanilla_procedure)"
+    # assert len(vanilla) > 0, "No vanilla baselines found (vanilla_procedure)"
     logger.log(f"\nVanilla baselines: {len(vanilla)} rows")
     for _, row in vanilla.iterrows():
         logger.log(f"  {row['run_id']}  config={row['transformer_config']}  "
