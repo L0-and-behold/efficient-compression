@@ -160,7 +160,7 @@ class WikipediaDatasets:
             main.ByteWikipediaDataset = ByteWikipediaDataset
         if not hasattr(main, 'WikipediaDatasets'):
             main.WikipediaDatasets = WikipediaDatasets
-        datasets = torch.load(load_path, weights_only=False)
+        datasets = torch.load(load_path, weights_only=False) # Caveat: pytorch throws a warning here: If dataset is not from trusted source, weights_only=False can lead to arbitrary code execution
         
         if datasets.sequence_length != required_seq_length:
             if rank == 0:
