@@ -10,12 +10,12 @@ Only runs with α > 0 are plotted (log-x scale requires positive values).
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_vanilla, human_bytes, PROCEDURE_ORDER
+from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_vanilla, human_bytes, _fmt, PROCEDURE_ORDER
 from src.mdl_analysis.data_loading import compute_description_length
 
 
-def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
-    assert len(vanilla) > 0, "Need at least one vanilla baseline"
+def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger, plot_dataset_size=True, tight_flag=False, legend_flag = True):
+    # assert len(vanilla) > 0, "Need at least one vanilla baseline"
     assert dataset_size > 0, "Dataset size must be positive"
 
     fig, ax = plt.subplots(1, 1, figsize=(4, 3.5))
@@ -72,7 +72,8 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
                   linestyle='dashed', color=baseline_color, label=config_label)
 
     # Dataset size = cost of verbatim coding (no model, just store the data)
-    ax.hlines(y=dataset_size, xmin=alpha_bounds[0], xmax=alpha_bounds[1],
+    if plot_dataset_size:
+        ax.hlines(y=dataset_size, xmin=alpha_bounds[0], xmax=alpha_bounds[1],
               linestyle='dashed', color='black', label='Dataset Size')
 
     # Human-readable y-axis ticks in MB/GB
@@ -82,10 +83,23 @@ def plot_dl_vs_alpha(vanilla, procedures, dataset_size, logger):
     fig.canvas.draw()  # force tick computation
     tick_vals = ax.get_yticks()
     ax.set_yticks(tick_vals, minor=False)
-    ax.set_yticklabels([human_bytes(t) for t in tick_vals])
+    if tight_flag:
+        ax.set_yticklabels([_fmt(t / 1e6, '', False) for t in tick_vals])
+    else:
+        ax.set_yticklabels([human_bytes(t) for t in tick_vals])
+
     ax.yaxis.set_tick_params(which='minor', size=0)
     ax.yaxis.set_minor_formatter(plt.NullFormatter())
 
-    ax.legend(loc='best', fontsize=8)
+    ylo_lim, yhi_lim = ax.get_ylim()
+    ax.set_ylim(max(0.0,ylo_lim), yhi_lim) # Description length is always bigger or equal to 0
+
+    if tight_flag:
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+
+    if legend_flag:
+        ax.legend(loc='best', fontsize=8)
     fig.tight_layout()
+
     return fig

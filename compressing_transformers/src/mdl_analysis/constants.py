@@ -83,24 +83,30 @@ def label_of_config(config: str) -> str:
     return config
 
 
-def human_bytes(value):
-    """Format a byte count as human-readable string with 3 significant digits."""
-    def _fmt(v, unit):
-        if v >= 100:
-            return f"{v:.0f}{unit}"
-        elif v >= 10:
-            s = f"{v:.1f}"
+def _fmt(v, unit, tight_flag):
+    if v >= 100:
+        if tight_flag:
+            return f"{v:.0f}\n{unit}"
         else:
-            s = f"{v:.2f}"
-        # Strip trailing zero after decimal point (10.0 -> 10, 1.50 -> 1.5)
-        if '.' in s:
-            s = s.rstrip('0').rstrip('.')
+            return f"{v:.0f}{unit}"
+    elif v >= 10:
+        s = f"{v:.1f}"
+    else:
+        s = f"{v:.2f}"
+    # Strip trailing zero after decimal point (10.0 -> 10, 1.50 -> 1.5)
+    if '.' in s:
+        s = s.rstrip('0').rstrip('.')
+    if tight_flag:
+        return f"{s}\n{unit}"
+    else:
         return f"{s}{unit}"
 
+def human_bytes(value, tight_flag=False):
+    """Format a byte count as human-readable string with 3 significant digits."""
     if abs(value) >= 1e9:
-        return _fmt(value / 1e9, 'GB')
+        return _fmt(value / 1e9, 'GB', tight_flag)
     elif abs(value) >= 1e6:
-        return _fmt(value / 1e6, 'MB')
+        return _fmt(value / 1e6, 'MB', tight_flag)
     elif abs(value) >= 1e3:
-        return _fmt(value / 1e3, 'kB')
+        return _fmt(value / 1e3, 'kB', tight_flag)
     return f"{value:.0f}B"

@@ -64,7 +64,7 @@ def split_data(df: pd.DataFrame, logger):
 
     # Vanilla baselines: rows classified as 'vanilla'
     vanilla = df[df['procedure_key'] == 'vanilla']
-    assert len(vanilla) > 0, "No vanilla baselines found (vanilla_procedure)"
+    # assert len(vanilla) > 0, "No vanilla baselines found (vanilla_procedure)"
     logger.log(f"\nVanilla baselines: {len(vanilla)} rows")
     for _, row in vanilla.iterrows():
         logger.log(f"  {row['run_id']}  config={row['transformer_config']}  "

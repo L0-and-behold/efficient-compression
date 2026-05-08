@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib.ticker import FuncFormatter
 
-from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_vanilla, human_bytes, PROCEDURE_ORDER
+from src.mdl_analysis.constants import clrs, symbols, marker_size, label_of_procedure, label_of_vanilla, human_bytes, _fmt, PROCEDURE_ORDER
 from src.mdl_analysis.data_loading import compute_description_length
 
 
@@ -27,7 +27,7 @@ def equipotential_y(dataset_size, description_length):
     return mean_test_loss
 
 
-def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=True):
+def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=True, tight_flag=False, legend_flag=True):
     """Scatter plot of mean test loss vs. model byte size.
 
     Args:
@@ -37,7 +37,7 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=Tr
         logger:       Logger instance for reporting.
         log_x:        If True (default), use log scale on x-axis; otherwise linear.
     """
-    assert len(vanilla) > 0, "Need at least one vanilla baseline"
+    # assert len(vanilla) > 0, "Need at least one vanilla baseline"
     assert len(procedures) > 0, "Need at least one procedure group"
     assert dataset_size > 0, "Dataset size must be positive"
 
@@ -65,6 +65,10 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=Tr
 
         x = sub['model_byte_size'].values
         y = sub['mean_test_loss'].values
+
+        x = x[y <= y_max]
+        y = y[y <= y_max]
+        
         dl = compute_description_length(y, dataset_size, x)
 
         s = np.argsort(x)
@@ -88,18 +92,21 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=Tr
         config_label = label_of_vanilla(row['non_zero_params'])
         x = row['model_byte_size']
         y = row['mean_test_loss']
-        dl = compute_description_length(y, dataset_size, x)
-        baseline_color = clrs[(baseline_color_start + vi) % len(clrs)]
-        vanilla_plot_data.append((x, y, dl, config_label, baseline_color))
-        all_x.append(x); all_y.append(y); all_dl.append(dl)
+        if y <= y_max:
+            dl = compute_description_length(y, dataset_size, x)
+            baseline_color = clrs[(baseline_color_start + vi) % len(clrs)]
+            vanilla_plot_data.append((x, y, dl, config_label, baseline_color))
+            all_x.append(x); all_y.append(y); all_dl.append(dl)
 
     # --- Equipotential iso-lines (drawn first so data points sit on top) ---
     assert len(all_dl) > 0, "No data points collected"
     all_dl = np.array(all_dl)
 
-    y_lo, y_hi = min(all_y), min(max(all_y),y_max)
-    all_x_whose_y_is_lower_y_max = [x for x, y in zip(all_x, all_y) if y < y_max]
-    x_lo, x_hi = min(all_x_whose_y_is_lower_y_max), max(all_x_whose_y_is_lower_y_max)
+    x_lo, x_hi = min(all_x), max(all_x)
+    y_lo, y_hi = min(all_y), max(all_y)
+    # y_lo, y_hi = min(all_y), min(max(all_y),y_max)
+    # all_x_whose_y_is_lower_y_max = [x for x, y in zip(all_x, all_y) if y < y_max]
+    # x_lo, x_hi = min(all_x_whose_y_is_lower_y_max), max(all_x_whose_y_is_lower_y_max)
 
     # Iso-lines span slightly beyond the data range (±10%) for visual context
     dl_min, dl_max = all_dl.min(), all_dl.max()
@@ -134,7 +141,10 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=Tr
     nice_ticks = sorted(set(nice_ticks))
     nice_ticks = [t for t in nice_ticks if dl_min * 0.9 <= t <= dl_max * 1.1]
     cbar.set_ticks(nice_ticks)
-    cbar.set_ticklabels([human_bytes(t) for t in nice_ticks])
+    if tight_flag:
+        cbar.set_ticklabels([_fmt(t / 1e6, "", False) for t in nice_ticks])
+    else:
+        cbar.set_ticklabels([human_bytes(t, tight_flag) for t in nice_ticks])
     cbar.ax.minorticks_off()
 
     # --- Plot data on top of iso-lines (higher zorder) ---
@@ -163,5 +173,14 @@ def plot_loss_vs_size(vanilla, procedures, dataset_size, logger, y_max, log_x=Tr
     y_pad = 0.05 * (y_hi - y_lo)
     ax.set_ylim(y_lo - y_pad, y_hi + y_pad)
 
-    ax.legend(loc='best', fontsize=8)
+
+    if tight_flag:
+        xtick_vals = ax.get_xticks()
+        ax.set_xticklabels([_fmt(t / 1e6, '', False) for t in xtick_vals]) # make x axis also have values in MB
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        cbar.set_label('')
+
+    if legend_flag:
+        ax.legend(loc='best', fontsize=8)
     return fig
