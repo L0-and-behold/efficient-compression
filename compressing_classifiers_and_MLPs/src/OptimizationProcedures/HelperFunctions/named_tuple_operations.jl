@@ -136,17 +136,18 @@ function apply_fun!_and_sum_square(fun::Function, ps1::NamedTuple, ps2::NamedTup
     return uss
 end
 
-function zero_non_contributing_weights!(ps::NamedTuple, r_grads::NamedTuple)
-    for (l1,l2) in zip(ps, r_grads)
-        if isa(l1,NamedTuple)
-            zero_non_contributing_weights!(l1,l2)
-        else
-            if !isnothing(l2)
-                l1[l2 .== 0] .= 0
-            end
-        end
-    end
-end
+# This function is also defined in "src/OptimizationProcedures/HelperFunctions/random_gradient_pruning.jl"
+# function zero_non_contributing_weights!(ps::NamedTuple, r_grads::NamedTuple)
+#     for (l1,l2) in zip(ps, r_grads)
+#         if isa(l1,NamedTuple)
+#             zero_non_contributing_weights!(l1,l2)
+#         else
+#             if !isnothing(l2)
+#                 l1[l2 .== 0] .= 0
+#             end
+#         end
+#     end
+# end
 function nested_namedtuple(nt::NamedTuple, func::Function; booltype=false)
     NamedTuple{keys(nt)}(
         (isa(value, NamedTuple) ? nested_namedtuple(value, func; booltype=booltype) : ( booltype ? func.(value) .!= 1.0f0 : func.(value) ) )

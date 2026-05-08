@@ -4,6 +4,7 @@ Codebase for the experiments from our paper regarding the classifier and teacher
 
 ## Table of Contents
 - [Quick Start](#quick-start)
+- [ImageNet](#imagenet)
 - [Environment Setup](#environment-setup)
 - [Experiment Parameters and Setup](#experiment-parameters-and-setup)
   - [General Parameters](#general-parameters)
@@ -27,26 +28,87 @@ cd path/to/project/efficient-compression/compressing_classifiers_and_MLPs
 julia
 ```
 
-In julia in shell, the environment can be instantiated like this 
+In shell, the environment can be instantiated by running the `init_env.jl` file:
+```shell
+julia init_env.jl
+```
+or by executing the following julia commands:
 ```julia
 using Pkg
 Pkg.activate(".")
 Pkg.resolve()
 Pkg.instantiate()
-Pkg.precompile()
 ```
 
 Now, an experiment can be run
 ```shell
 julia run_an_experiment.jl
 ```
-where the default settings in the file `run_an_experiment.jl` serve as a simple example.
+where the default settings in the file `run_an_experiment.jl` serve as a simple example for MNIST, CIFAR, and teacher-student compression. Once familiar with the framework, `imagenet.jl` reproduces the paper's ImageNet table results (see [ImageNet](#imagenet) below).
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
+
+## ImageNet
+
+This repository assumes that a standard ImageNet-1K directory structure
+is available on local disk:
+
+```
+imagenet/
+├── train/
+│   ├── n01440764/
+│   ├── n01443537/
+│   └── ...
+└── val/
+    ├── n01440764/
+    ├── n01443537/
+    └── ...
+```
+
+This repository contains a python script to download ImageNet from Hugging Face, located in the `installingImageNet/` directory.
+
+Please refer to: [installingImageNet.md](installingImageNet/installingImageNet.md)
+
+Before running ImageNet experiments, create `config.toml` by copying `config.toml.example`
+and filling in your paths:
+
+```toml
+[paths]
+imagenet_path = "/path/to/raw/imagenet"
+imagenet_preprocessed_path = "/path/to/chunked"
+path_to_db = "/path/to/results"
+```
+
+Preprocess ImageNet into chunked tensors (one-time step):
+
+```bash
+julia scripts/prepare_imagenet.jl
+```
+
+This step:
+- converts ImageNet into **chunked, preprocessed tensors**,
+- applies deterministic resizing and normalization,
+- prepares the dataset for efficient runtime loading on CPU or GPU.
+
+After this step, ImageNet is ready to be used via the
+`imagenet_data_function()` dataset API.
+
+To reproduce the paper's ImageNet table results (vanilla, DRR, RL1, PMMP best configs):
+
+```bash
+julia --threads auto imagenet.jl
+```
+
+The `--threads auto` flag is required: the data loader uses `parallel = true` (MLUtils `DataLoader`), which spawns Julia threads to prefetch batches concurrently. Without multiple threads, parallel prefetching falls back to serial loading and training will be significantly slower.
+
+The four configurations (vanilla, DRR, RL1, PMMP) can be run in parallel, one GPU each, using the sub-batch mechanism. Pass `--num_sub_batches 4 --sub_batch N` (N = 1…4) to run a single configuration per worker. See [Parallelized Execution](#parallelized-execution-with-subbatches-and-slurm) for the full pattern.
+
+
+
 ## Experiment Parameters and Setup
 
-After the experiment finishes, the results are saved into a folder including a runs.csv file containing parameters and calculated metrics as well as an artifact folder with the trained model parameters and loss curves.
+After the experiment finishes, the results are saved into a folder including a runs.csv file containing parameters and calculated metrics as well as an artifact folder with the trained model parameters and loss curves. For the imagenet experiments we also refer to the logs during training for accuracy and compression results.
 
 Set the path for results storage in `run_an_experiment.jl` by changing:
 
@@ -77,6 +139,7 @@ The other training settings are controlled by the `args=TrainArgs()` object. In 
 | `ρ` | Coefficient for L2 weight regularization in DRR and RL1 procedures. |
 | `L1_alpha`| Coefficient for additional L1 regularization term in PMMP procedure. It adds L1_alpha times the L1-norm of the parameters of the unregularized objective to the PMMP loss function. |
 | `tolerated_relative_loss_increase` | Pruning threshold parameter (`δ`) for TAMADE: finds largest pruning threshold such that post-pruning loss ≤ (1 + δ) × pre-pruning loss. |
+| `tamade_val_acc_tolerance` | Alternative TAMADE stopping criterion: prunes to at most this absolute drop in validation accuracy (in fraction, e.g. `0.013f0` = 1.3 pp). Takes precedence over `tolerated_relative_loss_increase` when set. Recommended for ImageNet. |
 | `NORM`| If `true`, applies layerwise normalization to `α` and `ρ` in DRR. |
 | `layer_NORM`| If set to `true`, the `NORM` normalization described above divides by the number of neurons in a given layer to normalize. If set to `false`, and the layer consists of convolutional blocks (in a CNN), then it divides by the number of neurons in a convolution block to normalize. |
 
@@ -114,6 +177,7 @@ The other training settings are controlled by the `args=TrainArgs()` object. In 
 | `finetuning_converge_val_loss` | Like `converge_val_loss` explained above but during finetuning phase. |
 | `logs`| -a placeholder for a variable which the procedures write to-|
 | `multiply_mask_after_each_batch` | If `true`, applies pruning masks after every training batch; otherwise, only at designated pruning stages. |
+| `tamade_calibration_batches` | Number of training batches used for TAMADE binary search during pruning. Default `nothing` uses the full training set (correct for small datasets). For large datasets like ImageNet, set to e.g. `200` to avoid TAMADE taking a long time by processing millions of forward passes. |
 | `initial_p_value`| Initial value of the `p` parameter for PMMP optimization.|
 | `initial_u_value`| Initial value of the `u` parameter for PMMP optimization.|
 | `u_value_multiply_factor`| Scaling factor applied to `u` during PMMP optimization.|
@@ -252,7 +316,7 @@ echo "All jobs submitted!"
 
 2. Set up a slurm job script, which accepts arguments passed from the abovementioned executable
 
-```slurm
+```sh
 #!/bin/bash -l
 
 #SBATCH --output=./reports/%x_%j.out

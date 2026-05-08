@@ -3,8 +3,8 @@ using ChainRulesCore: ignore_derivatives
 using Accessors, Revise
 
 include("custom_linear_probabilistic_model.jl")
-include("../../HelperFunctions/break_loop.jl")
-include("../../HelperFunctions/random_gradient_pruning.jl")
+# include("../../HelperFunctions/break_loop.jl")
+# include("../../HelperFunctions/random_gradient_pruning.jl")
 
 """
     prune_layer(input, output, weight, bias; dtype = Float32, lr = dtype(0.01), alpha = dtype(1.0), dev = cpu_device(), epochs=500, verbose=false, rng=Random.default_rng(), smoothing_window=400, mask_start_value = dtype(0), saturation_counter_max_value=3, p_saturation_counter_max_value=3, use_gauss_loss=true, mask=nothing, initial_sigma=[1f-1])

@@ -1,13 +1,3 @@
-using Dates, CUDA, Plots, CSV, DataFrames, Random
-using Dates: now
-import Lux, LuxCore
-import Lux: AutoZygote
-import Lux.Training: compute_gradients
-
-using .Database: create_experiment, initialize_runs_csv, create_run, initialize_single_run_df, log_params, get_artifact_folder, append_run_to_csv!, has_been_run_before
-using .TrainingTools: save_train_state, load_train_state
-using .OptimizationProcedures: scale_alpha_rho!, generate_tstate, accuracy
-
 """
     single_run_routine_classifier(path_to_db::String, experiment_name::String, args, variables)
 
@@ -22,14 +12,31 @@ Execute a single training run for a classifier model with the given parameters.
 # Returns
 Nothing, but saves training results, plots, and model state to the database
 """
-function single_run_routine_classifier(path_to_db::String, experiment_name::String, args, variables)
+function single_run_routine_classifier(
+        path_to_db::String, 
+        experiment_name::String, 
+        args::AbstractTrainArgs, 
+        variables,
+        checkpoint::CheckpointManager
+    )
+
+    if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
+        loaded_args = checkpoint.content.args
+        loaded_args.dataset                = args.dataset    # restore: stripped from checkpoint (JLD2 cannot serialize closures)
+        loaded_args.optimizer              = args.optimizer  # restore: same reason
+        loaded_args.schedule               = args.schedule   # restore: same reason
+        loaded_args.finetuning_min_epochs  = args.finetuning_min_epochs   # allow override at resume time
+        loaded_args.finetuning_max_epochs  = args.finetuning_max_epochs   # allow override at resume time
+        args = loaded_args
+    end
 
     assertions_classifier(args)
 
     plotlyjs()
 
-    # check whether these args have been run before
-    if has_been_run_before(path_to_db, experiment_name, args, variables)
+    # check whether these args have been run before (skip when resuming — run clearly exists)
+    if !(checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run) &&
+            has_been_run_before(path_to_db, experiment_name, args, variables)
         println("These exact parameters have been run before: ")
         for field in fieldnames(typeof(args))
             if String(field) in variables || field in variables
@@ -44,42 +51,70 @@ function single_run_routine_classifier(path_to_db::String, experiment_name::Stri
     train_set, validation_set, test_set = args.dataset(args.train_batch_size)
     model = args.architecture()
 
-    model_seed = args.seed + 42; loss_fctn = OptimizationProcedures.logitcrossentropy;
+    model_seed = args.seed + 42
+    loss_fctn = args.label_smoothing ? logitcrossentropy_ls : logitcrossentropy
     
     start_time = now()
 
     println("Start training for $run_id with architecture '$(args.architecture)', dataset '$(args.dataset)' and optimization procedure '$(args.optimization_procedure)'")
 
     # do some training to trigger compilation of the involved functions
-    
-    throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
-    try 
-        do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args) 
-    catch 
-        println("Error during precompilation run. Continue with actual training")
+    if !args.skip_precompilation
+        throwaway_tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
+        try
+            do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args)
+        catch e
+            println("Error during precompilation run. Continue with actual training")
+        end
     end
     
-    # do actual training
-    tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
+    flush(stdout); flush(stderr)
 
-    tstate, logs, loss_fctn = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
+    # do actual training
+    if checkpoint.do_checkpointing && checkpoint.metadata.type == :loaded_run
+        if args.verbose
+            println("Loading tstate from checkpoint")
+        end
+        if isnothing(checkpoint.content.tstate)
+            error("Checkpoint indicates loaded run but tstate is nothing")
+        end
+        tstate = checkpoint.content.tstate
+    else
+        if args.verbose
+            println("Generating fresh training state")
+        end
+        tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev)
+    end
+
+    @assert tstate != nothing
+
+    tstate, logs, loss_fctn, checkpoint = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args, checkpoint)
 
     # save results
     args.logs = Dict{String, Any}() # There is no need to save all logs in the summary csv file
     current_run_df = initialize_single_run_df(args)
     current_run_df = log_params(current_run_df, args)
     current_run_df = log_final_accuracies_losses(current_run_df, tstate, train_set, validation_set, test_set, loss_fctn, args) 
-    current_run_df = log_meta_data_and_metrics(current_run_df, run_id, experiment_name, start_time, logs)
+    current_run_df = log_meta_data_and_metrics_classifier(current_run_df, run_id, experiment_name, start_time, logs)
     append_run_to_csv!(path_to_db, experiment_name, current_run_df)
 
     # save plots and .csv files
     artifact_folder = get_artifact_folder(path_to_db, experiment_name, run_id)
+    if haskey(logs, "pre_pruning_tstate")
+        save_train_state(logs["pre_pruning_tstate"], model, Random.GLOBAL_RNG, joinpath(artifact_folder, "pre_pruning_train_state.bson"))
+        delete!(logs, "pre_pruning_tstate")
+    end
     save_CSV_classifier(artifact_folder, logs)
 
     do_and_save_plots(artifact_folder, logs, args)
     save_train_state(tstate, model, Random.GLOBAL_RNG, joinpath(artifact_folder, "train_state.bson"))
 
+    # save checkpoint
+    mark_checkpoint_finished!(checkpoint)
+
     println("Training and saving of results finished for $run_id.")
+
+    flush(stdout); flush(stderr)
 end
 
 """
@@ -129,29 +164,42 @@ Calculate and log the final accuracy and loss values for all datasets.
 - `DataFrame`: Updated DataFrame with final accuracies and losses added
 """
 function log_final_accuracies_losses(run_df, tstate, train_set, validation_set, test_set, loss_fctn, args)
-    run_df[end, :final_accuracy_trainset] = accuracy(tstate, train_set)
-    run_df[end, :final_accuracy_valset] = accuracy(tstate, validation_set)
-    run_df[end, :final_accuracy_testset] = accuracy(tstate, test_set)
-    
-    function loss_on_dataset(dataset)::Number
-        vjp = AutoZygote()
-        total_loss = zero(args.dtype)
-        for batch in dataset
-            _, loss, _, _ = compute_gradients(vjp, loss_fctn, batch, tstate)
-            total_loss += loss
-        end
-        return total_loss / args.dtype(length(dataset))
+
+    if args.debug
+        println("Skipping final calculation of accuracies and losses since args.debug = true.")
+        return run_df
     end
 
-    run_df[end, :final_loss_trainset] = loss_on_dataset(train_set)
+    run_df[end, :final_accuracy_trainset] = accuracy(tstate, Iterators.take(train_set, 500))
+    run_df[end, :final_accuracy_valset] = accuracy(tstate, validation_set)
+    if test_set !== nothing
+        run_df[end, :final_accuracy_testset] = accuracy(tstate, test_set)
+    end
+
+    function loss_on_dataset(dataset)
+        total_loss = zero(args.dtype)
+        n = 0
+        testmode_st = testmode_states(tstate)
+
+        for batch in dataset
+            total_loss += loss_fctn(tstate.model, tstate.parameters, testmode_st, batch)[1]
+            n += 1
+        end
+        return total_loss / args.dtype(n)
+    end
+
+
+    run_df[end, :final_loss_trainset] = loss_on_dataset(Iterators.take(train_set, 500))
     run_df[end, :final_loss_valset] = loss_on_dataset(validation_set)
-    run_df[end, :final_loss_testset] = loss_on_dataset(test_set)
+    if test_set !== nothing
+        run_df[end, :final_loss_testset] = loss_on_dataset(test_set)
+    end
     
     return run_df
 end
 
 """
-    log_meta_data_and_metrics(run_df::DataFrame, run_id::String, experiment_name::String, start_time::Dates.DateTime, logs::Dict)::DataFrame
+    log_meta_data_and_metrics_classifier(run_df::DataFrame, run_id::String, experiment_name::String, start_time::Dates.DateTime, logs::Dict)::DataFrame
 
 Record metadata and performance metrics for a classifier training run.
 
@@ -165,7 +213,7 @@ Record metadata and performance metrics for a classifier training run.
 # Returns
 - `DataFrame`: Updated DataFrame with metadata and metrics added
 """
-function log_meta_data_and_metrics(run_df::DataFrame, run_id::String, experiment_name::String, start_time::Dates.DateTime, logs::Dict)
+function log_meta_data_and_metrics_classifier(run_df::DataFrame, run_id::String, experiment_name::String, start_time::Dates.DateTime, logs::Dict)
     run_df[end, :run_id] = run_id
     run_df[end, :experiment_name] = experiment_name
     run_df[end, :timestamp] = string(start_time)

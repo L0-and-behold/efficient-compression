@@ -1,15 +1,13 @@
-using Revise, CUDA
-import Lux
-include("procedure.jl")
-
 """
-    DRR_procedure(
-        train_set::Union{Vector{<:Tuple}, DeviceIterator},
-        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-        test_set::Union{Vector{<:Tuple}, DeviceIterator},
-        tstate::Lux.Training.TrainState,
-        loss_fctn::Function,
-        args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+     DRR_procedure(
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
+    tstate::Lux.Training.TrainState,
+    loss_fctn::Function,
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     This function runs a DRR compression procedure. During this procedure, a given objective is augmented with a smooth approximation of the L0 norm that can then be optimized via backpropagation. 
 
@@ -23,16 +21,18 @@ include("procedure.jl")
         - `validation_set`: The validation set.
         - `test_set`: The test set.
         - `tstate`: An object of type `Lux.Training.TrainState`, containing all model, optimizer and parameter information.
-        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy or MSELoss)
+        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy, logitcrossentropy_ls, or MSELoss)
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function DRR_procedure(
-    train_set::Union{Vector{<:Tuple}, DeviceIterator},
-    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     if args.gauss_loss
         if hasproperty(tstate.model, :name)
@@ -65,7 +65,9 @@ function DRR_procedure(
         loss_fun = DRR(model_param_number, layernumber_model; alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn, fun1 = fun1)
     end
 
-    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args)
+    @assert tstate != nothing
+
+    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end
 
 function get_layer_number(params)

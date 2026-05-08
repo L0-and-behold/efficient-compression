@@ -1,4 +1,3 @@
-include("procedure.jl")
 
 function recursively_modify_FPP!(params, fun)
     for subparams in params
@@ -10,31 +9,17 @@ function recursively_modify_FPP!(params, fun)
     end
 end
 
-function convert_tstate!(tstate, args)
-    pw = deepcopy(tstate.parameters)
-    pp = deepcopy(tstate.parameters)
-    u = deepcopy(tstate.parameters)
-    
-    recursively_modify_FPP!(pp, x -> args.initial_p_value .* one.(x))
-    recursively_modify_FPP!(u, x -> args.initial_u_value .* one.(x))
-
-    tstate = Training.TrainState(tstate.model, (p = tstate.parameters, pw=pw, pp=pp, u=u), tstate.states, tstate.optimizer)
-    if hasproperty(tstate.model, :name)
-        @reset tstate.model.name = "FPP model"
-    elseif hasproperty(tstate.model.layer, :name)
-        @reset tstate.model.layer.name = "FPP model"
-    end
-    return tstate
-end
 
 """
     FPP_procedure(
-        train_set::Union{Vector{<:Tuple}, DeviceIterator},
-        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-        test_set::Union{Vector{<:Tuple}, DeviceIterator},
-        tstate::Lux.Training.TrainState,
-        loss_fctn::Function,
-        args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
+    tstate::Lux.Training.TrainState,
+    loss_fctn::Function,
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     This function runs a FPP compression procedure. During this procedure, an L0 norm term is added to a given objective and a minimax optimization process computes the gradients of a probabilistic reformulation of this L0 norm augmented objective. 
 
@@ -48,19 +33,38 @@ end
         - `validation_set`: The validation set.
         - `test_set`: The test set.
         - `tstate`: An object of type `Lux.Training.TrainState`, containing all model, optimizer and parameter information.
-        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy or MSELoss)
+        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy, logitcrossentropy_ls, or MSELoss)
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function FPP_procedure(
-    train_set::Union{Vector{<:Tuple}, DeviceIterator},
-    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
+    function _convert_tstate!(tstate, args)
+        pw = deepcopy(tstate.parameters)
+        pp = deepcopy(tstate.parameters)
+        u = deepcopy(tstate.parameters)
+        
+        recursively_modify_FPP!(pp, x -> args.initial_p_value .* one.(x))
+        recursively_modify_FPP!(u, x -> args.initial_u_value .* one.(x))
+
+        tstate = Training.TrainState(tstate.model, (p = tstate.parameters, pw=pw, pp=pp, u=u), tstate.states, tstate.optimizer)
+        if hasproperty(tstate.model, :name)
+            @reset tstate.model.name = "FPP model"
+        elseif hasproperty(tstate.model.layer, :name)
+            @reset tstate.model.layer.name = "FPP model"
+        end
+        return tstate
+    end
+
     if !haskey(tstate.parameters, :pp)
-        tstate = convert_tstate!(tstate, args)
+        tstate = _convert_tstate!(tstate, args)
     end
     if !((@isdefined loss_fun) && typeof(loss_fun) <: FPP)
         initial_grad_p = deepcopy(tstate.parameters.p)
@@ -83,5 +87,5 @@ function FPP_procedure(
         end
     end
 
-    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args)
+    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end

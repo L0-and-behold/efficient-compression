@@ -1,0 +1,20 @@
+# ------------------------------------------------------------------------------
+# Configuration file for ImageNet dataset download
+#
+# SETUP INSTRUCTIONS:
+# 1. Copy this file to `config.toml` (without the .example extension)
+# 2. Update the paths below with your local machine's paths
+# 3. The `config.toml` file is gitignored and will not be committed
+#
+# The HuggingFace token is used to download ImageNet via:
+#   installingImageNet/load_imagenet.py
+# from https://huggingface.co/
+# ------------------------------------------------------------------------------
+
+[huggingface]
+token = "YOUR_HF_TOKEN_HERE"
+
+[paths]
+imagenet_path = "/path/to/folder_containing_the_imagenet_dataset"
+imagenet_preprocessed_path = "/path/to/folder_containing_the_pre_processed_imagenet_dataset"
+path_to_db = "/path/to/save_results_here"

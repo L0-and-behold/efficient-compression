@@ -1,15 +1,14 @@
 
-using Revise
-include("procedure.jl")
-
 """
     RL1_procedure(
-        train_set::Union{Vector{<:Tuple}, DeviceIterator},
-        validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-        test_set::Union{Vector{<:Tuple}, DeviceIterator},
-        tstate::Lux.Training.TrainState,
-        loss_fctn::Function,
-        args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
+    tstate::Lux.Training.TrainState,
+    loss_fctn::Function,
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     This function runs a relaxed L1-regularized compression procedure. During this procedure, a given loss function is augmented with an L1-norm regularization term and then optimized.
     
@@ -23,16 +22,18 @@ include("procedure.jl")
         - `validation_set`: The validation set.
         - `test_set`: The test set.
         - `tstate`: An object of type `Lux.Training.TrainState`, containing all model, optimizer and parameter information.
-        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy or MSELoss)
+        - `loss_fctn`: The unregularized loss function (e.g. logitcrossentropy, logitcrossentropy_ls, or MSELoss)
         - `args`: The training arguments, a struct defined in the module `TrainingArguments`
 """
 function RL1_procedure(
-    train_set::Union{Vector{<:Tuple}, DeviceIterator},
-    validation_set::Union{Vector{<:Tuple}, DeviceIterator},
-    test_set::Union{Vector{<:Tuple}, DeviceIterator},
+    train_set::Any,
+    validation_set::Any,
+    test_set::Any,
     tstate::Lux.Training.TrainState,
     loss_fctn::Function,
-    args)::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction}
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
     if args.gauss_loss
         if hasproperty(tstate.model, :name)
@@ -52,5 +53,5 @@ function RL1_procedure(
         loss_fun = RL1_loss(; alpha=args.α, rho=args.ρ, loss_f=loss_fctn)
     end
 
-    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args)
+    return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end

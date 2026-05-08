@@ -19,12 +19,14 @@ class Experiment:
         - Prune empty runs using the 'prune_empty_runs' method.
     """
     def __init__(self, database, experiment_name):
+        """Set the experiment root path."""
         self.database = database
         self.name = experiment_name
         self.path = self.find_or_create_experiment()
         self.assert_experiment_exists()
 
     def find_or_create_experiment(self):
+        """Create the experiment directory and runs.csv if they do not exist."""
         # path = os.path.join(self.database.path, self.name)
         # def _create_experiment(path):
         #     os.makedirs(path, exist_ok=True)
@@ -39,6 +41,7 @@ class Experiment:
         return path
     
     def assert_experiment_exists(self):
+        """Raise if the experiment directory does not exist."""
         if not os.path.exists(self.path):
             raise FileNotFoundError(f"Experiment not found at {self.path} in database {self.database.path}.")
 
@@ -62,6 +65,7 @@ class Experiment:
         return runs
 
     def init_csv(self, args):
+        """Write the CSV header row with all parameter column names."""
         if os.path.exists(os.path.join(self.path, "runs.csv")):
             return
         else:

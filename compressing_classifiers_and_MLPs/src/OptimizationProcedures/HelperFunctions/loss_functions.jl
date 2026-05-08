@@ -9,6 +9,8 @@ using Accessors
 abstract type LossFunction end
 
 const logitcrossentropy = Lux.CrossEntropyLoss(; logits=Val(true))
+const logitcrossentropy_ls = Lux.CrossEntropyLoss(; logits=Val(true), label_smoothing=0.1f0)
+
 # Test:
 # y = [1  0  0  0  1
 #      0  1  0  1  0
@@ -55,26 +57,40 @@ multiply_mask(A,B) = A .* B
 
 #################
 
-function accuracy(tstate, dataset)::Float32
+function accuracy(tstate, dataset; debug=false)::Float32
     if haskey(tstate.parameters, :p)
-        return accuracy(tstate.model, tstate.parameters.p, tstate.states.st, dataset)
+        return accuracy(tstate.model, tstate.parameters.p, testmode_states(tstate), dataset; debug=debug)
     end
-    return accuracy(tstate.model, tstate.parameters, tstate.states, dataset)
+    return accuracy(tstate.model, tstate.parameters, testmode_states(tstate), dataset; debug=debug)
 end
 
-function accuracy(model, ps, st, dataset)::Float32
+_has_training_mode(st::NamedTuple) =
+    (haskey(st, :training) && st.training === Val(true)) ||
+    any(_has_training_mode(v) for v in values(st) if v isa NamedTuple)
+_has_training_mode(_) = false
+
+function assert_in_testmode(st::NamedTuple)
+    inner = haskey(st, :st) ? st.st : st
+    @assert !_has_training_mode(inner) "accuracy called with states in training mode — use testmode_states(tstate) before calling accuracy"
+end
+
+function accuracy(model, ps, st, dataset; debug=false)::Float32
+    assert_in_testmode(st)
+    inner_st = haskey(st, :st) ? st.st : st  # unwrap masked model states (same as assert_in_testmode)
     total_correct, total = 0, 0
-    stt = Lux.testmode(st)
-    for (x, y) in dataset
-        target_class = onecold(y)
-        predicted_class = onecold(first(model(x, ps, stt)))
+    cpu = Lux.cpu_device()
+
+    for (i, (x, y)) in enumerate(dataset)
+        target_class = onecold(cpu(y))
+        predicted_class = onecold(cpu(first(model(x, ps, inner_st))))
         total_correct += sum(target_class .== predicted_class)
         total += length(target_class)
+        if debug && i > 5
+            break
+        end
     end
     return total_correct / total
 end
-
-
 
 function masked_loss(loss_params, model, ps, st, batch)
     if haskey(st, :mask)
@@ -176,7 +192,7 @@ end
 ################################ structs #####################################
 
 
-struct RL1_loss{R <: Number, L1 <: Function, L2 <: Function} <: LossFunction
+mutable struct RL1_loss{R <: Number, L1 <: Function, L2 <: Function} <: LossFunction
     alpha::R
     rho::R
     fun1::Function
@@ -192,7 +208,7 @@ function (loss_params::RL1_loss)(model, ps::NamedTuple, st::NamedTuple, batch)
 end
 
 
-struct DRR{R <: Number, L2 <: Function} <: LossFunction
+mutable struct DRR{R <: Number, L2 <: Function} <: LossFunction
     alpha::R
     beta::R
     rho::R

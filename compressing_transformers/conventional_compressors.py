@@ -29,6 +29,7 @@ _shared_data: bytes = b""
 
 
 def _compress_segment_lzma(args):
+    """Compress a single byte segment with LZMA."""
     start, end, chunk_size = args
     data = _shared_data[start:end]
     filters = [{"id": lzma.FILTER_LZMA2}]
@@ -41,6 +42,7 @@ def _compress_segment_lzma(args):
 
 
 def _compress_segment_zstd(args):
+    """Compress a single byte segment with Zstandard."""
     start, end, chunk_size, level = args
     data = _shared_data[start:end]
     compressor = zstd.ZstdCompressor(level=level)
@@ -52,6 +54,7 @@ def _compress_segment_zstd(args):
 
 def _compress_parallel(data: bytes, chunk_size: int, worker_fn, extra_args: tuple,
                        n_workers: int, desc: str) -> int:
+    """Compress all segments in parallel using a process pool."""
     global _shared_data
     _shared_data = data
 
@@ -77,6 +80,7 @@ def _compress_parallel(data: bytes, chunk_size: int, worker_fn, extra_args: tupl
 
 
 def _load_subset(datasets, subset_size: int) -> bytes:
+    """Load a contiguous subset of the dataset as bytes."""
     subset = WikipediaDatasets.get_subset(0, subset_size, datasets.train)
     data = b''.join(subset.data)
     assert type(data) is bytes
@@ -85,7 +89,9 @@ def _load_subset(datasets, subset_size: int) -> bytes:
 
 
 def run_benchmarks(datasets, sizes, seq_len, n_workers, out):
+    """Run LZMA and Zstandard benchmarks and write results."""
     def log(line=""):
+        """Append a line to the output log."""
         print(line)
         print(line, file=out)
 
@@ -112,6 +118,7 @@ def run_benchmarks(datasets, sizes, seq_len, n_workers, out):
 
 
 def main():
+    """Parse CLI arguments and run benchmarks."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default=".",
                         help="Path to .pt file or directory (default: current directory)")

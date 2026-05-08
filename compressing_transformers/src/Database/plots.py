@@ -33,6 +33,7 @@ def load(csv_file):
     return iterations, losses, epoch_iterations
 
 def moving_avg(values, window):
+    """Compute a centered moving average over a 1-D array."""
     result = []
     for i in range(len(values)):
         start = max(0, i - window + 1)
@@ -40,6 +41,7 @@ def moving_avg(values, window):
     return result
 
 def plot():
+    """Plot loss curves for all runs in a single figure."""
     plt.figure(figsize=(12, 6))
 
     for csv_file, label in FILES:

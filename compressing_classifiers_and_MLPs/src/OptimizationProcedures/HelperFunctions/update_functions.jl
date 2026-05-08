@@ -1,5 +1,5 @@
 using Lux, Accessors, Revise
-include("recursive_operations.jl")
+
 
 # The update functions partly employ julia's Lux library for backpropagation of gradients and partly compute gradients explicitly depending on the regularization scheme of the loss function (for increased efficiency).
 # The loss functions handed to the update_state! functions are structs and julia's multiple dispatch then decides, depending on the struct type, which update_state! is called.
@@ -76,13 +76,16 @@ end
 
 
 function update_state!(vjp::Lux.AbstractADType, loss_fun::RL1_loss, batch, tstate::Lux.Training.TrainState)
+    compute_gradients_time = time()
     grads, loss, _, tstate = Training.compute_gradients(vjp, loss_fun, batch, tstate)
+    modify_time = time()
     if loss_fun.alpha != 0
         recursively_modify!(grads, tstate.parameters, loss_fun, loss_fun.fun1)
     end
     if loss_fun.rho != 0
         recursively_modify!(grads, tstate.parameters, loss_fun, loss_fun.fun2)
     end
+    apply_gradients = time()
     tstate = Training.apply_gradients!(tstate, grads)
     return tstate, loss, nothing
 end

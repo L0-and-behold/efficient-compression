@@ -1,6 +1,3 @@
-
-using Lux: gpu_device, cpu_device
-
 """
     CIFAR_data(batch_size::Int, dev=gpu_device(); train_set_size=45000, val_set_size=5000, test_set_size=10000, seed=1234)
 

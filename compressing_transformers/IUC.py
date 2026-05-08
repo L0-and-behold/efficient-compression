@@ -30,6 +30,7 @@ import pandas as pd
 
 
 def load_and_validate(path: Path) -> pd.DataFrame:
+    """Load and validate the input CSV, raising on malformed input."""
     df = pd.read_csv(path, header=0)
 
     assert len(df.columns) == 2, (
@@ -51,6 +52,7 @@ def load_and_validate(path: Path) -> pd.DataFrame:
 
 
 def dataset_size_from_filename(path: Path) -> int:
+    """Extract dataset size in bytes from the CSV filename stem."""
     stem = path.stem
     assert stem.isdigit(), (
         f"Filename stem must be a plain integer (dataset bytes), got {stem!r}"
@@ -59,6 +61,7 @@ def dataset_size_from_filename(path: Path) -> int:
 
 
 def extract_epoch1(df: pd.DataFrame) -> pd.DataFrame:
+    """Return rows belonging to the first training epoch."""
     iter_vals = df.iloc[:, 0].to_numpy()
     reset_idx = None
     for i in range(1, len(iter_vals)):
@@ -69,6 +72,7 @@ def extract_epoch1(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def human_bytes(n: float) -> str:
+    """Format a byte count as a human-readable string."""
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if abs(n) < 1000:
             return f"{n:,.1f} {unit}"
@@ -79,6 +83,7 @@ def human_bytes(n: float) -> str:
 def build_report(path: Path, df_full: pd.DataFrame, epoch1: pd.DataFrame,
                  dataset_bytes: int, tokens_per_batch: float, iuc: float,
                  timestamp: str) -> str:
+    """Compute IUC and return a formatted report string."""
     loss_col = df_full.columns[1]
     lines = [
         "=== IUC Report ===",
@@ -107,6 +112,7 @@ def build_report(path: Path, df_full: pd.DataFrame, epoch1: pd.DataFrame,
 
 
 def main():
+    """Parse CLI arguments and print the IUC report."""
     parser = argparse.ArgumentParser(description="Compute Information Under Curve from a training-loss CSV.")
     parser.add_argument("-i", "--input", required=True, help="Path to input CSV file")
     args = parser.parse_args()

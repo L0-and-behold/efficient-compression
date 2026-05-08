@@ -28,3 +28,21 @@ function convert_to_general_masked_model!(tstate)
     end
     return tstate
 end
+
+
+"""
+    testmode_states(tstate::Lux.Training.TrainState)
+
+Returns the states from tstate with Lux.testmode applied correctly,
+handling both plain states and states wrapped by convert_to_general_masked_model!
+(which wraps the original state under :st and adds a :mask key).
+"""
+function testmode_states(tstate::Lux.Training.TrainState)
+    st = tstate.states
+    if haskey(st, :st)
+        @reset st.st = Lux.testmode(st.st)
+        return st
+    else
+        return Lux.testmode(st)
+    end
+end

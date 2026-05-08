@@ -1,10 +1,5 @@
 using Lux, LuxCUDA, Optimisers, Printf, Random, Zygote, Accessors, Revise
 
-include("break_loop.jl")
-include("tamade.jl")
-include("update_functions.jl")
-include("../LayerWiseFunctions/projected_implementation/layerwise_pruning.jl")
-
 function recursive_sum(mask, l0_mask)
     for m in mask
         if isa(m, NamedTuple) && !isempty(m)
@@ -78,7 +73,23 @@ end
         - `layerwise_pruning_flag`: A boolean that determines whether layerwise pruning is carried out every args.prune_window epochs.
         - `converge_val_loss`: A boolean that determines whether the validation loss or the train loss should be used to determine convergence. (default is true, which however requires to hand a non-empty validation set to lux_training!)
 """
-function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, args; vjp = AutoZygote(), min_epochs = 20000, max_epochs=40000, shrinking=true, layerwise_pruning_flag=false, converge_val_loss=true)
+function lux_training!(
+    train_set, 
+    validation_set, 
+    test_set, 
+    loss_fun, 
+    tstate, 
+    args::AbstractTrainArgs,
+    checkpoint::CheckpointManager
+    ; 
+    vjp = AutoZygote(), 
+    min_epochs=20000, 
+    max_epochs=40000, 
+    shrinking=true, 
+    layerwise_pruning_flag=false, 
+    converge_val_loss=true,
+    checkpoint_enabled=true
+    )
     
     convergence_triggered = false
     if args.log_val_loss
@@ -94,6 +105,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     if layerwise_pruning_flag
         input = [batch[1] for batch in train_set]
     end
+
     # Initialization
     start_epoch = 0
     if isnothing(args.logs)
@@ -105,10 +117,8 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             "epoch_execution_time"  => args.dtype[],
             "total_time" => args.dtype(0),
             "sigmas" => args.dtype[],
-            "final_train_accuracy" => args.dtype(0),
             "validation_accuracy" => args.dtype[],
             "test_accuracy" => Tuple{Int, Number}[],
-            "test_loss" => Tuple{Int, Number}[],
             "l0_mask" => args.dtype[],
             "converged_at" => Int[],
             "turning_points_val_loss" => Int[],
@@ -116,7 +126,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         )
     else
         @assert isa(args.logs, Dict{String, Any})
-        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("test_loss" => Tuple{Int, Number}[]), ("final_train_accuracy" => args.dtype(0)), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
+        for (key, value) in [("epochs", Int[]), ("train_loss", args.dtype[]), ("val_loss", args.dtype[]), ("epoch_execution_time", args.dtype[]), ("total_time", args.dtype(0)), ("sigmas" => args.dtype[]), ("accuracy" => args.dtype[]), ("l0_mask" => args.dtype[]), ("test_loss" => Tuple{Int, Number}[]), ("validation_accuracy" => args.dtype[]), ("test_accuracy" => Tuple{Int, Number}[]), ("converged_at" => Int[]), ("turning_points_val_loss" => Int[]), ("best_tstate_points" => Int[])]
             if !haskey(args.logs, key)
                 args.logs[key] = value
             end
@@ -129,79 +139,161 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
     end
     num_batches = args.dtype(length(train_set))
 
+    flush(stdout); flush(stderr)
+
+    # Checkpoint loading and initialization of variables
+    if checkpoint.do_checkpointing && checkpoint_enabled && checkpoint.content.epoch > 1
+        println("Resuming from epoch $(checkpoint.content.epoch)")
+        start_epoch_offset = checkpoint.content.epoch - 1
+        start_epoch = 0  # phase 1 LR schedule always indexed from 0; args.logs would give wrong offset
+
+        if !isnothing(args.schedule)
+            resumed_lr = args.schedule(start_epoch_offset + 1, args)
+            tstate = Optimisers.adjust!(tstate, resumed_lr)
+        end
+        
+        prev_val_loss = checkpoint.content.prev_val_loss
+        total_time_start = time()
+        prev_prev_val_loss = checkpoint.content.prev_prev_val_loss
+        best_tstate = deepcopy(checkpoint.content.best_tstate)
+    else
+        start_epoch_offset = 0
+        prev_val_loss = Inf32
+        total_time_start = time()
+        prev_prev_val_loss = 0
+        best_tstate = deepcopy(tstate)
+    end
+
     # Main loop
-    total_time_start = time()
-    prev_val_loss = Inf32
-    prev_prev_val_loss = 0
-    best_tstate = deepcopy(tstate)
     obs_window = round(Int,args.smoothing_window/1)
     start_turn_point = length(args.logs["turning_points_val_loss"])
     push!(args.logs["turning_points_val_loss"], start_epoch+1)
     push!(args.logs["best_tstate_points"], start_epoch+1)
 
     last_lr = copy(args.lr)
-    for epoch in 1:max_epochs
-        
+    for epoch in (start_epoch_offset+1):max_epochs
+        flush(stdout); flush(stderr)
+
+
         if !isnothing(args.schedule) # update learning rate if schedule is specified
-            new_lr = args.schedule(epoch)
+            new_lr = args.schedule(start_epoch + epoch, args)
             if new_lr != last_lr
                 tstate = Optimisers.adjust!(tstate, new_lr)
             end
             last_lr = new_lr
+            if args.scale_alpha_with_lr && hasproperty(loss_fun, :alpha)
+                loss_fun.alpha = args.α * (new_lr / args.lr)
+            end
         end
+
         # Batch loop
         epoch_loss = zero(args.dtype)
         epoch_start_time = time()
-        for batch in train_set
+        for (i, batch) in enumerate(train_set)
             tstate, loss, stats = update_state!(vjp, loss_fun, batch, tstate)
+            multiply_time = time()
             if haskey(tstate.states, :mask) && args.multiply_mask_after_each_batch
                 recursively_multiply!(tstate.parameters.p, tstate.states.mask)
             end
             epoch_loss += loss
+            if args.debug && i > 5
+                println("▶ Epoch $epoch exited early after 5 batches since args.debug = true")
+                break
+            end
         end
         epoch_end_time = time()
-        epoch_loss /= num_batches
+        if !args.debug
+            epoch_loss /= num_batches
+        end
+        @assert epoch_loss isa Number "epoch_loss: $epoch_loss. args: $args"
 
-        
         push!(args.logs["epochs"], start_epoch+epoch)
         push!(args.logs["train_loss"], epoch_loss)
         push!(args.logs["epoch_execution_time"], epoch_end_time - epoch_start_time)
         
+        if args.debug
+            metrics_time = time()
+            println("▶ Epoch $epoch Start rest of training loop evaluations")
+        end
+
         if haskey(tstate.states, :mask)
             l0_mask= recursive_sum(tstate.states.mask, args.dtype(0))
             push!(args.logs["l0_mask"], l0_mask)
         end
         if args.log_val_loss
             epoch_val_loss = zero(args.dtype)
-            for val_batch in validation_set
-                epoch_val_loss += loss_fun(tstate.model, tstate.parameters, tstate.states, val_batch)[1]
+            t = time()
+            for (i, val_batch) in enumerate(validation_set)
+                epoch_val_loss += loss_fun(tstate.model, tstate.parameters, testmode_states(tstate), val_batch)[1]
+                if args.debug && i > 5
+                    break
+                end
             end
             epoch_val_loss /= length(validation_set)
             push!(args.logs["val_loss"], epoch_val_loss)
             if args.verbose 
-                @printf "\rEpoch: %5d \t Train_loss: %.4g \t Val_loss: %.4g \t" epoch epoch_loss epoch_val_loss
+                @printf "Epoch: %5d \t Train %.4g \t Val_loss: %.4g \t Time: %.2f \t" epoch epoch_loss epoch_val_loss (epoch_end_time - epoch_start_time)
             end
+            # println("▶ Validation loss evaluated in $(time()-t)s")
 
             if !isnothing(test_set)
+                t = time()
                 epoch_test_loss = zero(args.dtype)
                 for test_batch in test_set
-                    epoch_test_loss += loss_fun(tstate.model, tstate.parameters, tstate.states, test_batch)[1]
+                    epoch_test_loss += loss_fun(tstate.model, tstate.parameters, testmode_states(tstate), test_batch)[1]
                 end
                 epoch_test_loss /= length(test_set)
                 push!(args.logs["test_loss"], (start_epoch+epoch, epoch_test_loss))
+                println("▶ Test loss evaluated in $(time()-t)s")
             end            
         end
         if args.verbose && !args.log_val_loss
-            @printf "\rEpoch: %5d \t Train_loss: %.4g \t" epoch epoch_loss
+            @printf "Epoch: %5d \t Train_loss: %.4g \t" epoch epoch_loss
         end
         if haskey(tstate.parameters, :sigma)
             push!(args.logs["sigmas"], sum(tstate.parameters.sigma))
         end
-        if loss_fun.loss_f == logitcrossentropy
-            push!(args.logs["validation_accuracy"], accuracy(tstate, validation_set))
+        if loss_fun.loss_f == logitcrossentropy || loss_fun.loss_f == logitcrossentropy_ls
+            t = time()
+            val_accuracy = accuracy(tstate, validation_set, debug=args.debug)
+            push!(args.logs["validation_accuracy"], val_accuracy)
+            println("▶ Validation accuracy: $(val_accuracy * 100) %")
         end
-        
+
+        # Periodic checkpoint save
+        if checkpoint.do_checkpointing && checkpoint_enabled && epoch % args.checkpoint_frequency == 0
+            update_checkpoint_state!(
+                checkpoint;
+                args=args, tstate=tstate, epoch=epoch,
+                prev_val_loss=prev_val_loss, prev_prev_val_loss=prev_prev_val_loss,
+                best_tstate=best_tstate, loss_fun=loss_fun,
+                convergence_triggered=convergence_triggered
+            )
+            maybe_save_checkpoint(checkpoint)
+            println("  Checkpoint saved at epoch $epoch")
+        end
+
+        # Periodic compression ratio report
+        if !isnothing(args.cr_report_window) && epoch % args.cr_report_window == 0
+            cr_data = isnothing(args.tamade_calibration_batches) ?
+                validation_set :
+                Iterators.take(validation_set, args.tamade_calibration_batches)
+            cr_tstate = deepcopy(tstate)
+            cr_tstate, _ = prune_and_shrink!(cr_tstate, loss_fun, cr_data,
+                args.tolerated_relative_loss_increase, args.binary_search_resolution;
+                dtype=args.dtype, dev=args.dev, delete_neurons=false, random_gradient_pruning=false,
+                final_epoch=true, val_acc_tolerance=args.tamade_val_acc_tolerance)
+            l0_norm  = Int(round(recursive_sum(cr_tstate.states.mask, args.dtype(0))))
+            l0_total = Lux.parameterlength(cr_tstate.model)
+            cr_pct   = round((1 - l0_norm / max(l0_total, 1)) * 100; digits=1)
+            cr_acc   = accuracy(cr_tstate, cr_data, debug=args.debug)
+            println("  CR report @ ep $epoch: compression=$(cr_pct)%, L0=$(l0_norm)/$(l0_total), post-prune val acc=$(round(cr_acc*100; digits=2))%")
+        end
+
+        flush(stdout); flush(stderr)
+
         # Pruning and Convergence check is done at most every prune_window epochs
+        time_pruning_and_convergence = time()
         if epoch % args.prune_window == 0 || epoch == max_epochs
 
             if converge_val_loss && args.log_val_loss
@@ -225,7 +317,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
             end
             if epoch >= max(min_epochs, obs_window + 3)
                 
-                if loss_fun.loss_f == logitcrossentropy
+                if loss_fun.loss_f in (logitcrossentropy, logitcrossentropy_ls) && test_set !== nothing
                     push!(args.logs["test_accuracy"], (epoch, accuracy(tstate, test_set)))
                 end
                 
@@ -244,7 +336,7 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
                     else
                         final_epoch=false
                     end
-                    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=final_epoch)
+                    tstate, loss_fun = prune_and_shrink!(tstate, loss_fun, train_set, args.tolerated_relative_loss_increase, args.binary_search_resolution; dtype=args.dtype, dev=args.dev, delete_neurons=args.delete_neurons, random_gradient_pruning=args.random_gradient_pruning, final_epoch=final_epoch, val_acc_tolerance=args.tamade_val_acc_tolerance)
                 end
 
                 convergence_condition = is_saturated(args.logs[conv_arg], args.smoothing_window)
@@ -266,16 +358,22 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
                     convergence_triggered = true
                     break
                 end
+                println("▶ Pruning and convergence check took $(time()-time_pruning_and_convergence)s")
             end
         end
+        if args.debug
+            println("▶ Epoch $epoch - other evaluations took $(time() - metrics_time) s")
+        end
+        flush(stdout); flush(stderr)
     end
     total_time_end = time()
     args.logs["total_time"] += total_time_end - total_time_start
 
-    args.logs["final_train_accuracy"] = accuracy(tstate, train_set)
     if !convergence_triggered
         push!(args.logs["converged_at"], max_epochs)
     end
+
+    @assert tstate != nothing
 
     # take the tstate closest to where val_loss was smallest:
     if converge_val_loss && args.log_val_loss
@@ -290,5 +388,53 @@ function lux_training!(train_set, validation_set, test_set, loss_fun, tstate, ar
         return_tstate = tstate
     end
 
-    return return_tstate, args.logs, loss_fun
+    if checkpoint.do_checkpointing && checkpoint_enabled
+        update_checkpoint_state!(
+            checkpoint;
+            args=args,
+            tstate=return_tstate,
+            epoch=checkpoint.content.epoch,
+            prev_val_loss=prev_val_loss,
+            prev_prev_val_loss=prev_prev_val_loss,
+            best_tstate=best_tstate,
+            loss_fun=loss_fun,
+            convergence_triggered=convergence_triggered
+        )
+        maybe_save_checkpoint(checkpoint)
+        mark_checkpoint_finished!(checkpoint)
+    end
+
+    @assert return_tstate != nothing
+    flush(stdout); flush(stderr)
+
+    return return_tstate, args.logs, loss_fun, checkpoint
 end
+
+function update_checkpoint_state!(
+    checkpoint::CheckpointManager;
+    args,
+    tstate,
+    epoch,
+    prev_val_loss,
+    prev_prev_val_loss,
+    best_tstate,
+    loss_fun,
+    convergence_triggered
+)
+
+    if best_tstate === nothing
+        @warn "best_tstate is `nothing` when saving checkpoint – using current tstate as fallback."
+        best_tstate = tstate
+    end
+
+    checkpoint.metadata.last_updated = time()
+
+    checkpoint.content.args = args
+    checkpoint.content.tstate = tstate
+    checkpoint.content.epoch = epoch
+    checkpoint.content.prev_val_loss = prev_val_loss
+    checkpoint.content.prev_prev_val_loss = prev_prev_val_loss
+    checkpoint.content.best_tstate = best_tstate
+    checkpoint.content.convergence_triggered = convergence_triggered
+end
+

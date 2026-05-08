@@ -28,6 +28,9 @@ do_batch_run("./results", "experiment1", run_training, params, variable_names, b
 ```
 """
 
+using JLD2
+using ..Checkpointer
+
 function do_batch_run(
     path_to_db::String,
     experiment_name::String,
@@ -37,17 +40,45 @@ function do_batch_run(
     batch_of_values::Union{Vector{<:Tuple}, DeviceIterator};
     break_if_one_run_errors::Bool = true
 )
-    @assert length(variable_names) == length(batch_of_values[1]) "Each tuple in batch_of_values must have the same length as variable_names"
+    @assert length(variable_names) == length(batch_of_values[1])
+    
+    # Database setup — must happen before checkpoint resume so runs.csv exists when append_run_to_csv! is called
+    mkpath(path_to_db)
+    create_experiment(path_to_db, experiment_name, args)
+    initialize_runs_csv(path_to_db, experiment_name, args)
+
+    # Init checkpoint — ID printed immediately so it appears in logs even if run crashes early
+    checkpoint = CheckpointManager(
+        args.use_checkpoints,
+        CheckpointMetadata(path=joinpath(path_to_db, experiment_name, "checkpoints")),
+        CheckpointContent(args=args)
+    )
+    println("Checkpoint ID: $(checkpoint.metadata.checkpoint_id)")
+
+    # Explicit resume: only when --resume_checkpoint id was passed
+    if !isnothing(args.resume_checkpoint_id)
+        if !args.use_checkpoints
+            @warn "resume_checkpoint_id provided but use_checkpoints=false — enabling checkpointing."
+            args.use_checkpoints = true
+            checkpoint = CheckpointManager(true, checkpoint.metadata, checkpoint.content)
+        end
+        println("Resuming from checkpoint: $(args.resume_checkpoint_id)")
+        metadata, content = load_checkpoint_by_id(checkpoint.metadata.path, args.resume_checkpoint_id, args)
+        checkpoint.metadata = metadata
+        checkpoint.content = content
+        single_run_routine(path_to_db, experiment_name, args, variable_names, checkpoint)
+        println("✓ Resumed run completed successfully. Continuing with batchrun.")
+    else
+        println("No checkpoint — starting fresh run")
+    end
+
+    # Normal batch execution
 
     # randomize order of runs such that we can run the script in parallel
     # one run is not run twice, this is ensured by 'has_been_run_before' logic in the 'single_run_routine'
     # warning: too many workers might lead to issues when reading/writing to disc at the same time
     shuffle!(batch_of_values)
 
-    # Database setup
-    mkpath(path_to_db)
-    create_experiment(path_to_db, experiment_name, args)
-    initialize_runs_csv(path_to_db, experiment_name, args)
     println("Data will be stored in $path_to_db / $experiment_name. Starting with batch of $(length(batch_of_values)) runs with variables: $(variable_names)")
 
     summary = "Summary : batch of $(length(batch_of_values)) runs with variables: $(variable_names) \n"
@@ -81,11 +112,11 @@ function do_batch_run(
 
         # Do training and save results for this run
         if break_if_one_run_errors
-            single_run_routine(path_to_db, experiment_name, local_args, variable_names)
+            single_run_routine(path_to_db, experiment_name, local_args, variable_names, checkpoint)
             summary *= " - success \n"
         else
             try
-                single_run_routine(path_to_db, experiment_name, local_args, variable_names)
+                single_run_routine(path_to_db, experiment_name, local_args, variable_names, checkpoint)
                 summary *= " - success \n"
             catch e
                 println("Run failed with error: $e")
@@ -96,4 +127,5 @@ function do_batch_run(
     end
     println("Batch finished!")
     println(summary)
+    flush(stdout); flush(stderr)
 end

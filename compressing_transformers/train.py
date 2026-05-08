@@ -118,6 +118,7 @@ args["only_process_every_nth_batch_when_calculating_test_loss"] = 1      # Must 
 ################### Run ###################
 
 def parse_value(s):
+    """Parse a config string value into its appropriate Python type."""
     s = s.strip() # strip white space
     if s.startswith("(") and s.endswith(")"): # handle tuples recursively
         return tuple(parse_value(x) for x in s[1:-1].split(","))
@@ -142,7 +143,7 @@ def parse_value(s):
             return s  # otherwise return the original string
 
 def main(args, other_settings, path_to_database, experiment_name):
-
+    """Run training with the given args, settings, and experiment path."""
     os.environ.setdefault('RANK', '0') # Set default value in case RANK was not provided
     rank = int(os.environ['RANK'])
     # Detect if file is called as a batch job with config arguments and if it is, then parse arguments

@@ -4,7 +4,7 @@ Regularization methods that substantially decrease the number of parameters of n
 
 The folder `compressing_transformers` contains the codebase to train transformer decoder models on (part of) the Wiki40b/english datasets using different sparsity inducing training approaches (DRR, PMMP, RL1) in Pytorch (Python).
 
-The folder `compressing_classifiers_MLPs` contains the codebase to train classifier models on MNIST and CIFAR-10 or teacher-student MLPs on synthetic data using different sparsity inducing training approaches (DRR, PMMP, RL1) in Lux (Julia).
+The folder `compressing_classifiers_and_MLPs` contains the codebase to train classifier models on MNIST, CIFAR-10, and ImageNet, or teacher-student MLPs on synthetic data, using different sparsity inducing training approaches (DRR, PMMP, RL1) in Lux (Julia).
 
 Each folder contains its own readme file with instructions on installation and experiment execution.
 
