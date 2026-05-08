@@ -184,6 +184,18 @@ class TransformerConfig:
             num_layers = 10
             seq_length = 512
             batch_size_per_gpu = 8
+        elif model == "t307_38p_bs_16":
+            embedding_dim = 64 * 25
+            num_heads = embedding_dim // 64
+            num_layers = 10
+            seq_length = 512
+            batch_size_per_gpu = 16
+        elif model == "t307_38p_bs_32":
+            embedding_dim = 64 * 25
+            num_heads = embedding_dim // 64
+            num_layers = 10
+            seq_length = 512
+            batch_size_per_gpu = 32
         elif model == "t100":
             embedding_dim = 64 * 15
             num_heads = embedding_dim // 64
