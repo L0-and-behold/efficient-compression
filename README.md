@@ -10,7 +10,7 @@ Each folder contains its own readme file with instructions on installation and e
 
 ## Citation
 
-If you use this code, please cite our paper, which you can view at [arxiv.org/abs/2505.17469](/https://arxiv.org/abs/2505.17469).
+If you use this code, please cite our paper, which you can view at [arxiv.org/abs/2505.17469](https://arxiv.org/abs/2505.17469).
 
 ```bibtex
 @misc{barth2026efficientcompressionneuralnetworks,
