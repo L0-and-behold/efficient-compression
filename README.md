@@ -10,13 +10,13 @@ Each folder contains its own readme file with instructions on installation and e
 
 ## Citation
 
-If you use this code, please cite our paper
+If you use this code, please cite our paper, which you can view at [arxiv.org/abs/2505.17469](/https://arxiv.org/abs/2505.17469).
 
 ```bibtex
-@misc{barth2025efficientcompressionneuralnetworks,
+@misc{barth2026efficientcompressionneuralnetworks,
       title={Efficient compression of neural networks and datasets}, 
-      author={Lukas Silvester Barth and Paulo {von Petersenn}},
-      year={2025},
+      author={Lukas Silvester Barth and Paulo von Petersenn},
+      year={2026},
       eprint={2505.17469},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
