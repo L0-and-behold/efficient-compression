@@ -15,7 +15,7 @@ If you use this code, please cite our paper, which you can view at [arxiv.org/ab
 ```bibtex
 @misc{barth2026efficientcompressionneuralnetworks,
       title={Efficient compression of neural networks and datasets}, 
-      author={Lukas Silvester Barth and Paulo von Petersenn},
+      author={Barth, Lukas Silvester and {von Petersenn}, Paulo},
       year={2026},
       eprint={2505.17469},
       archivePrefix={arXiv},
