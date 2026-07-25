@@ -22,18 +22,20 @@ The code assumes, that a CUDA gpu-device is present for the classifier experimen
 
 Make sure that you have Julia installed https://docs.julialang.org/en/v1/manual/installation/
 
-Make sure that you are operating from the correct path and start julia
+The code in this repository uses julia version 1.11. (Using versions >= 1.12 might make you run into errors of the form `ERROR: MethodError: no method matching _return_type(::typeof(...), ::Type{...})...` because in Julia 1.12, the compiler internals used by LuxLib were refactored). If you use `juliaup`, you can easily activate 1.11 for this project by running in the terminal
 ```shell
-cd path/to/project/efficient-compression/compressing_classifiers_and_MLPs
-julia
+juliaup add 1.11
+cd /path/to/compressing_classifiers_and_MLPs
+juliaup override set 1.11 # this only sets julia to version 1.11 for this particular project, while it globally remains at the newest version
 ```
 
-In shell, the environment can be instantiated by running the `init_env.jl` file:
+Then (still in folder `/path/to/compressing_classifiers_and_MLPs`) the environment can be instantiated by running the `init_env.jl` file:
 ```shell
 julia init_env.jl
 ```
 or by executing the following julia commands:
 ```julia
+julia
 using Pkg
 Pkg.activate(".")
 Pkg.resolve()

@@ -1,7 +1,7 @@
 name = "CompressingClassifiersMLPs"
 uuid = "2ea706ca-0191-40db-abe6-0d905729aa34"
-authors = ["vonpetersenn <git.pvp@magenta.de>"]
 version = "0.1.0"
+authors = ["vonpetersenn <git.pvp@magenta.de>"]
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -46,6 +46,7 @@ Memoize = "c03570c3-d221-55d1-a50c-7939bbd78826"
 Metalhead = "dbeba491-748d-5e0e-a39e-b530a07fa0cc"
 NCCL = "3fe64909-d7a1-4096-9b7d-7a0f12cf0f6b"
 NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 OneHotArrays = "0b1bfda6-eb8a-41d2-88d8-f5af5cad476f"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
@@ -83,6 +84,7 @@ IndirectArrays = "0.5.1"
 InlineExports = "0.1.2"
 JLD2 = "0.5.15"
 JSON = "0.21.4"
+NPZ = "0.4.3"
 ProgressMeter = "1.11.0"
 Random = "1.11.0"
 TOML = "1.0.3"

@@ -33,7 +33,7 @@ module OptimizationProcedures
    using ..TrainingArguments
    
    include("HelperFunctions/loss_functions.jl")
-   export accuracy
+   export accuracy, logitcrossentropy, logitcrossentropy_ls
 
    # include("LayerWiseFunctions/")
    include("HelperFunctions/lux_training.jl")
