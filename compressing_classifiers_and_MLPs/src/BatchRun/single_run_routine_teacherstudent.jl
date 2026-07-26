@@ -55,7 +55,7 @@ function single_run_routine_teacherstudent(
     println("Start training for $run_id with teacher of dimensions '$(architecture_teacher)', and optimization procedure '$(args.optimization_procedure)'")
 
     # do small training routine to trigger compilation of the involved functions
-    do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args)
+    do_small_run_to_trigger_precompilation(args.optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args, checkpoint)
 
     # do actual training
     tstate, logs, loss_fctn = args.optimization_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args)
