@@ -9,16 +9,23 @@ Supports sub-batch execution via --num_sub_batches and --sub_batch command line 
 # Header
 #####
 
-using Pkg; Pkg.activate("."); using Revise
+using Pkg; Pkg.activate("."); # using Revise
 
-using ArgParse, Suppressor
-using Lux: cpu_device
+using CUDA, ArgParse, Suppressor, Optimisers, ParameterSchedulers
+using Lux: cpu_device, gpu_device
 
 using CompressingClassifiersMLPs
-using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
-using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure, RL1_procedure, DRR_procedure, layerwise_procedure, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG
-using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, CIFAR_data
-using CompressingClassifiersMLPs.BatchRun: do_batch_run, get_sub_batch, single_run_routine_classifier, single_run_routine_teacherstudent
+
+using CompressingClassifiersMLPs.Config
+using CompressingClassifiersMLPs.TrainingArguments
+using CompressingClassifiersMLPs.OptimizationProcedures
+using CompressingClassifiersMLPs.DatasetsModels
+using CompressingClassifiersMLPs.BatchRun
+
+# using CompressingClassifiersMLPs.TrainingArguments: TrainArgs
+# using CompressingClassifiersMLPs.OptimizationProcedures: PMMP_procedure, RL1_procedure, DRR_procedure, layerwise_procedure, Lenet_MLP, Lenet_5, Lenet_5_Caffe, VGG
+# using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, CIFAR_data
+# using CompressingClassifiersMLPs.BatchRun: do_batch_run, get_sub_batch, single_run_routine_classifier, single_run_routine_teacherstudent, parse_resume_checkpoint
 
 #####
 # Experiment setup
@@ -34,12 +41,12 @@ args = TrainArgs{Float32}()
 
 """
 Output location configuration.
-Results stored at: <project_root>/experiment-results/<experiment_name>/
+Results stored at: <project_root>/experiments/<experiment_name>/
 """
 
 # Directory for saving results
-path_to_db = joinpath(pwd(), "experiment-results")
-experiment_name = "example-experiment"
+path_to_db = joinpath(pwd(), "experiments")
+experiment_name = "CIFAR_5_val_acc"
 
 """
 Run routine selector: 
@@ -47,7 +54,7 @@ Run routine selector:
 - single_run_routine_classifier: For MNIST/CIFAR classification
 """
 
-single_run_routine = single_run_routine_teacherstudent
+single_run_routine = single_run_routine_classifier
 
 """
 Experimental variables configuration.
@@ -69,6 +76,8 @@ Each Symbol corresponds to one field of the args object initiallized from src/Tr
 variables = Symbol[
     :optimization_procedure, 
     :α, 
+    :β,
+    :initial_p_value,
     :seed,
     ]
 
@@ -88,12 +97,12 @@ Here: 3 procedures × 2 alpha values × 2 seeds = 12 total experimental runs.
 This grid-based approach enables systematic exploration of the parameter space.
 """
 
-# Values for the varying arguments
-batch = Tuple[
-    (procedure, alpha, seed)
-        for procedure in [DRR_procedure, RL1_procedure, PMMP_procedure]
-        for alpha in Float32[1e-4, 1e-5]
-        for seed in Int[0, 1]
+batch = [
+    (DRR_procedure, 3.33f-06, 5f0, 0f0, Int(5)), # DRR pruned
+    (RL1_procedure, 0f0, 0f0, 0f0, Int(5)), # DRR and RL1 vanilla counterpart
+    (RL1_procedure, 1.56f-05, 0f0, 0f0, Int(5)), # RL1 pruned
+    (PMMP_procedure, 6.67f-05, 0f0, 1f0, Int(0)), # PMMP pruned
+    (RL1_procedure, 0f0, 0f0, 0f0, Int(0)), # PMMP vanilla
 ]
 
 """
@@ -103,24 +112,26 @@ See README.md for documentation of the funcitionality of each argument.
 """
 
 # Fixed arguments for all runs
-args.architecture_teacher = [2, 5, 8, 1]
-args.architecture_student = [2, 25, 25, 1]
-args.max_epochs = 5000
-args.min_epochs = 500
-args.prune_window = 5
-args.finetuning_max_epochs = 1000
-args.train_set_size = 100
-args.train_batch_size = args.train_set_size
-args.val_set_size = 100
-args.val_batch_size = args.val_set_size
-args.test_set_size = 100
-args.test_batch_size = args.test_set_size
-args.smoothing_window = 50
-args.dev = cpu_device()
-args.dataset = "teacher_student"
-args.architecture = "teacher_student"
-args.lr = 5f-4
+args.architecture = VGG
+args.dataset = CIFAR_data
+args.train_batch_size = 500
+args.smoothing_window = 20
+args.min_epochs = 30
+args.max_epochs = 300
+args.finetuning_min_epochs = 10
+args.finetuning_max_epochs = 50
+args.train_set_size = "see dataset"
+args.val_set_size = "see dataset"
+args.val_batch_size = "val_set_size"
+args.test_set_size = "see dataset"
+args.test_batch_size = "test_set_size"
+args.noise = 0f0
+args.prune_window = 100
+shrinking = true
+args.shrinking_from_deviation_of = 1e-2
 args.gauss_loss = false
+args.dev = gpu_device()
+args.tamade_val_acc_tolerance = 0.01f0 #prune to at most 1.0pp absolute val acc drop
 
 """
 Error handling configuration.

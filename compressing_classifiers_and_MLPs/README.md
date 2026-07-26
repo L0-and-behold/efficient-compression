@@ -43,11 +43,11 @@ Pkg.instantiate()
 ```
 If you run slurm scripts, make sure to run `init_env.jl` via a slurm script (see [Parallelized Execution with Subbatches and SLURM](#parallelized-execution-with-subbatches-and-slurm) below) before running other scripts to prevent precompilation issues.
 
-Now, an experiment can be run
+Now, an experiment can be run. There are 3 example files, `run_ImageNet_experiment.jl`, `run_CIFAR_experiment.jl`, `run_TeacherStudent_experiment.jl`. In the following, we just refer to any of them as `run_an_experiment.jl`:
 ```shell
 julia run_an_experiment.jl
 ```
-where the default settings in the file `run_an_experiment.jl` serve as a simple example for MNIST, CIFAR, and teacher-student compression. Once familiar with the framework, `imagenet.jl` reproduces the paper's ImageNet table results (see [ImageNet](#imagenet) below).
+The default settings in the file `run_an_experiment.jl` serve as an orientation for running MNIST, CIFAR, teacher-student and imagenet compression. `run_ImageNet_experiment.jl` reproduces the paper's ImageNet table results (see [ImageNet](#imagenet) below).
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
@@ -100,7 +100,7 @@ After this step, ImageNet is ready to be used via the
 To reproduce the paper's ImageNet table results (vanilla, DRR, RL1, PMMP best configs):
 
 ```bash
-julia --threads auto imagenet.jl
+julia --threads auto run_ImageNet_experiments.jl
 ```
 
 The `--threads auto` flag is required: the data loader uses `parallel = true` (MLUtils `DataLoader`), which spawns Julia threads to prefetch batches concurrently. Without multiple threads, parallel prefetching falls back to serial loading and training will be significantly slower.
