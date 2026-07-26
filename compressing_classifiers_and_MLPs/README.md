@@ -41,6 +41,7 @@ Pkg.activate(".")
 Pkg.resolve()
 Pkg.instantiate()
 ```
+If you run slurm scripts, make sure to run `init_env.jl` via a slurm script (see [Parallelized Execution with Subbatches and SLURM](#parallelized-execution-with-subbatches-and-slurm) below) before running other scripts to prevent precompilation issues.
 
 Now, an experiment can be run
 ```shell
@@ -324,9 +325,29 @@ echo "All jobs submitted!"
 #SBATCH --output=./reports/%x_%j.out
 #SBATCH --error=./reports/%x_%j.err
 #SBATCH --open-mode=append
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=your@mail.com
 
-#SBATCH --gres=gpu:1
-#SBATCH --constraint="gpu"
+## you might have to change the parameters below depending on your hardware
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --constraint="gpu-bw"
+#SBATCH --gres=gpu:a100:1
+#SBATCH --cpus-per-task=18
+#SBATCH --mem=125000
+
+#SBATCH --time=23:59:00
+
+module purge
+module load julia/1.11
+module load cuda/12.2
+
+export CUDA_PATH="path/to/cuda/12.2.2"
+export CUDA_HOME="${CUDA_PATH}"
+export PATH="${CUDA_PATH}/bin:${PATH}"
+export LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}"
+
+export LD_LIBRARY_PATH=$(echo ${LD_LIBRARY_PATH} | tr ':' '\n' | grep -v cuda | tr '\n' ':' | sed 's/:$//')
 
 export JULIA_STUDIO_UNBUFFERED=1
 
