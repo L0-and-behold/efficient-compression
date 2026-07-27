@@ -40,6 +40,7 @@ module OptimizationProcedures
    include("HelperFunctions/general_masked_model.jl")
    export testmode_states
    include("HelperFunctions/tamade.jl")
+   export compute_loss_over_batches
    include("HelperFunctions/assert_arg_correctness.jl")
    include("HelperFunctions/named_tuple_operations.jl")
    include("HelperFunctions/delete_neurons.jl")
@@ -64,16 +65,16 @@ module OptimizationProcedures
    export procedure
 
    include("PMMP_procedure.jl")
-   export PMMP_procedure
+   export PMMP_procedure, initialize_PMMP_loss
 
    include("FPP_procedure.jl")
    export FPP_procedure
 
    include("DRR_procedure.jl")
-   export DRR_procedure, get_layer_number, get_block_number
+   export DRR_procedure, get_layer_number, get_block_number, initialize_DRR_loss
 
    include("RL1_procedure.jl")
-   export RL1_procedure
+   export RL1_procedure, initialize_RL1_loss
 
    include("layerwise_procedure.jl")
    export layerwise_procedure

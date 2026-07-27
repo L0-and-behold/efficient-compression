@@ -68,22 +68,27 @@ function PMMP_procedure(
         tstate = _convert_tstate!(tstate, args)
     end
     if !((@isdefined loss_fun) && typeof(loss_fun) <: PMMP)
-        initial_grad_p = deepcopy(tstate.parameters.p)
-        recursively_modify_PMMP!(initial_grad_p, x -> zero.(x))
-
-        grad_template = (p = initial_grad_p, pw = deepcopy(initial_grad_p), pp = deepcopy(initial_grad_p), u = deepcopy(initial_grad_p))
-        
-        model_param_number = args.dtype(Lux.parameterlength(tstate.parameters.p))
-        grad_template |> args.dev
-
-        if args.gauss_loss
-            sigma = [0.1f0] |> args.dev
-            grad_template = (grad_template..., sigma=sigma) |> args.dev
-            loss_fun = PMMP_Gauss(grad_template, model_param_number; alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha)
-        else
-            loss_fun = PMMP(grad_template, model_param_number; alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha)
-        end
+        loss_fun = initialize_PMMP_loss(tstate, args, loss_fctn)
     end
 
     return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
+end
+
+function initialize_PMMP_loss(tstate, args, loss_fctn)
+    initial_grad_p = deepcopy(tstate.parameters.p)
+    recursively_modify_PMMP!(initial_grad_p, x -> zero.(x))
+
+    grad_template = (p = initial_grad_p, pw = deepcopy(initial_grad_p), pp = deepcopy(initial_grad_p), u = deepcopy(initial_grad_p))
+    
+    model_param_number = args.dtype(Lux.parameterlength(tstate.parameters.p))
+    grad_template |> args.dev
+
+    if args.gauss_loss
+        sigma = [0.1f0] |> args.dev
+        grad_template = (grad_template..., sigma=sigma) |> args.dev
+        loss_fun = PMMP_Gauss(grad_template, model_param_number; alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha)
+    else
+        loss_fun = PMMP(grad_template, model_param_number; alpha=args.α, rho=args.ρ, u_value_multiply_factor=args.u_value_multiply_factor, loss_f=loss_fctn, L1_alpha=args.L1_alpha)
+    end
+    return loss_fun
 end

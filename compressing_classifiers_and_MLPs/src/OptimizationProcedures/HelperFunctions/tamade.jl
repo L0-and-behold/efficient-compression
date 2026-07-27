@@ -57,12 +57,24 @@ function recursive_copy!(p1, p2)
     end
 end
 
+"""
+    compute_loss_over_batches(tstate, params, data, dtype, loss_fun)
 
-function compute_loss_over_batches(tstate, params, data, dtype, loss_fctn)
+    This function can be used to evaluate the loss over an entire dataset.
+
+    `params` is often set to `tstate.parameters` or `tstate.parameters.p`, depending on whether the model was augmented or not.
+
+    `data` can be a train, validation or test set.
+
+    `dtype` is typically Float32.
+
+    `loss_fun` can be `RL1_loss`, `DRR`  or `PMMP` (see OptimizationProcedures/HelperFunctions/loss_functions.jl)
+"""
+function compute_loss_over_batches(tstate, params, data, dtype, loss_fun)
     total_loss = zero(dtype)
     st = testmode_states(tstate)
     for batch in data
-        total_loss += loss_fctn(tstate.model, params, st, batch)[1]
+        total_loss += loss_fun(tstate.model, params, st, batch)[1]
     end
     total_loss = total_loss / dtype(length(data))
     return total_loss
