@@ -10,6 +10,8 @@ begin
     using Lux
     using MLDatasets: CIFAR10
     using Random
+    using Statistics: mean
+    using JSON3
 end
 using CompressingClassifiersMLPs
 
@@ -44,6 +46,121 @@ begin
 end
 
 
+using CSV, DataFrames
+
+model_path = "./src/DatasetsModels/CIFAR-C/tested_models/sweep/1/"
+
+# for entry in readdir(model_path)
+
+tstate_cpu, model, rng = load_train_state("./src/DatasetsModels/CIFAR-C/tested_models/no_shrinking_val/CIFAR_5_val_acc_1-5/artifacts/run-6fa7682b/train_state.bson");
+tstate = to_gpu(tstate_cpu);
+
+tstate_cpu_vanilla, model_vanilla, rng_vanilla = load_train_state("./src/DatasetsModels/CIFAR-C/tested_models/no_shrinking_val/CIFAR_5_val_acc_2-5/artifacts/run-361a3d4e/train_state.bson");
+tstate_vanilla = to_gpu(tstate_cpu_vanilla);
+
+loss_fun = initialize_RL1_loss(tstate, args, logitcrossentropy)
+function total_loss(tstate, dataset)
+    return compute_loss_over_batches(tstate, tstate.parameters, dataset, Float32, loss_fun)
+end
+
+train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; seed=1234);
+
+clean_acc = accuracy(tstate,test_set)
+clean_acc_vanilla = accuracy(tstate_vanilla,test_set)
+
+clean_loss = total_loss(tstate, test_set)
+clean_loss_vanilla = total_loss(tstate_vanilla, test_set)
+
+store = Dict{String, Dict{String, Vector{Float32}}}()
+
+CAs = []
+CAs_vanilla = []
+CEs = []
+CEs_vanilla = []
+for corruption_type in corruption_types
+    println(corruption_type, " = corruption_type")
+    corrupted_test_set = CIFAR_C_data(corruption_type)
+
+    corrupted_acc = accuracy(tstate, corrupted_test_set)
+    push!(CAs, corrupted_acc)
+    corrupted_acc_vanilla = accuracy(tstate_vanilla, corrupted_test_set)
+    push!(CAs_vanilla, corrupted_acc_vanilla)
+    println(corrupted_acc, " = corrupted_acc")
+    println(corrupted_acc_vanilla, " = corrupted_acc_vanilla")
+
+    corrupted_loss = total_loss(tstate, corrupted_test_set)
+    push!(CEs, corrupted_loss)
+    corrupted_loss_vanilla = total_loss(tstate_vanilla, corrupted_test_set)
+    push!(CEs_vanilla, corrupted_loss_vanilla)
+    println(corrupted_loss, " = corrupted_loss")
+    println(corrupted_loss_vanilla, " = corrupted_loss_vanilla")
+    println()
+end
+
+sub = get!(store, "DRR", Dict{String, Vector{Float32}}())
+sub["CAs"] = CAs
+sub["CAs_vanilla"] = CAs_vanilla
+sub["CEs"] = CEs
+sub["CEs_vanilla"] = CEs_vanilla
+
+open("./src/DatasetsModels/CIFAR-C/tested_models/no_shrinking_val/store.json", "w") do io
+    JSON3.pretty(io, store)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function compute_metrics(stored_data)
+    mCA = mean(CAs)
+    clean_acc
+    mCA_vanilla = mean(CAs_vanilla)
+    clean_acc_vanilla
+    Diff_mCA = mCA - mCA_vanilla
+    mCE = mean(CEs)
+    clean_loss
+    mCE_vanilla = mean(CEs_vanilla)
+    clean_loss_vanilla
+    Diff_mCE = mCE - mCE_vanilla 
+
+    NCAs = CAs ./ CAs_vanilla
+    mNCA = mean(NCAs)
+    NCEs = CEs ./ CEs_vanilla
+    mNCE = mean(NCEs)
+
+    Relative_CAs = CAs .- clean_acc
+    Relative_mCA = mean(Relative_CAs)
+    Relative_CAs_vanilla = CAs_vanilla .- clean_acc_vanilla
+    Relative_mCA_vanilla = mean(Relative_CAs_vanilla)
+    Relative_NCAs = Relative_CAs ./ Relative_CAs_vanilla
+    Relative_mNCA = mean(Relative_NCAs)
+    Relative_CEs = CEs .- clean_loss
+    Relative_mCE = mean(Relative_CEs)
+    Relative_CEs_vanilla = CEs_vanilla .- clean_loss_vanilla
+    Relative_NCEs = Relative_CEs ./ Relative_CEs_vanilla
+    Relative_mNCE = mean(Relative_NCEs)
+end
+
+
+
+
+
+
+
+
+
 # single_run_routine = single_run_routine_classifier
 # Directory for saving results
 # path_to_db = joinpath(pwd(), "experiment-results")
@@ -61,70 +178,3 @@ end
 #     )
 # @time tstate, logs, loss_fun, checkpoint = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args, checkpoint);
 # 
-
-
-tstate_cpu, model, rng = load_train_state("./src/DatasetsModels/CIFAR-C/tested_models/no_shrinking_val/CIFAR_5_val_acc_1-5/artifacts/run-6fa7682b/train_state.bson");
-tstate = to_gpu(tstate_cpu);
-
-tstate_cpu_vanilla, model_vanilla, rng_vanilla = load_train_state("./src/DatasetsModels/CIFAR-C/tested_models/no_shrinking_val/CIFAR_5_val_acc_2-5/artifacts/run-361a3d4e/train_state.bson");
-tstate_vanilla = to_gpu(tstate_cpu_vanilla);
-
-train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; seed=1234);
-test_set_corrupted = CIFAR_C_data(corruption_types[1]);
-
-base_acc = accuracy(tstate,test_set) # 0.8384f0
-corrupted_acc_1 = accuracy(tstate,test_set_corrupted) # 0.81872f0
-dif = base_acc - corrupted_acc_1 # 0.019680023f0
-
-base_acc_vanilla = accuracy(tstate_vanilla,test_set) # 0.8335f0
-corrupted_acc_1_vanilla = accuracy(tstate_vanilla,test_set_corrupted) # 0.80392f0
-diff = base_acc_vanilla - corrupted_acc_1_vanilla # 0.029580057f0
-
-loss_fun = initialize_RL1_loss(tstate, args, logitcrossentropy)
-function total_loss(tstate, dataset)
-    return compute_loss_over_batches(tstate, tstate.parameters, dataset, Float32, loss_fun)
-end
-
-CAs = []
-CAs_vanilla = []
-CEs = []
-CEs_vanilla = []
-for corruption_type in corruption_types
-    corrupted_test_set = CIFAR_C_data(corruption_type)
-
-    corrupted_acc = accuracy(tstate, corrupted_test_set)
-    push!(CAs, corrupted_acc)
-    corrupted_acc_vanilla = accuracy(tstate_vanilla, corrupted_test_set)
-    push!(CAs_vanilla, corrupted_acc_vanilla)
-
-    corrupted_loss = total_loss(tstate, corrupted_test_set)
-    push!(CEs, corrupted_loss)
-    corrupted_loss_vanilla = total_loss(tstate_vanilla, corrupted_test_set)
-    push!(CEs_vanilla, corrupted_loss_vanilla)
-end
-mCA = mean(CAs)
-clean_acc
-mCA_vanilla = mean(CAs_vanilla)
-clean_acc_vanilla
-Diff_mCA = mCA - mCA_vanilla
-mCE = mean(CEs)
-clean_err
-mCE_vanilla = mean(CEs_vanilla)
-clean_err_vanilla
-Diff_mCE = mCE - mCE_vanilla 
-
-NCAs = CAs ./ CAs_vanilla
-mNCA = mean(NCAs)
-NCEs = CEs ./ CEs_vanilla
-mNCE = mean(NCEs)
-
-Relative_CAs = CAs .- clean_acc
-Relative_mCA = mean(Relative_CAs)
-Relative_CAs_vanilla = CAs_vanilla .- clean_acc_vanilla
-Relative_NCAs = Relative_CAs ./ Relative_CAs_vanilla
-Relative_mNCA = mean(Relative_NCAs)
-Relative_CEs = CEs .- clean_err
-Relative_mCE = mean(Relative_CEs)
-Relative_CEs_vanilla = CEs_vanilla .- clean_err_vanilla
-Relative_NCEs = Relative_CEs ./ Relative_CEs_vanilla
-Relative_mNCE = mean(Relative_NCEs)
