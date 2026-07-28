@@ -12,6 +12,7 @@ begin
     using Random
     using Statistics: mean
     using JSON3
+    using CSV, DataFrames
 end
 using CompressingClassifiersMLPs
 
@@ -49,8 +50,6 @@ function total_loss(tstate, dataset, loss_fun)
     return compute_loss_over_batches(tstate, tstate.parameters, dataset, Float32, loss_fun)
 end
 
-using CSV, DataFrames
-
 model_path = "./src/DatasetsModels/CIFAR-C/tested_models/sweep/1/"
 
 train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; seed=1234);
@@ -60,6 +59,8 @@ store = Dict{String, Dict{String, Any}}()
 for entry in readdir(model_path)
 # entry = readdir(model_path)[1]
     subfolder = joinpath(model_path, entry)
+    m = match(r"_(\d+)-\d+", subfolder) # matches digits after _ and before -digits
+    subfolder_index = m.captures[1]
     isdir(subfolder) || error("Not a directory: $subfolder")
 
     # extract name, alpha and seed from csv file
@@ -73,18 +74,18 @@ for entry in readdir(model_path)
     else
         method_name = row.optimization_procedure
     end
-    storage_name = method_name * "_seed-" * string(row.seed) * "_alpha-" * string(row.α)
+    storage_name = method_name * "_seed-" * string(row.seed) * "_alpha-" * string(row.α) * "_index-" * subfolder_index
     sub_store = get!(store, storage_name, Dict{String, Any}())
     sub_store["method_name"] = method_name
     sub_store["seed"] = row.seed
     sub_store["alpha"] = row.α
-    println(method_name, ", seed = ", row.seed, ", α = ", row.α)
+    println(method_name, ", seed = ", row.seed, ", α = ", row.α, ", index = ", subfolder_index)
 
     artifacts_subfolder = subfolder * "/artifacts/"
     run_subfolder_name = readdir(artifacts_subfolder)[1]
     run_subfolder = artifacts_subfolder * run_subfolder_name
     
-    tstate_cpu, model, rng = load_train_state(bson_subfolder * "/train_state.bson");
+    tstate_cpu, model, rng = load_train_state(run_subfolder * "/train_state.bson");
     tstate = to_gpu(tstate_cpu);
     loss_fun = initialize_RL1_loss(tstate, args, logitcrossentropy)
 
@@ -116,7 +117,7 @@ for entry in readdir(model_path)
     println()
 end
 
-open("./src/DatasetsModels/CIFAR-C/tested_models/no_shrinking_val/store.json", "w") do io
+open("./src/DatasetsModels/CIFAR-C/tested_models/sweep/1/store.json", "w") do io
     JSON3.pretty(io, store)
 end
 
