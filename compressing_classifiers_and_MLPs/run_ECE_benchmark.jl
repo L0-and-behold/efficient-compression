@@ -4,9 +4,8 @@
 Expected Calibration Error (ECE) benchmark for CIFAR-10 models.
 Evaluates calibration of baseline (vanilla) and compressed models (RL1, DRR, PMMP)
 on the clean CIFAR-10 test set. Produces:
-  - One reliability diagram PNG per method
   - JSON file with numerical ECE/MCE results
-  - Summary table printed to stdout
+  - .out report with summary table
 
 Reference: Guo et al. 2017, "On Calibration of Modern Neural Networks"
 """
@@ -17,12 +16,12 @@ begin
     using Lux
     using MLDatasets: CIFAR10
     using Random
-    using Statistics: mean
+    using Statistics: mean, std
     using JSON3
     using CSV, DataFrames
-    using Plots
     using BSON
     using Optimisers
+    using Dates
 end
 using CompressingClassifiersMLPs
 
@@ -33,6 +32,7 @@ using CompressingClassifiersMLPs.DatasetsModels: MNIST_data, CIFAR_data
 using CompressingClassifiersMLPs.BatchRun: do_batch_run, get_sub_batch, single_run_routine_classifier
 
 using CompressingClassifiersMLPs.Checkpointer
+using CompressingClassifiersMLPs.Config: load_ece_config
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -59,7 +59,8 @@ begin
 end
 
 N_BINS = 15
-model_path = "./src/DatasetsModels/CIFAR-C/tested_models/sweep/1/"
+MIN_ACCURACY = 0.70  # exclude (collapsed) runs with test accuracy below this threshold
+model_path = load_ece_config()
 output_dir = "./experiment-results/ece_benchmark/"
 mkpath(output_dir)
 
@@ -131,83 +132,34 @@ open(joinpath(output_dir, "ece_results.json"), "w") do io
 end
 println("Results saved to $(joinpath(output_dir, "ece_results.json"))")
 
-# ─── Generate reliability diagram PNGs (one per method) ──────────────────────
+# ─── Group results by method (dropping seeds where any method failed) ─────────
 
-function plot_reliability_diagram(method_name, method_results; output_dir=output_dir, n_bins=N_BINS)
-    bin_edges = range(0.0, 1.0, length=n_bins + 1)
-    bin_centers = [(bin_edges[i] + bin_edges[i+1]) / 2 for i in 1:n_bins]
-    bin_width = 1.0 / n_bins
-
-    # Collect all runs for this method
-    all_accuracies = [r["bin_accuracies"] for r in method_results]
-    all_confidences = [r["bin_confidences"] for r in method_results]
-    all_counts = [r["bin_counts"] for r in method_results]
-    eces = [r["ece"] for r in method_results]
-
-    # Average over runs (ignoring empty bins marked as -1)
-    avg_acc = fill(NaN, n_bins)
-    avg_conf = fill(NaN, n_bins)
-    for b in 1:n_bins
-        valid_accs = [a[b] for a in all_accuracies if a[b] >= 0]
-        valid_confs = [c[b] for c in all_confidences if c[b] >= 0]
-        if !isempty(valid_accs)
-            avg_acc[b] = mean(valid_accs)
-            avg_conf[b] = mean(valid_confs)
+# Find seeds where ANY method's accuracy is below threshold
+all_seeds_in_results = Set(r["seed"] for (_, r) in results)
+excluded_seeds = Set{Any}()
+for s in all_seeds_in_results
+    for (_, r) in results
+        if r["seed"] == s && r["accuracy"] < MIN_ACCURACY
+            push!(excluded_seeds, s)
+            break
         end
     end
-
-    mean_ece = mean(eces)
-
-    # Plot
-    p = plot(
-        size=(600, 500),
-        title="Reliability Diagram: $method_name\n(ECE = $(round(mean_ece; digits=4)))",
-        xlabel="Confidence",
-        ylabel="Accuracy",
-        xlim=(0, 1),
-        ylim=(0, 1),
-        legend=:topleft,
-        grid=true,
-        framestyle=:box,
-    )
-
-    # Perfect calibration diagonal
-    plot!(p, [0, 1], [0, 1], linestyle=:dash, color=:gray, linewidth=1.5, label="Perfect calibration")
-
-    # Bar chart of actual accuracy per bin
-    non_nan = .!isnan.(avg_acc)
-    bar!(p, bin_centers[non_nan], avg_acc[non_nan],
-        bar_width=bin_width * 0.9,
-        color=:steelblue,
-        alpha=0.7,
-        label="Outputs",
-    )
-
-    # Gap (overconfidence) shading
-    for b in 1:n_bins
-        if !isnan(avg_acc[b]) && !isnan(avg_conf[b])
-            gap_color = avg_conf[b] > avg_acc[b] ? :salmon : :lightgreen
-            bar_lo = min(avg_acc[b], avg_conf[b])
-            bar_hi = max(avg_acc[b], avg_conf[b])
-            if bar_hi - bar_lo > 1e-4
-                plot!(p,
-                    Shape([
-                        bin_centers[b] - bin_width*0.45, bin_centers[b] + bin_width*0.45,
-                        bin_centers[b] + bin_width*0.45, bin_centers[b] - bin_width*0.45
-                    ], [bar_lo, bar_lo, bar_hi, bar_hi]),
-                    fillcolor=gap_color, fillalpha=0.5, linecolor=:transparent, label=(b == findfirst(!isnan, avg_acc) ? "Gap" : ""),
-                )
-            end
+end
+if !isempty(excluded_seeds)
+    println("Excluded seeds (some method has acc < $MIN_ACCURACY): $excluded_seeds")
+    for (name, r) in results
+        if r["seed"] in excluded_seeds && r["accuracy"] < MIN_ACCURACY
+            println("  → $(name): accuracy=$(round(r["accuracy"]; digits=4))")
         end
     end
-
-    savefig(p, joinpath(output_dir, "reliability_diagram_$(method_name).png"))
-    println("Saved: reliability_diagram_$(method_name).png")
+    println()
 end
 
-# Group results by method
 method_groups = Dict{String, Vector{Dict}}()
 for (name, r) in results
+    if r["seed"] in excluded_seeds
+        continue
+    end
     method = r["method_name"]
     if !haskey(method_groups, method)
         method_groups[method] = []
@@ -215,26 +167,193 @@ for (name, r) in results
     push!(method_groups[method], r)
 end
 
-# Generate one plot per method
-for (method_name, method_results) in method_groups
-    plot_reliability_diagram(method_name, method_results)
+# ─── Generate .out report with paired-difference ΔECE ± SE ───────────────────
+
+function generate_report(results, method_groups; output_dir=output_dir, n_bins=N_BINS)
+    report_path = joinpath(output_dir, "ece_report.out")
+
+    # Build seed → ECE lookup per method
+    method_seed_ece = Dict{String, Dict{Any, Float64}}()
+    method_seed_acc = Dict{String, Dict{Any, Float64}}()
+    for (method, runs) in method_groups
+        method_seed_ece[method] = Dict(r["seed"] => r["ece"] for r in runs)
+        method_seed_acc[method] = Dict(r["seed"] => r["accuracy"] for r in runs)
+    end
+
+    # Paired seeds (intersection of all methods)
+    all_seeds = sort(collect(keys(method_seed_ece["vanilla"])))
+
+    # Compute paired differences: δ(s) = ECE_method(s) - ECE_vanilla(s)
+    # and paired relative differences: δ_rel(s) = δ(s) / ECE_vanilla(s)
+    paired_deltas = Dict{String, Vector{Float64}}()
+    paired_rel_deltas = Dict{String, Vector{Float64}}()
+    for method in ["RL1_procedure", "DRR_procedure", "PMMP_procedure"]
+        haskey(method_seed_ece, method) || continue
+        deltas = Float64[]
+        rel_deltas = Float64[]
+        for s in all_seeds
+            if haskey(method_seed_ece[method], s)
+                d = method_seed_ece[method][s] - method_seed_ece["vanilla"][s]
+                push!(deltas, d)
+                push!(rel_deltas, d / method_seed_ece["vanilla"][s])
+            end
+        end
+        paired_deltas[method] = deltas
+        paired_rel_deltas[method] = rel_deltas
+    end
+
+    # Per-method aggregate stats
+    method_stats = Dict{String, NamedTuple}()
+    for (method, runs) in method_groups
+        eces = [r["ece"] for r in runs]
+        mces = [r["mce"] for r in runs]
+        accs = [r["accuracy"] for r in runs]
+        method_stats[method] = (
+            mean_ece = mean(eces), std_ece = length(eces) > 1 ? std(eces) : 0.0,
+            mean_mce = mean(mces), mean_acc = mean(accs), n_runs = length(runs),
+        )
+    end
+
+    open(report_path, "w") do io
+        println(io, "=" ^ 100)
+        println(io, "  ECE Benchmark Report — CIFAR-10 Clean Test Set ($n_bins bins)")
+        println(io, "  Generated: $(Dates.now())")
+        println(io, "  Seeds: $(all_seeds)")
+        println(io, "  Excluded seeds (any method acc < $(MIN_ACCURACY)): $(isempty(excluded_seeds) ? "none" : excluded_seeds)")
+        println(io, "=" ^ 100)
+        println(io)
+
+        # ── Main summary table with paired ΔECE ──
+        println(io, "─" ^ 100)
+        println(io, rpad("Method", 18), rpad("n", 4), rpad("Acc", 12),
+                    rpad("ECE", 16), rpad("ΔECE (paired)", 22),
+                    rpad("ΔECE% (paired)", 22), "MCE")
+        println(io, "─" ^ 100)
+
+        for method in ["vanilla", "RL1_procedure", "DRR_procedure", "PMMP_procedure"]
+            haskey(method_stats, method) || continue
+            s = method_stats[method]
+
+            if method == "vanilla"
+                delta_str = "— (baseline)"
+                rel_str = "—"
+            else
+                deltas = paired_deltas[method]
+                n = length(deltas)
+                mean_delta = mean(deltas)
+                se_delta = n > 1 ? std(deltas) / sqrt(n) : 0.0
+                sign_str = mean_delta >= 0 ? "+" : ""
+                delta_str = "$(sign_str)$(round(mean_delta; digits=4)) ± $(round(se_delta; digits=4))"
+
+                rel_deltas = paired_rel_deltas[method]
+                mean_rel = mean(rel_deltas) * 100
+                se_rel = (n > 1 ? std(rel_deltas) / sqrt(n) : 0.0) * 100
+                rel_sign = mean_rel >= 0 ? "+" : ""
+                rel_str = "$(rel_sign)$(round(mean_rel; digits=1))% ± $(round(se_rel; digits=1))%"
+            end
+
+            println(io,
+                rpad(method, 18),
+                rpad(string(s.n_runs), 4),
+                rpad("$(round(s.mean_acc; digits=4))", 12),
+                rpad("$(round(s.mean_ece; digits=4)) ± $(round(s.std_ece; digits=4))", 16),
+                rpad(delta_str, 22),
+                rpad(rel_str, 22),
+                "$(round(s.mean_mce; digits=4))",
+            )
+        end
+        println(io, "─" ^ 100)
+        println(io)
+        println(io, "ECE    = Expected Calibration Error (mean ± std over seeds)")
+        println(io, "ΔECE   = paired difference: ECE_method(seed) − ECE_vanilla(seed),")
+        println(io, "         reported as mean ± SE (standard error = std/√n)")
+        println(io, "ΔECE%  = paired relative difference: (ECE_method − ECE_vanilla) / ECE_vanilla per seed,")
+        println(io, "         reported as mean ± SE in percent")
+        println(io, "MCE    = Maximum Calibration Error (mean over seeds)")
+        println(io)
+
+        # ── Paired differences per seed ──
+        println(io, "─" ^ 80)
+        println(io, "Paired ΔECE per seed:")
+        println(io, "─" ^ 80)
+        println(io, rpad("Seed", 8),
+                    rpad("vanilla ECE", 14),
+                    rpad("RL1 ΔECE", 14),
+                    rpad("DRR ΔECE", 14),
+                    "PMMP ΔECE")
+        println(io, "─" ^ 80)
+        for s in all_seeds
+            vanilla_ece = method_seed_ece["vanilla"][s]
+            rl1_delta = haskey(method_seed_ece["RL1_procedure"], s) ? method_seed_ece["RL1_procedure"][s] - vanilla_ece : NaN
+            drr_delta = haskey(method_seed_ece["DRR_procedure"], s) ? method_seed_ece["DRR_procedure"][s] - vanilla_ece : NaN
+            pmmp_delta = haskey(method_seed_ece["PMMP_procedure"], s) ? method_seed_ece["PMMP_procedure"][s] - vanilla_ece : NaN
+            println(io,
+                rpad(string(s), 8),
+                rpad(string(round(vanilla_ece; digits=4)), 14),
+                rpad(string(round(rl1_delta; digits=4)), 14),
+                rpad(string(round(drr_delta; digits=4)), 14),
+                string(round(pmmp_delta; digits=4)),
+            )
+        end
+        println(io, "─" ^ 80)
+        println(io)
+
+        # ── Per-run detail table ──
+        println(io, "─" ^ 80)
+        println(io, "Per-run details:")
+        println(io, "─" ^ 80)
+        println(io, rpad("Method", 18), rpad("Seed", 8), rpad("Acc", 10), rpad("ECE", 10), "MCE")
+        println(io, "─" ^ 80)
+        sorted = sort(collect(results); by=x -> (x.second["method_name"], x.second["seed"]))
+        for (name, r) in sorted
+            println(io,
+                rpad(r["method_name"], 18),
+                rpad(string(r["seed"]), 8),
+                rpad(string(round(r["accuracy"]; digits=4)), 10),
+                rpad(string(round(r["ece"]; digits=4)), 10),
+                string(round(r["mce"]; digits=4)),
+            )
+        end
+        println(io, "─" ^ 80)
+    end
+
+    println("Report saved to $report_path")
 end
 
-# ─── Print summary table ─────────────────────────────────────────────────────
+generate_report(results, method_groups)
 
-println("\n" * "="^70)
+# ─── Print summary to stdout ─────────────────────────────────────────────────
+
+println("\n" * "="^90)
 println("ECE Benchmark Summary (CIFAR-10 Clean Test Set, $N_BINS bins)")
-println("="^70)
-println(rpad("Method", 20), rpad("Seed", 8), rpad("α", 10), rpad("Acc", 10), rpad("ECE", 10), "MCE")
-println("-"^70)
-for (name, r) in sort(collect(results); by=x -> x.second["method_name"])
-    println(
-        rpad(r["method_name"], 20),
-        rpad(string(r["seed"]), 8),
-        rpad(string(round(r["alpha"]; digits=4)), 10),
-        rpad(string(round(r["accuracy"]; digits=4)), 10),
-        rpad(string(round(r["ece"]; digits=4)), 10),
-        string(round(r["mce"]; digits=4)),
-    )
+println("="^90)
+println(rpad("Method", 20), rpad("Acc", 10), rpad("ECE", 16), rpad("ΔECE (paired)", 22), "ΔECE%")
+println("-"^90)
+baseline_seeds = Dict(r["seed"] => r["ece"] for r in method_groups["vanilla"])
+for method in ["vanilla", "RL1_procedure", "DRR_procedure", "PMMP_procedure"]
+    haskey(method_groups, method) || continue
+    runs = method_groups[method]
+    mean_acc = mean(r["accuracy"] for r in runs)
+    mean_ece = mean(r["ece"] for r in runs)
+    std_ece = length(runs) > 1 ? std([r["ece"] for r in runs]) : 0.0
+    if method == "vanilla"
+        println(rpad(method, 20), rpad("$(round(mean_acc; digits=4))", 10),
+                rpad("$(round(mean_ece; digits=4)) ± $(round(std_ece; digits=4))", 16),
+                rpad("—", 22), "—")
+    else
+        deltas = [r["ece"] - baseline_seeds[r["seed"]] for r in runs if haskey(baseline_seeds, r["seed"])]
+        rel_deltas = [(r["ece"] - baseline_seeds[r["seed"]]) / baseline_seeds[r["seed"]] for r in runs if haskey(baseline_seeds, r["seed"])]
+        n = length(deltas)
+        md = mean(deltas)
+        se = n > 1 ? std(deltas) / sqrt(n) : 0.0
+        mr = mean(rel_deltas) * 100
+        se_r = (n > 1 ? std(rel_deltas) / sqrt(n) : 0.0) * 100
+        sign_str = md >= 0 ? "+" : ""
+        rsign = mr >= 0 ? "+" : ""
+        println(rpad(method, 20), rpad("$(round(mean_acc; digits=4))", 10),
+                rpad("$(round(mean_ece; digits=4)) ± $(round(std_ece; digits=4))", 16),
+                rpad("$(sign_str)$(round(md; digits=4)) ± $(round(se; digits=4))", 22),
+                "$(rsign)$(round(mr; digits=1))% ± $(round(se_r; digits=1))%")
+    end
 end
-println("="^70)
+println("="^90)

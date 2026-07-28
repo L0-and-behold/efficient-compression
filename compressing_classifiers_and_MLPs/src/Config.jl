@@ -13,6 +13,14 @@ function load_imagenet_config(config_path="config.toml")
     return paths["path_to_db"], paths["imagenet_path"], paths["imagenet_preprocessed_path"]
 end
 
-export load_imagenet_config
+function load_ece_config(config_path="config.toml")
+    @assert isfile(config_path) "File `$config_path` does not exist or script run from wrong path."
+    cfg = parsefile(config_path)
+    @assert haskey(cfg, "paths") "config file should have [paths] section"
+    @assert haskey(cfg["paths"], "ece_cifar_model_path") "config.toml missing paths.ece_cifar_model_path"
+    return cfg["paths"]["ece_cifar_model_path"]
+end
+
+export load_imagenet_config, load_ece_config
 
 end # module Config
