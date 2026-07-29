@@ -21,7 +21,18 @@ function collect_logits_and_labels(tstate, dataset)
     cpu = Lux.cpu_device()
     st = testmode_states(tstate)
     inner_st = haskey(st, :st) ? st.st : st
-    ps = haskey(tstate.parameters, :p) ? tstate.parameters.p : tstate.parameters
+
+    # Extract parameters and apply mask if present (ensures pruned weights are exactly zero)
+    if haskey(tstate.parameters, :p)
+        ps_raw = tstate.parameters.p
+        if haskey(st, :mask)
+            ps = recursive_map(multiply_mask, ps_raw, st.mask)
+        else
+            ps = ps_raw
+        end
+    else
+        ps = tstate.parameters
+    end
 
     all_logits = []
     all_labels = []
@@ -62,8 +73,11 @@ Returns a NamedTuple with:
 - `mce`: Maximum Calibration Error
 """
 function reliability_diagram_data(logits::AbstractMatrix, labels::AbstractVector; n_bins::Int=15)
-    probs = softmax(logits; dims=1)  # (num_classes, N)
+    probs = softmax(logits; dims=1)  # (num_classes, N) — guaranteed valid probability distribution
     N = size(probs, 2)
+
+    # Sanity check: softmax output should sum to 1 along class dimension
+    @assert all(isapprox.(sum(probs; dims=1), 1.0f0; atol=1e-5)) "softmax output does not form valid probability distribution"
 
     # Per-sample confidence and predicted class
     confidences = vec(maximum(probs; dims=1))                    # length N
@@ -90,6 +104,9 @@ function reliability_diagram_data(logits::AbstractMatrix, labels::AbstractVector
         end
         count = sum(in_bin)
         bin_counts[b] = count
+        if count > 0 && count < 10
+            @warn "ECE bin $b ([$(round(lo; digits=3)), $(round(hi; digits=3))]) has only $count samples — estimate may be unreliable"
+        end
         if count > 0
             bin_accuracies[b] = sum(correct[in_bin]) / count
             bin_confidences[b] = sum(confidences[in_bin]) / count

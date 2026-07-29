@@ -22,6 +22,7 @@ begin
     using BSON
     using Optimisers
     using Dates
+    using Plots
 end
 using CompressingClassifiersMLPs
 
@@ -59,7 +60,7 @@ begin
 end
 
 N_BINS = 15
-MIN_ACCURACY = 0.70  # exclude (collapsed) runs with test accuracy below this threshold
+MIN_ACCURACY = 0.0  # 0.0 means all datapoints used
 model_path = load_ece_config()
 output_dir = "./experiment-results/ece_benchmark/"
 mkpath(output_dir)
@@ -165,6 +166,11 @@ for (name, r) in results
         method_groups[method] = []
     end
     push!(method_groups[method], r)
+end
+
+if isempty(method_groups) || !haskey(method_groups, "vanilla")
+    println("ERROR: No runs remaining after filtering (MIN_ACCURACY=$MIN_ACCURACY). Lower the threshold or add more data.")
+    exit(1)
 end
 
 # ─── Generate .out report with paired-difference ΔECE ± SE ───────────────────
@@ -357,3 +363,72 @@ for method in ["vanilla", "RL1_procedure", "DRR_procedure", "PMMP_procedure"]
     end
 end
 println("="^90)
+
+# ─── Generate reliability diagram PNGs (one per method) ──────────────────────
+
+function plot_reliability_diagram(method_name, method_results; output_dir=output_dir, n_bins=N_BINS)
+    bin_edges = range(0.0, 1.0, length=n_bins + 1)
+    bin_centers = [(bin_edges[i] + bin_edges[i+1]) / 2 for i in 1:n_bins]
+    bin_width = 1.0 / n_bins
+
+    all_accuracies = [r["bin_accuracies"] for r in method_results]
+    all_confidences = [r["bin_confidences"] for r in method_results]
+    eces = [r["ece"] for r in method_results]
+
+    # Average over runs (ignoring empty bins marked as -1)
+    avg_acc = fill(NaN, n_bins)
+    avg_conf = fill(NaN, n_bins)
+    for b in 1:n_bins
+        valid_accs = [a[b] for a in all_accuracies if a[b] >= 0]
+        valid_confs = [c[b] for c in all_confidences if c[b] >= 0]
+        if !isempty(valid_accs)
+            avg_acc[b] = mean(valid_accs)
+            avg_conf[b] = mean(valid_confs)
+        end
+    end
+
+    mean_ece = mean(eces)
+
+    p = Plots.plot(
+        size=(600, 500),
+        title="Reliability Diagram: $method_name\n(ECE = $(round(mean_ece; digits=4)))",
+        xlabel="Confidence",
+        ylabel="Accuracy",
+        xlim=(0, 1), ylim=(0, 1),
+        legend=:topleft, grid=true, framestyle=:box,
+    )
+
+    # Perfect calibration diagonal
+    Plots.plot!(p, [0, 1], [0, 1], linestyle=:dash, color=:gray, linewidth=1.5, label="Perfect calibration")
+
+    # Bar chart of actual accuracy per bin
+    non_nan = .!isnan.(avg_acc)
+    Plots.bar!(p, bin_centers[non_nan], avg_acc[non_nan],
+        bar_width=bin_width * 0.9, color=:steelblue, alpha=0.7, label="Outputs")
+
+    # Gap shading (overconfidence = salmon, underconfidence = lightgreen)
+    for b in 1:n_bins
+        if !isnan(avg_acc[b]) && !isnan(avg_conf[b])
+            gap_color = avg_conf[b] > avg_acc[b] ? :salmon : :lightgreen
+            bar_lo = min(avg_acc[b], avg_conf[b])
+            bar_hi = max(avg_acc[b], avg_conf[b])
+            if bar_hi - bar_lo > 1e-4
+                Plots.plot!(p,
+                    Plots.Shape([
+                        bin_centers[b] - bin_width*0.45, bin_centers[b] + bin_width*0.45,
+                        bin_centers[b] + bin_width*0.45, bin_centers[b] - bin_width*0.45
+                    ], [bar_lo, bar_lo, bar_hi, bar_hi]),
+                    fillcolor=gap_color, fillalpha=0.5, linecolor=:transparent,
+                    label=(b == findfirst(!isnan, avg_acc) ? "Gap" : ""),
+                )
+            end
+        end
+    end
+
+    Plots.savefig(p, joinpath(output_dir, "reliability_diagram_$(method_name).png"))
+    println("Saved: reliability_diagram_$(method_name).png")
+end
+
+for (method_name, method_results) in method_groups
+    plot_reliability_diagram(method_name, method_results)
+end
