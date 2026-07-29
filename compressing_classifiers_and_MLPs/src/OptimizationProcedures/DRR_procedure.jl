@@ -34,7 +34,7 @@ function DRR_procedure(
     checkpoint::CheckpointManager
     )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
-    loss_fun = initialize_DRR_loss(tstate, args)
+    loss_fun = initialize_DRR_loss(tstate, args, loss_fctn)
 
     @assert tstate != nothing
 

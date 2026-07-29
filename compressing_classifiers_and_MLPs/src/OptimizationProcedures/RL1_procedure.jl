@@ -35,7 +35,7 @@ function RL1_procedure(
     checkpoint::CheckpointManager
     )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
-
+    loss_fun = initialize_RL1_loss(tstate, args, loss_fctn)
 
     return procedure(train_set, validation_set, test_set, tstate, loss_fun, args, checkpoint)
 end
