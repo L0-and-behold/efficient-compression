@@ -1,7 +1,17 @@
 """
     CIFAR-C.jl
 
-Tests the robustness of models trained on CIFAR using tests on the CIFAR-C dataset, cf. https://github.com/hendrycks/robustness
+    This is the entry file for a CIFAR-C evaluation benchmark in which we test sparsity-induced robustness effects. We compare our own regularized models against the corresponding unregularized (vanilla) baselines. Following reference [a], we measure, among other things, mean corruption error (mCE), defined as 
+
+    $$ \text{mCE}_f = \frac{1}{15} \sum_{c=1}^{15} \frac{\sum_{s=1}^5 E_{s,c}^f}{\sum_{s=1}^5 E_{s,c}^{\text{base}}}, $$
+
+    where $E_{s,c}^f$ is the test error of a model pruned with method $f$ and $E_{s,c}^{\text{base}}$ is the corresponding unpruned model error, initialized with the same seed. We let $f$ range over { DRR, RL1, PMMP } and for each $f$ performed the evaluation over multiple seeds in order to obtain statistical error information. Additionally, we evaluated the same metric but replacing error by classification accuracy, and called the result $\text{mCA}_f$. 
+
+    Note that in the code, we refer to the mCE error as mNCE (where N stands for normalized) and similarly for mNCA.
+
+    Overall, the results show that our most successful regularization methods actually improve robustness in comparison to unregularized training. This supports our theoretical claim that compression extracts meaningful patterns by reducing redundancy of the combined description of model and data.
+
+    a: Dan Hendrycks, Thomas Dietterich, "Benchmarking Neural Network Robustness to Common Corruptions and Perturbations", https://arxiv.org/abs/1903.12261
 """
 
 using Pkg; Pkg.activate("."); using Revise
