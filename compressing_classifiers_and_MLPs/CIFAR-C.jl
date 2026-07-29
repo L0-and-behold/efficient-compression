@@ -10,7 +10,7 @@ begin
     using Lux
     using MLDatasets: CIFAR10
     using Random
-    using Statistics: mean
+    using Statistics: mean, std
     using JSON3
     using CSV, DataFrames
 end
@@ -57,7 +57,6 @@ train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev
 store = Dict{String, Dict{String, Any}}()
 
 for entry in readdir(model_path)
-# entry = readdir(model_path)[1]
     subfolder = joinpath(model_path, entry)
     m = match(r"_(\d+)-\d+", subfolder) # matches digits after _ and before -digits
     subfolder_index = m.captures[1]
@@ -117,78 +116,99 @@ for entry in readdir(model_path)
     println()
 end
 
-open("./src/DatasetsModels/CIFAR-C/tested_models/sweep/1/store.json", "w") do io
+open(model_path * "store.json", "w") do io
     JSON3.pretty(io, store)
 end
 
 
 
+seeds = [5*n for n in 0:11]
 
+results = Dict{String, Dict{String, Any}}()
+for seed in seeds
+    subdict = Dict(k => v for (k, v) in store if v["seed"] == seed)
+    vanilla = [v for (k, v) in subdict  if v["method_name"] == "vanilla"][1]
+    for method in values(subdict)
+        if method["method_name"] != "vanilla"
+            sub_results = get!(results, method["method_name"] * "_seed-" * string(seed), Dict{String, Any}())
+            sub_results["seed"] = seed
+            sub_results["method_name"] = method["method_name"]
 
+            CAs = method["CAs"]
+            CEs = method["CEs"]
+            CAs_vanilla = vanilla["CAs"]
+            CEs_vanilla = vanilla["CEs"]
+            clean_acc = method["clean_acc"]
+            clean_loss = method["clean_loss"]
+            clean_acc_vanilla = vanilla["clean_acc"]
+            clean_loss_vanilla = vanilla["clean_loss"]
 
+            mCA = mean(CAs)
+            mCA_vanilla = mean(CAs_vanilla)
+            mCE = mean(CEs)
+            mCE_vanilla = mean(CEs_vanilla)
 
+            NCAs = CAs ./ CAs_vanilla
+            mNCA = mean(NCAs)
+            NCEs = CEs ./ CEs_vanilla
+            mNCE = mean(NCEs)
 
+            Relative_CAs = CAs .- clean_acc
+            Relative_mCA = mean(Relative_CAs)
+            Relative_CAs_vanilla = CAs_vanilla .- clean_acc_vanilla
+            Relative_mCA_vanilla = mean(Relative_CAs_vanilla)
+            Relative_NCAs = Relative_CAs ./ Relative_CAs_vanilla
+            Relative_mNCA = mean(Relative_NCAs)
+            Relative_CEs = CEs .- clean_loss
+            Relative_mCE = mean(Relative_CEs)
+            Relative_CEs_vanilla = CEs_vanilla .- clean_loss_vanilla
+            Relative_NCEs = Relative_CEs ./ Relative_CEs_vanilla
+            Relative_mNCE = mean(Relative_NCEs)
 
-
-
-
-
-
-
-
-
-function compute_metrics(stored_data)
-    mCA = mean(CAs)
-    clean_acc
-    mCA_vanilla = mean(CAs_vanilla)
-    clean_acc_vanilla
-    Diff_mCA = mCA - mCA_vanilla
-    mCE = mean(CEs)
-    clean_loss
-    mCE_vanilla = mean(CEs_vanilla)
-    clean_loss_vanilla
-    Diff_mCE = mCE - mCE_vanilla 
-
-    NCAs = CAs ./ CAs_vanilla
-    mNCA = mean(NCAs)
-    NCEs = CEs ./ CEs_vanilla
-    mNCE = mean(NCEs)
-
-    Relative_CAs = CAs .- clean_acc
-    Relative_mCA = mean(Relative_CAs)
-    Relative_CAs_vanilla = CAs_vanilla .- clean_acc_vanilla
-    Relative_mCA_vanilla = mean(Relative_CAs_vanilla)
-    Relative_NCAs = Relative_CAs ./ Relative_CAs_vanilla
-    Relative_mNCA = mean(Relative_NCAs)
-    Relative_CEs = CEs .- clean_loss
-    Relative_mCE = mean(Relative_CEs)
-    Relative_CEs_vanilla = CEs_vanilla .- clean_loss_vanilla
-    Relative_NCEs = Relative_CEs ./ Relative_CEs_vanilla
-    Relative_mNCE = mean(Relative_NCEs)
+            sub_results["clean_acc"] = clean_acc
+            sub_results["clean_loss"] = clean_loss
+            sub_results["clean_acc_vanilla"] = clean_acc_vanilla
+            sub_results["clean_loss_vanilla"] = clean_loss_vanilla
+            sub_results["mCA"] = mCA
+            sub_results["mCA_vanilla"] = mCA_vanilla
+            sub_results["mCE"] = mCE
+            sub_results["mCE_vanilla"] = mCE_vanilla
+            sub_results["mNCA"] = mNCA
+            sub_results["mNCE"] = mNCE
+            sub_results["Relative_mCA"] = Relative_mCA
+            sub_results["Relative_mCA_vanilla"] = Relative_mCA_vanilla
+            sub_results["Relative_mNCA"] = Relative_mNCA
+            sub_results["Relative_mCE"] = Relative_mCE
+            sub_results["Relative_mNCE"] = Relative_mNCE
+        end
+    end
 end
 
+open(model_path * "results.json", "w") do io
+    JSON3.pretty(io, results)
+end
 
+# compute average and std deviation over seeds
+final_results = Dict{String, Dict{String, Any}}()
+method_names = ["DRR_procedure", "RL1_procedure", "PMMP_procedure"]
+for method_name in method_names
+    same_method_subdict = Dict(k => v for (k, v) in results if v["method_name"] == method_name)
 
+    same_method_subdict_values = collect(values(same_method_subdict))
+    same_method_subdict_keys = keys(first(same_method_subdict_values))
 
+    averages = get!(final_results, method_name, Dict{String, Any}())
 
+    for k in same_method_subdict_keys
+        vals = [sub[k] for sub in same_method_subdict_values]
+        if vals[1] isa AbstractString
+            averages[k] = vals[1]  # store the (always equal) string once
+        else
+            averages[k] = Dict("mean"=>mean(vals),"std" => std(vals))   # (mean, std) tuple
+        end
+    end
+end
 
-
-
-
-# single_run_routine = single_run_routine_classifier
-# Directory for saving results
-# path_to_db = joinpath(pwd(), "experiment-results")
-# experiment_name = "CIFAR-C-experiment"
-# train_set, validation_set, test_set = CIFAR_data(args.train_batch_size, args.dev; seed=123);
-# loss_fctn = args.label_smoothing ? logitcrossentropy_ls : logitcrossentropy
-# model = VGG(dropout=0.0f0);
-# initial_parameter_count = Lux.parameterlength(model)
-# 15253578 for VGG-16-512
-# tstate = generate_tstate(model, model_seed, args.optimizer(args.lr); dev=args.dev);
-# checkpoint = CheckpointManager(
-#         args.use_checkpoints,
-#         CheckpointMetadata(path=joinpath(path_to_db, experiment_name, "checkpoints")),
-#         CheckpointContent(args=args)
-#     )
-# @time tstate, logs, loss_fun, checkpoint = RL1_procedure(train_set, validation_set, test_set, tstate, loss_fctn, args, checkpoint);
-# 
+open(model_path * "final_results.json", "w") do io
+    JSON3.pretty(io, final_results)
+end
