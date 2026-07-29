@@ -34,36 +34,7 @@ function DRR_procedure(
     checkpoint::CheckpointManager
     )::Tuple{Lux.Training.TrainState, Dict{String, Any}, LossFunction, CheckpointManager}
     
-    if args.gauss_loss
-        if hasproperty(tstate.model, :name)
-            comparison_name = tstate.model.name
-        elseif hasproperty(tstate.model, :layer)
-            if hasproperty(tstate.model.layer, :name)
-                comparison_name = tstate.model.layer.name
-            else
-                comparison_name = ""
-            end
-        else
-            comparison_name = ""
-        end
-        @assert comparison_name == "teacher-student network"
-        loss_fun = DRR_Gauss(; NORM=args.NORM, alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn)
-    else    
-        model_param_number = args.dtype(Lux.parameterlength(tstate.parameters))
-        if args.NORM
-            if args.layer_NORM
-                layernumber_model = get_layer_number(tstate.parameters)
-                fun1 = DRR_NORM_layer_modification
-            else
-                layernumber_model = get_block_number(tstate.parameters)
-                fun1 = DRR_NORM_modification
-            end
-        else
-            layernumber_model = get_layer_number(tstate.parameters)
-            fun1 = DRR_modification
-        end
-        loss_fun = DRR(model_param_number, layernumber_model; alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn, fun1 = fun1)
-    end
+    loss_fun = initialize_DRR_loss(tstate, args, loss_fctn)
 
     @assert tstate != nothing
 
@@ -101,4 +72,38 @@ function get_block_number(params)
     end
     recursively_get_blocks!(params)
     return i
+end
+
+function initialize_DRR_loss(tstate, args, loss_fctn)
+    if args.gauss_loss
+        if hasproperty(tstate.model, :name)
+            comparison_name = tstate.model.name
+        elseif hasproperty(tstate.model, :layer)
+            if hasproperty(tstate.model.layer, :name)
+                comparison_name = tstate.model.layer.name
+            else
+                comparison_name = ""
+            end
+        else
+            comparison_name = ""
+        end
+        @assert comparison_name == "teacher-student network"
+        loss_fun = DRR_Gauss(; NORM=args.NORM, alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn)
+    else    
+        model_param_number = args.dtype(Lux.parameterlength(tstate.parameters))
+        if args.NORM
+            if args.layer_NORM
+                layernumber_model = get_layer_number(tstate.parameters)
+                fun1 = DRR_NORM_layer_modification
+            else
+                layernumber_model = get_block_number(tstate.parameters)
+                fun1 = DRR_NORM_modification
+            end
+        else
+            layernumber_model = get_layer_number(tstate.parameters)
+            fun1 = DRR_modification
+        end
+        loss_fun = DRR(model_param_number, layernumber_model; alpha=args.α, beta=args.β, rho=args.ρ, loss_f=loss_fctn, fun1 = fun1)
+    end
+    return loss_fun
 end

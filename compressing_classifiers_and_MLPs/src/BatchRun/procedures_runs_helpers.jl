@@ -7,7 +7,7 @@ Helper functions shared by
 ########## Helper functions ##########
 
 """
-    do_small_run_to_trigger_precompilation(optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args)
+    do_small_run_to_trigger_precompilation(optimization_procedure, throwaway_tstate, train_set, validation_set, test_set, loss_fctn, args, checkpoint)
 
 Run a small training procedure to trigger precompilation for more accurate timing measurements.
 This function has side effects on the passed tstate.
@@ -20,6 +20,7 @@ This function has side effects on the passed tstate.
 - `test_set::AbstractArray`: Test dataset
 - `loss_fctn::Function`: Loss function
 - `args`: Configuration parameters
+- `checkpoint`: Checkpointing options
 """
 function do_small_run_to_trigger_precompilation(
     optimization_procedure::Function, 
@@ -28,7 +29,8 @@ function do_small_run_to_trigger_precompilation(
     validation_set::AbstractArray, 
     test_set::AbstractArray, 
     loss_fctn::Function, 
-    args)
+    args,
+    checkpoint)
 
     println("Do small run to trigger precompilation of involved functions...")
 
@@ -43,7 +45,7 @@ function do_small_run_to_trigger_precompilation(
     local_args.shrinking_from_deviation_of = 10.0
 
     try # errors during this run are not critical. we just want to trigger precompilation of the involved functions
-        optimization_procedure(local_trainset, validation_set, test_set, throwaway_tstate, loss_fctn, local_args)
+        optimization_procedure(local_trainset, validation_set, test_set, throwaway_tstate, loss_fctn, local_args, checkpoint)
     catch e
         if isa(e, ArgumentError) && occursin("A weight matrix was completely deleted", e.msg)
             # println("Caught expected error during precompilation: ", e.msg)

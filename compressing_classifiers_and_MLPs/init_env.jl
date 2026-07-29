@@ -2,6 +2,7 @@
 
 using Pkg
 Pkg.activate(".")
+Pkg.update()
 Pkg.resolve()
 Pkg.instantiate()
 

@@ -22,29 +22,32 @@ The code assumes, that a CUDA gpu-device is present for the classifier experimen
 
 Make sure that you have Julia installed https://docs.julialang.org/en/v1/manual/installation/
 
-Make sure that you are operating from the correct path and start julia
+The code in this repository uses julia version 1.11. (Using versions >= 1.12 might make you run into errors of the form `ERROR: MethodError: no method matching _return_type(::typeof(...), ::Type{...})...` because in Julia 1.12, the compiler internals used by LuxLib were refactored). If you use `juliaup`, you can easily activate 1.11 for this project by running in the terminal
 ```shell
-cd path/to/project/efficient-compression/compressing_classifiers_and_MLPs
-julia
+juliaup add 1.11
+cd /path/to/compressing_classifiers_and_MLPs
+juliaup override set 1.11 # this only sets julia to version 1.11 for this particular project, while it globally remains at the newest version
 ```
 
-In shell, the environment can be instantiated by running the `init_env.jl` file:
+Then (still in folder `/path/to/compressing_classifiers_and_MLPs`) the environment can be instantiated by running the `init_env.jl` file:
 ```shell
 julia init_env.jl
 ```
 or by executing the following julia commands:
 ```julia
+julia
 using Pkg
 Pkg.activate(".")
 Pkg.resolve()
 Pkg.instantiate()
 ```
+If you run slurm scripts, make sure to run `init_env.jl` via a slurm script (see [Parallelized Execution with Subbatches and SLURM](#parallelized-execution-with-subbatches-and-slurm) below) before running other scripts to prevent precompilation issues.
 
-Now, an experiment can be run
+Now, an experiment can be run. There are 3 example files, `run_ImageNet_experiment.jl`, `run_CIFAR_experiment.jl`, `run_TeacherStudent_experiment.jl`. In the following, we just refer to any of them as `run_an_experiment.jl`:
 ```shell
 julia run_an_experiment.jl
 ```
-where the default settings in the file `run_an_experiment.jl` serve as a simple example for MNIST, CIFAR, and teacher-student compression. Once familiar with the framework, `imagenet.jl` reproduces the paper's ImageNet table results (see [ImageNet](#imagenet) below).
+The default settings in the file `run_an_experiment.jl` serve as an orientation for running MNIST, CIFAR, teacher-student and imagenet compression. `run_ImageNet_experiment.jl` reproduces the paper's ImageNet table results (see [ImageNet](#imagenet) below).
 
 The main file `run_an_experiment.jl` also contains doc-strings which serve as a walkthrough on how to set up and run an experiment.
 
@@ -97,7 +100,7 @@ After this step, ImageNet is ready to be used via the
 To reproduce the paper's ImageNet table results (vanilla, DRR, RL1, PMMP best configs):
 
 ```bash
-julia --threads auto imagenet.jl
+julia --threads auto run_ImageNet_experiments.jl
 ```
 
 The `--threads auto` flag is required: the data loader uses `parallel = true` (MLUtils `DataLoader`), which spawns Julia threads to prefetch batches concurrently. Without multiple threads, parallel prefetching falls back to serial loading and training will be significantly slower.
@@ -322,9 +325,29 @@ echo "All jobs submitted!"
 #SBATCH --output=./reports/%x_%j.out
 #SBATCH --error=./reports/%x_%j.err
 #SBATCH --open-mode=append
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=your@mail.com
 
-#SBATCH --gres=gpu:1
-#SBATCH --constraint="gpu"
+## you might have to change the parameters below depending on your hardware
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --constraint="gpu-bw"
+#SBATCH --gres=gpu:a100:1
+#SBATCH --cpus-per-task=18
+#SBATCH --mem=125000
+
+#SBATCH --time=23:59:00
+
+module purge
+module load julia/1.11
+module load cuda/12.2
+
+export CUDA_PATH="path/to/cuda/12.2.2"
+export CUDA_HOME="${CUDA_PATH}"
+export PATH="${CUDA_PATH}/bin:${PATH}"
+export LD_LIBRARY_PATH="${CUDA_PATH}/lib64:${LD_LIBRARY_PATH}"
+
+export LD_LIBRARY_PATH=$(echo ${LD_LIBRARY_PATH} | tr ':' '\n' | grep -v cuda | tr '\n' ':' | sed 's/:$//')
 
 export JULIA_STUDIO_UNBUFFERED=1
 

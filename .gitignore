@@ -12,6 +12,7 @@ compressing_classifiers_and_MLPs/core.*
 compressing_classifiers_and_MLPs/instantiateScript.jl
 compressing_classifiers_and_MLPs/experiments
 compressing_classifiers_and_MLPs/src/DatasetsModels/imagenet
+compressing_classifiers_and_MLPs/src/DatasetsModels/CIFAR-C
 compressing_classifiers_and_MLPs/config.toml
 prototyping.jl
 .trash

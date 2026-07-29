@@ -16,6 +16,9 @@ module DatasetsModels
     include("cifar_dataset.jl")
     export CIFAR_data
 
+    include("cifar-c_dataset.jl")
+    export CIFAR_C_data, corruption_types
+
     # load the ImageNet submodule and re-export its API
     include("ImageNet/ImageNet.jl")
     using .ImageNet
