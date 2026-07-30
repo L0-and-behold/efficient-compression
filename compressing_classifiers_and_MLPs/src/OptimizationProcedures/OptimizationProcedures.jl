@@ -78,5 +78,8 @@ module OptimizationProcedures
 
    include("layerwise_procedure.jl")
    export layerwise_procedure
+
+   include("HelperFunctions/calibration_metrics.jl")
+   export expected_calibration_error, reliability_diagram_data, collect_logits_and_labels
    
 end # module
