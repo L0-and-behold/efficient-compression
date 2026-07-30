@@ -58,54 +58,54 @@ end
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Option A: CIFAR-10 (directory scan mode) ──
-# begin
-#     args = TrainArgs{Float32}()
-#     args.architecture = VGG
-#     args.dataset = CIFAR_data
-#     args.train_batch_size = 500
-#     args.smoothing_window = 20
-#     args.min_epochs = 30
-#     args.max_epochs = 300
-#     args.finetuning_min_epochs = 10
-#     args.finetuning_max_epochs = 50
-#     args.train_set_size = 45000
-#     args.val_set_size = 5000
-#     args.val_batch_size = 5000
-#     args.test_set_size = 10000
-#     args.test_batch_size = 10000
-#     args.noise = 0f0
-#     args.prune_window = 10
-#     args.shrinking_from_deviation_of = 1e-2
-#     args.gauss_loss = false
-#     args.dev = Lux.gpu_device()
-# end
-# DATASET_NAME = "CIFAR-10"
-# model_path = load_ece_config()  # reads ece_cifar_model_path from config.toml
-# output_dir = "./experiment-results/ece_cifar/"
-# eval_set_fn() = begin _, _, test = CIFAR_data(args.train_batch_size, args.dev; seed=1234); test end
-# CHECKPOINTS = nothing  # use directory scan
-
-# ── Option B: ImageNet (explicit checkpoint list) ──
 begin
     args = TrainArgs{Float32}()
-    args.architecture = resnet50
-    args.dataset = imagenet_data_function()
+    args.architecture = VGG
+    args.dataset = CIFAR_data
+    args.train_batch_size = 500
+    args.smoothing_window = 20
+    args.min_epochs = 30
+    args.max_epochs = 300
+    args.finetuning_min_epochs = 10
+    args.finetuning_max_epochs = 50
+    args.train_set_size = 45000
+    args.val_set_size = 5000
+    args.val_batch_size = 5000
+    args.test_set_size = 10000
+    args.test_batch_size = 10000
+    args.noise = 0f0
+    args.prune_window = 10
+    args.shrinking_from_deviation_of = 1e-2
+    args.gauss_loss = false
     args.dev = Lux.gpu_device()
-    args.val_batch_size = 128
 end
-DATASET_NAME = "ImageNet"
-output_dir = "./experiment-results/ece_imagenet/"
-eval_set_fn() = begin _, val, _ = args.dataset(args.val_batch_size); val end
-model_path = nothing  # not used in checkpoint-list mode
+DATASET_NAME = "CIFAR-10"
+model_path = load_ece_config()  # reads ece_cifar_model_path from config.toml
+output_dir = "./experiment-results/ece_cifar/"
+eval_set_fn() = begin _, _, test = CIFAR_data(args.train_batch_size, args.dev; seed=1234); test end
+CHECKPOINTS = nothing  # use directory scan
 
-# Explicit checkpoint list: (method_name, path_to_jld2)
-path_to_db, _, _ = load_imagenet_config()
-CHECKPOINTS = [
-    ("vanilla",        joinpath(path_to_db, "vanilla-lr-rho-sweep_3-6", "checkpoints", "FINISHED_wild-lynx.jld2")),
-    ("DRR_procedure",  joinpath(path_to_db, "alpha-sweep-v1_9-13", "checkpoints", "FINISHED_happy-ibis.jld2")),
-    ("RL1_procedure",  joinpath(path_to_db, "further-RL1-points_2-2", "checkpoints", "FINISHED_wry-osprey.jld2")),
-    ("PMMP_procedure", joinpath(path_to_db, "alpha-pmmp-v1_9-10", "checkpoints", "FINISHED_fierce-fox.jld2")),
-]
+# ── Option B: ImageNet (explicit checkpoint list) ──
+# begin
+#     args = TrainArgs{Float32}()
+#     args.architecture = resnet50
+#     args.dataset = imagenet_data_function()
+#     args.dev = Lux.gpu_device()
+#     args.val_batch_size = 128
+# end
+# DATASET_NAME = "ImageNet"
+# output_dir = "./experiment-results/ece_imagenet/"
+# eval_set_fn() = begin _, val, _ = args.dataset(args.val_batch_size); val end
+# model_path = nothing  # not used in checkpoint-list mode
+#
+# # Explicit checkpoint list: (method_name, path_to_jld2)
+# path_to_db, _, _ = load_imagenet_config()
+# CHECKPOINTS = [
+#     ("vanilla",        ""),
+#     ("DRR_procedure",  ""),
+#     ("RL1_procedure",  ""),
+#     ("PMMP_procedure", ""),
+# ]
 
 # ── Shared settings ──
 N_BINS = 15

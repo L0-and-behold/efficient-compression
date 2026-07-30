@@ -108,6 +108,10 @@ The `--threads auto` flag is required: the data loader uses `parallel = true` (M
 The four configurations (vanilla, DRR, RL1, PMMP) can be run in parallel, one GPU each, using the sub-batch mechanism. Pass `--num_sub_batches 4 --sub_batch N` (N = 1…4) to run a single configuration per worker. See [Parallelized Execution](#parallelized-execution-with-subbatches-and-slurm) for the full pattern.
 
 
+## ECE Benchmark
+
+To run the Expected Calibration Error (ECE) benchmark comparing vanilla, RL1, DRR, and PMMP models on CIFAR-10 or ImageNet, use `run_ECE_benchmark.jl` (toggle the dataset in the user configuration block at the top of the file).
+
 
 ## Experiment Parameters and Setup
 
