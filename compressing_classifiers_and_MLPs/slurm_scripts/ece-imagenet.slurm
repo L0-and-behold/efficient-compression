@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ece-imagenet
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --open-mode=append
 #SBATCH --output=%x_%j.log
 #SBATCH --error=%x_%j.log
