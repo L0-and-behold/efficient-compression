@@ -12,4 +12,4 @@
 cd "/projects/latentSimplicity/code/efficient-compression/compressing_classifiers_and_MLPs"
 nvidia-smi
 
-stdbuf -oL -eL julia --threads=8 "run_ECE_imagenet.jl" 1>&2
+stdbuf -oL -eL julia --threads=8 "run_ECE_benchmark.jl" 1>&2
